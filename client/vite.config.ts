@@ -17,5 +17,6 @@ export default defineConfig({
     build: {
         outDir: resolve(__dirname, '../dist/client'),
         emptyOutDir: true,
+        chunkSizeWarningLimit: 800,
     },
 });
