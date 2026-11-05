@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
-import { voice } from '../discord/voice';
+import { plainVoice, voice } from '../discord/voice';
 import {
     completeInput,
     type CompleteInput,
@@ -138,4 +138,5 @@ export class GigsController {
 }
 
 /** The bot's lines without Discord formatting, for the web. */
-const plain = (line: string) => line.replace(/[`*]/g, '');
+/** Bot lines come as Discord code blocks; the web wants the text. */
+const plain = plainVoice;
