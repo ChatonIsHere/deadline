@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+@import '@fontsource/chakra-petch/500.css';
+@import '@fontsource/chakra-petch/700.css';
+@import '@fontsource-variable/jetbrains-mono';
+
+@theme {
+    --color-background: #0a0a12;
+    --color-foreground: #e6e6f0;
+    --color-card: #11111c;
+    --color-muted: #1a1a29;
+    --color-muted-foreground: #8b8ba7;
+    --color-border: #2c2c44;
+    --color-primary: #f3e600;
+    --color-primary-foreground: #0a0a12;
+    --color-accent: #00e5ff;
+    --color-accent-foreground: #0a0a12;
+    --color-destructive: #ff2a6d;
+    --color-success: #39ff88;
+
+    --font-display: 'Chakra Petch', sans-serif;
+    --font-mono: 'JetBrains Mono Variable', monospace;
+}
+
+@layer base {
+    body {
+        @apply min-h-screen bg-background font-mono text-sm text-foreground antialiased;
+        /* faint scanlines */
+        background-image: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(255 255 255 / 0.018) 2px 3px);
+    }
+
+    h1,
+    h2,
+    h3 {
+        @apply font-display font-bold tracking-wide uppercase;
+    }
+
+    ::selection {
+        @apply bg-primary text-primary-foreground;
+    }
+}
+
+/* Corners cut off top right and bottom left. Set --cut to change the size. */
+@utility cut {
+    clip-path: polygon(
+        0 0,
+        calc(100% - var(--cut, 12px)) 0,
+        100% var(--cut, 12px),
+        100% 100%,
+        var(--cut, 12px) 100%,
+        0 calc(100% - var(--cut, 12px))
+    );
+}
+
+/*
+ * Cut corners with a 1px border. clip-path drops borders on the diagonals, so the
+ * element is painted the border colour (--frame) and ::before fills the inside (--fill).
+ */
+@utility cut-frame {
+    @apply cut;
+    position: relative;
+    isolation: isolate;
+    background: var(--frame, var(--color-border));
+
+    &::before {
+        @apply cut;
+        content: '';
+        position: absolute;
+        inset: 1px;
+        z-index: -1;
+        background: var(--fill, var(--color-card));
+    }
+}
