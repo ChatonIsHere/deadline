@@ -226,6 +226,26 @@ describe('GigsService', () => {
         });
     });
 
+    describe('lookups for slash commands', () => {
+        it('lists live gigs for /gig', () => {
+            const live = gigs.create(admin, input([{ crewId: null, count: 1 }], { name: 'Live one' }));
+            const cancelled = gigs.create(admin, input([{ crewId: null, count: 1 }], { name: 'Pulled' }));
+            gigs.setStatus(admin, cancelled.id, 'cancelled');
+            gigs.create(fixer, input([{ crewId: null, count: 1 }], { name: 'Waiting for approval' }));
+            assert.deepEqual(gigs.live().map((g) => g.id), [live.id]);
+        });
+
+        it("lists a player's live gigs for /mygigs, slots and reserves", async () => {
+            const one = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            const two = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            await gigs.join('b', two.id);
+            await gigs.join('a', one.id);
+            await gigs.join('a', two.id);
+            assert.deepEqual(gigs.forPlayer('a').map((g) => g.id).sort(), [one.id, two.id].sort());
+            assert.deepEqual(gigs.forPlayer('c'), []);
+        });
+    });
+
     describe('sessions', () => {
         it('marks runners interested until a time is set, then asks them to confirm', async () => {
             const gig = gigs.create(admin, input([{ crewId: null, count: 2 }]));

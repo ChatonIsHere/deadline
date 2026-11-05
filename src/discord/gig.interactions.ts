@@ -8,8 +8,6 @@ import {
     type ContextOf,
     On,
     SelectedStrings,
-    SlashCommand,
-    type SlashCommandContext,
     StringSelect,
     type StringSelectContext,
 } from 'necord';
@@ -21,7 +19,7 @@ import { pickRunnerMessage } from './gig-embed';
 import { GigPostService } from './gig-post.service';
 import { voice } from './voice';
 
-/** The only things people do from Discord: sign up, confirm or drop out, and find the board. */
+/** Buttons and menus on gig posts and DMs: sign up, pick a runner, confirm or drop out, rate the fixer. */
 @Injectable()
 export class GigInteractions {
     constructor(
@@ -90,11 +88,6 @@ export class GigInteractions {
             this.prefs.set(interaction.user.id, { ...this.prefs.get(interaction.user.id), reminders: false });
             return voice.remindersOff(config.PUBLIC_URL);
         });
-    }
-
-    @SlashCommand({ name: 'board', description: 'Link to the gig board' })
-    async board(@Context() [interaction]: SlashCommandContext) {
-        await interaction.reply({ content: voice.board(config.PUBLIC_URL, this.gigs.countOpen()), flags: MessageFlags.Ephemeral });
     }
 
     /**

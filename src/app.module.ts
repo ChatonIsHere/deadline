@@ -10,6 +10,7 @@ import { CrewsController } from './crews/crews.controller';
 import { CrewsService } from './crews/crews.service';
 import { DB, openDb } from './db/db';
 import { EmojiService } from './discord/emoji.service';
+import { Commands } from './discord/commands';
 import { GigInteractions } from './discord/gig.interactions';
 import { GigPostService } from './discord/gig-post.service';
 import { MembersService } from './discord/members.service';
@@ -43,6 +44,7 @@ import { DebriefService } from './gigs/debrief.service';
         EmojiService,
         GigPostService,
         GigInteractions,
+        Commands,
         GigsService,
         DebriefService,
         RunnersService,

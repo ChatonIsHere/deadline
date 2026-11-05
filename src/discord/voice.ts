@@ -32,6 +32,8 @@ export const voice = {
     reminderDay: (gigName: string, at: number) => say(`reminder: **${gigName}** is on ${when(at)}.`),
     reminderSoon: (gigName: string, at: number) => say(`**${gigName}** starts <t:${Math.floor(at / 1000)}:R>. gear up.`),
     remindersOff: (url: string) => say(`reminders off. turn them back on at ${url}/me`),
+    remindersSet: (on: boolean) => say(on ? "reminders on. you'll get a DM on the day and 30 minutes before." : 'reminders off. confirm requests still come through.'),
+    runnerMade: (handle: string, editUrl: string) => say(`**${handle}** is on file. add a picture and extra roles at ${editUrl}`),
 
     // After the job
     payout: (gigName: string) => say(`**${gigName}** is done. here's your cut.`),

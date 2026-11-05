@@ -5,7 +5,7 @@ import type { GigStatus, GigView, RunnerCard } from '../shared/schemas';
 import type { EmojiLookup } from './emoji.service';
 import { voice } from './voice';
 
-const COLOURS: Record<GigStatus, number> = {
+export const COLOURS: Record<GigStatus, number> = {
     pending: 0x8b8ba7,
     open: 0xf3e600,
     closed: 0x00e5ff,

@@ -45,6 +45,17 @@ export class RunnersService {
             }));
     }
 
+    /** Runners whose handle contains `query`, for Discord command suggestions. */
+    search(query: string, fixersOnly = false): RunnerCard[] {
+        const q = query.trim().toLowerCase();
+        return this.db.query.runners
+            .findMany({ orderBy: runners.handle })
+            .sync()
+            .filter((r) => r.handle.toLowerCase().includes(q) && (fixersOnly ? this.members.isFixerRunner(r) : !!r.ownerId))
+            .slice(0, 25)
+            .map(toCard);
+    }
+
     /** The signed in player's own runners. */
     mine(userId: string): RunnerCard[] {
         return this.db.query.runners

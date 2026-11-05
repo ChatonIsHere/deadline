@@ -69,7 +69,13 @@ Server, forum and roles live in the database and are set on the Settings page.
 
 | Command | What |
 | --- | --- |
-| `/board` | Link to the web board |
+| `/board` | Link to the web board (private) |
+| `/gig gig` | A live gig, compact, with links to its post and the board. Suggests gigs as you type |
+| `/runner [handle]` | A runner's card. Leave out the handle to see your own |
+| `/fixer handle` | A fixer's profile and rating |
+| `/newrunner handle role` | Makes a runner. Add a picture and extra roles on the web (private) |
+| `/mygigs` | Live gigs your runners are on, and what you still need to confirm (private) |
+| `/reminders on|off` | Session reminder DMs (private) |
 
 Gig posts have **Take the job** and **Pull out** buttons.
 

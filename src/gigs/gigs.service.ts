@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, count, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { Once } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
@@ -413,6 +413,22 @@ export class GigsService {
     /** Re-posts gigs after something they show changes (a crew renamed or deleted, a runner edited). */
     refresh(ids: number[]) {
         for (const id of ids) this.post(id);
+    }
+
+    /** Gigs that are live (open or locked), newest first. For /gig suggestions. */
+    live(): { id: number; name: string }[] {
+        return this.db.select({ id: gigs.id, name: gigs.name }).from(gigs).where(inArray(gigs.status, ACTIVE)).orderBy(desc(gigs.createdAt)).all();
+    }
+
+    /** Live gigs where the player has a runner in a slot or on the reserves. For /mygigs. */
+    forPlayer(userId: string): GigView[] {
+        const inSlot = this.db.select({ id: gigSlots.gigId }).from(gigSlots).where(eq(gigSlots.userId, userId)).all();
+        const reserved = this.db.select({ id: gigReserves.gigId }).from(gigReserves).where(eq(gigReserves.userId, userId)).all();
+        const ids = [...new Set([...inSlot, ...reserved].map((r) => r.id))];
+        return ids
+            .map((id) => this.view(id, userId))
+            .filter((g) => ACTIVE.includes(g.status))
+            .sort((a, b) => (a.sessionAt ?? Infinity) - (b.sessionAt ?? Infinity));
     }
 
     countOpen(): number {
