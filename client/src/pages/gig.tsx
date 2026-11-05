@@ -3,7 +3,7 @@ import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Money, Person, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, Icon, Money, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -53,9 +53,6 @@ export function Gig() {
                         {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}
                     </div>
                     <h1 className="text-3xl text-primary">{gig.name}</h1>
-                    <p className="mt-2 text-muted-foreground">
-                        Submitted by <Person member={gig.createdBy} />
-                    </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {gig.threadUrl && (
@@ -76,7 +73,7 @@ export function Gig() {
             {gig.status === 'pending' && (
                 <div className="cut-frame flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
                     <Say className="flex-1">
-                        {me.isAdmin ? `${gig.createdBy.name} wants this on the board. approve to post it.` : 'waiting on admin sign-off. not posted yet.'}
+                        {me.isAdmin ? `${gig.fixerName} wants this on the board. approve to post it.` : 'waiting on admin sign-off. not posted yet.'}
                     </Say>
                     {me.isAdmin && (
                         <>
