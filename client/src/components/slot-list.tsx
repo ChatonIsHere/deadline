@@ -1,7 +1,8 @@
 import type { GigView } from '@shared/schemas';
 import { groupSlots } from '@shared/slots';
 import { X } from 'lucide-react';
-import { Icon, Person } from '@/components/common';
+import { Icon } from '@/components/common';
+import { RunnerChip } from '@/components/runner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatSession } from '@/components/session';
@@ -46,7 +47,7 @@ export function SlotList({
                         {group.slots.map((slot) => (
                             <li key={slot.id} className="flex min-h-8 items-center gap-2">
                                 <Icon name={slot.runner ? 'slot_filled' : 'slot_open'} />
-                                {slot.runner ? <Person member={slot.runner} /> : <span className="text-muted-foreground">open</span>}
+                                {slot.runner ? <RunnerChip runner={slot.runner} /> : <span className="text-muted-foreground">open</span>}
                                 {slot.runner && gig.sessionAt && slot.state !== 'confirmed' && (
                                     <Badge variant="muted" title={slot.confirmBy ? `Dropped if not confirmed by ${formatSession(slot.confirmBy)}` : undefined}>
                                         {slot.state}
@@ -65,10 +66,10 @@ export function SlotList({
                     <p className="mb-1 font-display text-xs tracking-widest text-muted-foreground uppercase">Reserves</p>
                     <ol className="space-y-1">
                         {gig.reserves.map((r, i) => (
-                            <li key={r.id} className="flex min-h-8 items-center gap-2">
+                            <li key={r.ownerId ?? r.id} className="flex min-h-8 items-center gap-2">
                                 <span className="w-4 text-xs text-muted-foreground">{i + 1}.</span>
-                                <Person member={r} />
-                                {onUnreserve && remove(() => onUnreserve(r.id))}
+                                <RunnerChip runner={r} />
+                                {onUnreserve && r.ownerId && remove(() => onUnreserve(r.ownerId!))}
                             </li>
                         ))}
                     </ol>

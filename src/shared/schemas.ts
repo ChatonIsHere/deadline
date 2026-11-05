@@ -9,16 +9,33 @@ export type GigStatus = (typeof GIG_STATUSES)[number];
 export const RUNNER_STATES = ['interested', 'awaiting', 'confirmed'] as const;
 export type RunnerState = (typeof RUNNER_STATES)[number];
 
-/** Statuses an admin can move a posted gig to. */
-export const SET_STATUSES = ['open', 'closed', 'completed', 'cancelled'] as const;
+/** Cyberpunk RED's core roles. Admins can change the list in Settings. */
+export const CORE_ROLES = ['Rockerboy', 'Solo', 'Netrunner', 'Tech', 'Medtech', 'Media', 'Exec', 'Lawman', 'Fixer', 'Nomad'];
+/** The role that makes a runner a fixer (if their player has the Discord fixer role). */
+export const FIXER_ROLE = 'Fixer';
+
+/** Statuses an admin can move a posted gig to. Completing has its own form (completeInput). */
+export const SET_STATUSES = ['open', 'closed', 'cancelled'] as const;
 
 export const MAX_SLOTS = 20;
 
 const text = (max: number) => z.string().trim().min(1, 'Required').max(max);
+/** Optional text: blank becomes null. */
+const optionalText = (max: number) =>
+    z
+        .string()
+        .trim()
+        .max(max)
+        .nullable()
+        .transform((s) => s || null);
+const optionalAmount = z.number().int().min(0).nullable();
 
 export const gigInput = z.object({
     name: text(100),
-    fixerName: text(60),
+    /** Admins can type any name. Fixers' gigs use their fixer character, so this is ignored. */
+    fixerName: z.string().trim().max(60),
+    /** A fixer character. Required for fixers, optional for admins (who can type a name instead). */
+    fixerRunnerId: z.number().int().nullable(),
     location: text(100),
     type: z.string().trim().max(40).nullable(),
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
@@ -39,14 +56,46 @@ export type SlotGroup = GigInput['slots'][number];
 export const statusInput = z.object({ status: z.enum(SET_STATUSES) });
 export type StatusInput = z.infer<typeof statusInput>;
 
+/** An admin wrapping up a gig. Crew rewards go to everyone on it, runner rewards on top. */
+export const completeInput = z.object({
+    summary: optionalText(2000),
+    eb: optionalAmount,
+    ip: optionalAmount,
+    hqIp: optionalAmount,
+    text: optionalText(200),
+    runners: z
+        .array(z.object({ runnerId: z.number().int(), eb: optionalAmount, ip: optionalAmount, text: optionalText(200) }))
+        .max(MAX_SLOTS),
+});
+export type CompleteInput = z.infer<typeof completeInput>;
+
+export const ratingInput = z.object({ stars: z.number().int().min(1).max(5) });
+
+/** Signing up. A player with one runner can leave it out. */
+export const joinInput = z.object({ runnerId: z.number().int().optional() });
+export const runnerRefInput = z.object({ runnerId: z.number().int() });
+
+export const runnerInput = z.object({
+    handle: text(40),
+    role: text(30),
+    extraRoles: z.array(text(30)).max(9),
+    imageId: z.number().int().nullable(),
+    // Fixer profile, shown when the runner counts as a fixer
+    officeLocation: optionalText(100),
+    specialties: optionalText(150),
+    contact: optionalText(150),
+    bio: optionalText(2000),
+    /** Admins only: an NPC fixer with no player. */
+    npc: z.boolean().optional(),
+});
+export type RunnerInput = z.infer<typeof runnerInput>;
+
 export const crewInput = z.object({
     name: text(50),
     tagline: z.string().trim().max(120),
     ownerId: z.string().optional(),
 });
 export type CrewInput = z.infer<typeof crewInput>;
-
-export const memberInput = z.object({ userId: z.string().min(1) });
 
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
@@ -67,7 +116,7 @@ export interface RegionView {
     id: number;
     name: string;
     district: string | null;
-    /** Library image IDs. See framedFile in shared/images.ts for the URL. */
+    /** Library image IDs. See shared/images.ts for the URLs. */
     images: number[];
 }
 
@@ -87,6 +136,7 @@ export const settingsInput = z.object({
     edgerunnerRoleId: snowflake,
     reminderHours: z.number().int().min(1).max(72),
     confirmHours: z.number().int().min(1).max(168),
+    runnerRoles: z.array(text(30)).min(1).max(30),
 });
 export type Settings = z.infer<typeof settingsInput>;
 
@@ -106,20 +156,79 @@ export interface Me extends Member {
     isEdgerunner: boolean;
 }
 
+/** A runner as shown in lists and slots. */
+export interface RunnerCard {
+    id: number;
+    handle: string;
+    role: string;
+    extraRoles: string[];
+    imageId: number | null;
+    /** The player. Null for NPC fixers. */
+    ownerId: string | null;
+}
+
+export interface RunnerSummary extends RunnerCard {
+    owner: Member | null;
+    /** Has the Fixer role and is an NPC or played by someone with the Discord fixer role. */
+    isFixer: boolean;
+}
+
+export interface FixerSummary extends RunnerSummary {
+    officeLocation: string | null;
+    specialties: string | null;
+    rating: Rating;
+    gigCount: number;
+}
+
+export interface Rating {
+    /** Average stars, or null with no ratings yet. */
+    average: number | null;
+    count: number;
+}
+
+export interface GigLink {
+    id: number;
+    name: string;
+    status: GigStatus;
+    sessionAt: number | null;
+}
+
+export interface RunnerView extends RunnerSummary {
+    officeLocation: string | null;
+    specialties: string | null;
+    contact: string | null;
+    bio: string | null;
+    crews: { id: number; name: string }[];
+    /** Gigs this runner went on (or is signed up for). */
+    gigs: GigLink[];
+    /** Gigs this runner was the fixer for. */
+    fixerGigs: GigLink[];
+    rating: Rating;
+}
+
 export interface SlotView {
     id: number;
     crew: { id: number; name: string } | null;
-    runner: Member | null;
+    runner: RunnerCard | null;
     state: RunnerState;
     /** Unix ms. When an awaiting runner gets dropped if they haven't confirmed. */
     confirmBy: number | null;
 }
 
+export interface Rewards {
+    eb: number | null;
+    ip: number | null;
+    text: string | null;
+}
+
 export interface GigView {
     id: number;
     name: string;
+    /** The fixer's name: their character's handle, or what an admin typed. */
     fixerName: string;
-    /** Set when the fixer is someone with the fixer role. They can manage the gig. */
+    fixerRunnerId: number | null;
+    fixerImageId: number | null;
+    /** The fixer character's player, if they have one. */
     fixerId: string | null;
     location: string;
     type: string | null;
@@ -129,13 +238,19 @@ export interface GigView {
     objectives: { text: string; bonus: number | null }[];
     slots: SlotView[];
     /** Waiting for a slot, in order. */
-    reserves: Member[];
+    reserves: RunnerCard[];
     /** Unix ms. */
     sessionAt: number | null;
     status: GigStatus;
     createdBy: Member;
     threadUrl: string | null;
     createdAt: number;
+    /** Set once completed. */
+    summary: string | null;
+    crewRewards: (Rewards & { hqIp: number | null }) | null;
+    runnerRewards: (Rewards & { runner: RunnerCard })[];
+    /** The signed in player's rating of the fixer for this gig. */
+    myRating: number | null;
 }
 
 export interface Option {
@@ -164,5 +279,5 @@ export interface CrewView {
     name: string;
     tagline: string;
     owner: Member;
-    members: Member[];
+    members: RunnerCard[];
 }

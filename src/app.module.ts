@@ -19,6 +19,9 @@ import { GigsController } from './gigs/gigs.controller';
 import { GigsService } from './gigs/gigs.service';
 import { LibraryController } from './library/library.controller';
 import { LibraryService } from './library/library.service';
+import { RunnersController } from './runners/runners.controller';
+import { RunnersService } from './runners/runners.service';
+import { DebriefService } from './gigs/debrief.service';
 
 // One module. The app is small enough that splitting it up would only add files.
 @Module({
@@ -28,7 +31,7 @@ import { LibraryService } from './library/library.service';
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController],
+    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController],
     providers: [
         { provide: DB, useFactory: () => openDb(config.DATABASE_PATH) },
         AuthService,
@@ -41,6 +44,8 @@ import { LibraryService } from './library/library.service';
         GigPostService,
         GigInteractions,
         GigsService,
+        DebriefService,
+        RunnersService,
         CrewsService,
     ],
 })

@@ -6,7 +6,8 @@ import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { EmojiService } from './emoji.service';
-import { confirmButtons, confirmMessage, gigMessage, openSlots, reminderMessage } from './gig-embed';
+import type { Payout } from '../gigs/debrief.service';
+import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
 import { voice } from './voice';
 
 /** Tags the bot sets on posts. Moderated so only the bot and mods can apply them. */
@@ -93,8 +94,11 @@ export class GigPostService {
         if (gig.status === 'pending' || gig.status === 'rejected') return threadId;
 
         const forum = await this.ensureFixerTag(await this.forum(), gig.fixerName);
-        const image = gig.imageId ? this.library.url(gig.imageId) : null;
-        const message = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, image);
+        const images = {
+            gig: gig.imageId ? this.library.url(gig.imageId) : null,
+            fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
+        };
+        const message = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
         const appliedTags = this.tagIds(forum, gig);
 
         const thread = threadId ? await forum.threads.fetch(threadId).catch(() => null) : null;
@@ -155,6 +159,14 @@ export class GigPostService {
     /** Tells runners they were dropped for not confirming. */
     async notifyDropped(gig: GigView, userIds: string[]) {
         await this.dm(userIds, { content: voice.dropped(gig.name) });
+    }
+
+    /** DMs each runner's player what they earned, with a menu to rate the fixer. */
+    async sendPayouts(gig: GigView, payouts: Payout[]) {
+        const threadUrl = gig.threadUrl;
+        for (const payout of payouts) {
+            await this.dm([payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
+        }
     }
 
     /** Sends a DM to each person. Returns who couldn't be reached. */

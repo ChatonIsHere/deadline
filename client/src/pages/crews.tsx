@@ -2,7 +2,8 @@ import { canCreateCrew } from '@shared/permissions';
 import type { CrewView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Avatar, Icon, Say } from '@/components/common';
+import { Icon, Say } from '@/components/common';
+import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -42,9 +43,9 @@ function CrewCard({ crew }: { crew: CrewView }) {
             {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
             <div className="mt-4 flex items-center gap-1">
                 {crew.members.slice(0, 8).map((m) => (
-                    <Avatar key={m.id} member={m} />
+                    <RunnerAvatar key={m.id} runner={m} />
                 ))}
-                <span className="ml-2 text-xs text-muted-foreground">{crew.members.length} member(s)</span>
+                <span className="ml-2 text-xs text-muted-foreground">{crew.members.length} runner(s)</span>
             </div>
         </Link>
     );

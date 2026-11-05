@@ -4,7 +4,9 @@ import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Money, Person, Say, StatusBadge } from '@/components/common';
+import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
+import { RunnerAvatar } from '@/components/runner';
 import { AssignRunner, MySpot, SessionCard } from '@/components/session';
 import { SlotList } from '@/components/slot-list';
 import { Button } from '@/components/ui/button';
@@ -40,6 +42,8 @@ export function Gig() {
     const nextStatuses = me.isAdmin ? NEXT_STATUSES[gig.status] : [];
     const canDelete = canDeleteGig(me, owner);
     const active = gig.status === 'open' || gig.status === 'closed';
+    // Players who had a runner on a finished gig can rate its fixer
+    const wasOn = gig.status === 'completed' && gig.slots.some((s) => s.runner?.ownerId === me.id);
 
     return (
         <div className="space-y-6">
@@ -88,6 +92,8 @@ export function Gig() {
             <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
                 <div className="space-y-5">
                     {gig.imageId && <img src={imageUrl(gig.imageId)} alt="" className="aspect-video w-full object-cover" />}
+                    {gig.status === 'completed' && <DebriefCard gig={gig} />}
+                    {wasOn && gig.fixerRunnerId && <RateFixer gig={gig} />}
                     <Card>
                         <CardTitle className="flex items-center gap-2">
                             <Icon name="objective" /> Primary objective
@@ -116,13 +122,26 @@ export function Gig() {
                 <div className="space-y-5">
                     <Card className="space-y-2">
                         <CardTitle>Details</CardTitle>
-                        <Detail icon="fixer" label="Fixer" value={gig.fixerName} />
+                        <Detail
+                            icon="fixer"
+                            label="Fixer"
+                            value={
+                                gig.fixerRunnerId ? (
+                                    <Link to={`/runners/${gig.fixerRunnerId}`} className="inline-flex items-center gap-2 hover:text-primary">
+                                        <RunnerAvatar runner={{ handle: gig.fixerName, imageId: gig.fixerImageId }} />
+                                        {gig.fixerName}
+                                    </Link>
+                                ) : (
+                                    gig.fixerName
+                                )
+                            }
+                        />
                         <Detail icon="location" label="Location" value={gig.location} />
                         <Detail icon="eb" label="Pay" value={<Money amount={gig.pay} />} />
                     </Card>
 
                     {me.isEdgerunner && active && <MySpot gig={gig} userId={me.id} />}
-                    <SessionCard gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />
+                    {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
                         <CardTitle className="flex items-center gap-2">
@@ -130,8 +149,8 @@ export function Gig() {
                         </CardTitle>
                         <SlotList
                             gig={gig}
-                            onKick={me.isAdmin ? (slotId) => kick.mutate(slotId) : undefined}
-                            onUnreserve={me.isAdmin ? (userId) => unreserve.mutate(userId) : undefined}
+                            onKick={me.isAdmin && active ? (slotId) => kick.mutate(slotId) : undefined}
+                            onUnreserve={me.isAdmin && active ? (userId) => unreserve.mutate(userId) : undefined}
                             onOpenCrew={me.isAdmin && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
@@ -143,6 +162,14 @@ export function Gig() {
                             <CardTitle className="w-full">Manage</CardTitle>
                             {nextStatuses.map((status) => {
                                 const action = STATUS_ACTIONS[status];
+                                // Completing has its own form for the debrief and rewards
+                                if (status === 'completed') {
+                                    return (
+                                        <Button key={status} asChild size="sm">
+                                            <Link to={`/gigs/${gig.id}/complete`}>{action.label}</Link>
+                                        </Button>
+                                    );
+                                }
                                 return action.confirm ? (
                                     <ConfirmButton
                                         key={status}

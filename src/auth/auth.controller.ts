@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Body, Controller, Get, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { isProd } from '../config';
-import { MembersService } from '../discord/members.service';
+import { SettingsService } from '../settings/settings.service';
 import { type Me, type Prefs, prefsInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { AuthGuard, CurrentUser, SESSION_COOKIE } from './auth.guard';
@@ -18,7 +18,7 @@ export class AuthController {
 
     constructor(
         private readonly auth: AuthService,
-        private readonly members: MembersService,
+        private readonly settings: SettingsService,
         private readonly prefs: PrefsService,
     ) {}
 
@@ -71,17 +71,10 @@ export class AuthController {
         return user;
     }
 
-    /** People with the fixer role, suggested when an admin names a gig's fixer. */
-    @Get('api/fixers')
+    /** The roles runners can pick, for the runner form. */
+    @Get('api/roles')
     @UseGuards(AuthGuard)
-    fixers() {
-        return this.members.fixers();
-    }
-
-    /** Edgerunners, for adding people to crews. */
-    @Get('api/members')
-    @UseGuards(AuthGuard)
-    list() {
-        return this.members.edgerunners();
+    roles() {
+        return this.settings.get().runnerRoles;
     }
 }

@@ -1,5 +1,5 @@
 import { canCreateGig } from '@shared/permissions';
-import { LayoutGrid, LogOut, type LucideIcon, Plus, Settings, Users } from 'lucide-react';
+import { Briefcase, LayoutGrid, LogOut, type LucideIcon, Plus, Settings, Shield, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { Avatar, Say } from '@/components/common';
@@ -39,7 +39,9 @@ export function Layout() {
 
     const links: { to: string; label: string; icon: LucideIcon; show: boolean }[] = [
         { to: '/', label: 'Board', icon: LayoutGrid, show: true },
-        { to: '/crews', label: 'Crews', icon: Users, show: true },
+        { to: '/runners', label: 'Runners', icon: Users, show: true },
+        { to: '/fixers', label: 'Fixers', icon: Briefcase, show: true },
+        { to: '/crews', label: 'Crews', icon: Shield, show: true },
         { to: '/settings', label: 'Settings', icon: Settings, show: me.isAdmin },
     ];
     const shown = links.filter((l) => l.show);

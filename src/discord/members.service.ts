@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Client, Guild, GuildMember, PermissionFlagsBits, Team, User } from 'discord.js';
 import { Context, ContextOf, Once } from 'necord';
 import { SettingsService } from '../settings/settings.service';
-import type { Me, Member } from '../shared/schemas';
+import { FIXER_ROLE, type Me, type Member } from '../shared/schemas';
 
 /** People and their roles, read from the bot's view of the server. Nothing about users is stored. */
 @Injectable()
@@ -62,20 +62,18 @@ export class MembersService {
     /** Name and avatar for display. Falls back to a placeholder for people who left. */
     member(id: string): Member {
         const member = this.guild?.members.cache.get(id);
-        return member ? toMember(member) : { id, name: 'Unknown runner', avatar: null };
+        return member ? toMember(member) : { id, name: 'Unknown player', avatar: null };
     }
 
-    edgerunners(): Member[] {
-        return this.withRole(this.settings.get().edgerunnerRoleId);
-    }
-
-    fixers(): Member[] {
-        return this.withRole(this.settings.get().fixerRoleId);
-    }
-
-    private withRole(roleId: string | null): Member[] {
-        const role = roleId ? this.guild?.roles.cache.get(roleId) : undefined;
-        return [...(role?.members.values() ?? [])].map(toMember).sort((a, b) => a.name.localeCompare(b.name));
+    /**
+     * Whether a runner counts as a fixer: it has the Fixer role, and it's an NPC (no player)
+     * or its player has the Discord fixer role.
+     */
+    isFixerRunner(runner: { role: string; extraRoles: string[]; ownerId: string | null }): boolean {
+        if (runner.role !== FIXER_ROLE && !runner.extraRoles.includes(FIXER_ROLE)) return false;
+        if (!runner.ownerId) return true;
+        const roleId = this.settings.get().fixerRoleId;
+        return !!roleId && !!this.guild?.members.cache.get(runner.ownerId)?.roles.cache.has(roleId);
     }
 }
 

@@ -2,8 +2,22 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Po
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
 import { voice } from '../discord/voice';
-import { gigInput, type GigInput, type Me, memberInput, openSlotsInput, sessionInput, statusInput, type StatusInput } from '../shared/schemas';
+import {
+    completeInput,
+    type CompleteInput,
+    gigInput,
+    type GigInput,
+    joinInput,
+    type Me,
+    openSlotsInput,
+    ratingInput,
+    runnerRefInput,
+    sessionInput,
+    statusInput,
+    type StatusInput,
+} from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
+import { DebriefService } from './debrief.service';
 import { GigsService } from './gigs.service';
 
 @Controller('api/gigs')
@@ -12,6 +26,7 @@ export class GigsController {
     constructor(
         private readonly gigs: GigsService,
         private readonly posts: GigPostService,
+        private readonly debrief: DebriefService,
     ) {}
 
     @Get()
@@ -66,10 +81,22 @@ export class GigsController {
         return this.gigs.kick(user, id, slotId);
     }
 
-    /** Admin puts an edgerunner on the gig (a slot, or the reserves if it's full). */
+    /** Admin puts a runner on the gig (a slot, or the reserves if it's full). */
     @Post(':id/runners')
-    assign(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(memberInput)) body: { userId: string }) {
-        return this.gigs.assign(user, id, body.userId);
+    assign(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(runnerRefInput)) body: { runnerId: number }) {
+        return this.gigs.assign(user, id, body.runnerId);
+    }
+
+    /** The GM wraps up the gig: summary and rewards. Runners get DMs with their payout. */
+    @Post(':id/complete')
+    complete(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(completeInput)) body: CompleteInput) {
+        return this.debrief.complete(user, id, body);
+    }
+
+    /** A player rates the gig's fixer, from the web. The payout DM has the same menu. */
+    @Post(':id/rating')
+    rate(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(ratingInput)) body: { stars: number }) {
+        return { message: plain(this.debrief.rate(user.id, id, body.stars)) };
     }
 
     @Delete(':id/reserves/:userId')
@@ -79,9 +106,10 @@ export class GigsController {
 
     // The signed in runner's own sign-up, same as the buttons on the Discord post
 
+    /** `runnerId` is needed when the player has more than one runner. */
     @Post(':id/join')
-    async join(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
-        return { message: plain(await this.gigs.join(user.id, id)) };
+    async join(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(joinInput)) body: { runnerId?: number }) {
+        return { message: plain(await this.gigs.join(user.id, id, body.runnerId)) };
     }
 
     @Post(':id/confirm')

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { crewInput, type CrewInput, type Me, memberInput } from '../shared/schemas';
+import { crewInput, type CrewInput, type Me, runnerRefInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { CrewsService } from './crews.service';
 
@@ -36,12 +36,12 @@ export class CrewsController {
     }
 
     @Post(':id/members')
-    addMember(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(memberInput)) body: { userId: string }) {
-        return this.crews.addMember(user, id, body.userId);
+    addMember(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(runnerRefInput)) body: { runnerId: number }) {
+        return this.crews.addMember(user, id, body.runnerId);
     }
 
-    @Delete(':id/members/:userId')
-    removeMember(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Param('userId') userId: string) {
-        return this.crews.removeMember(user, id, userId);
+    @Delete(':id/members/:runnerId')
+    removeMember(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Param('runnerId', ParseIntPipe) runnerId: number) {
+        return this.crews.removeMember(user, id, runnerId);
     }
 }

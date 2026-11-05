@@ -1,9 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { type ButtonInteraction, MessageFlags } from 'discord.js';
-import { Button, type ButtonContext, ComponentParam, Context, type ContextOf, On, SlashCommand, type SlashCommandContext } from 'necord';
+import {
+    Button,
+    type ButtonContext,
+    ComponentParam,
+    Context,
+    type ContextOf,
+    On,
+    SelectedStrings,
+    SlashCommand,
+    type SlashCommandContext,
+    StringSelect,
+    type StringSelectContext,
+} from 'necord';
 import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
+import { DebriefService } from '../gigs/debrief.service';
 import { GigsService } from '../gigs/gigs.service';
+import { pickRunnerMessage } from './gig-embed';
 import { GigPostService } from './gig-post.service';
 import { voice } from './voice';
 
@@ -14,6 +28,7 @@ export class GigInteractions {
         private readonly gigs: GigsService,
         private readonly posts: GigPostService,
         private readonly prefs: PrefsService,
+        private readonly debrief: DebriefService,
     ) {}
 
     /** Live gig posts stay open. Discord archives quiet threads after a week, and people can close them by hand. */
@@ -22,9 +37,37 @@ export class GigInteractions {
         if ((thread.archived || thread.locked) && this.posts.isGigForum(thread.parentId)) this.gigs.keepOpen(thread.id);
     }
 
+    /** Signs up. Players with several runners get a private menu to pick one first. */
     @Button('gig/join/:id')
-    join(@Context() [interaction]: ButtonContext, @ComponentParam('id') id: string) {
+    async join(@Context() [interaction]: ButtonContext, @ComponentParam('id') id: string) {
+        const choices = this.gigs.runnerChoices(interaction.user.id, Number(id));
+        if (choices.length) {
+            await interaction.reply({ ...pickRunnerMessage(Number(id), choices), flags: MessageFlags.Ephemeral });
+            return;
+        }
         return this.answer(interaction, () => this.gigs.join(interaction.user.id, Number(id)));
+    }
+
+    /** The runner picked from that menu. */
+    @StringSelect('gig/pick/:id')
+    async pick(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [runnerId]: string[]) {
+        try {
+            const reply = await this.gigs.join(interaction.user.id, Number(id), Number(runnerId));
+            await interaction.update({ content: reply, components: [] });
+        } catch (err) {
+            await interaction.update({ content: voice.error((err as Error).message), components: [] });
+        }
+    }
+
+    /** Star rating for the fixer, from the payout DM. Can be changed by picking again. */
+    @StringSelect('rate/:id')
+    async rate(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [stars]: string[]) {
+        try {
+            const reply = this.debrief.rate(interaction.user.id, Number(id), Number(stars));
+            await interaction.reply(reply);
+        } catch (err) {
+            await interaction.reply(voice.error((err as Error).message));
+        }
     }
 
     @Button('gig/confirm/:id')

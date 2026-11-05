@@ -1,11 +1,13 @@
 import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } from '@shared/schemas';
 import { Plus, Shuffle, Upload, X } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { Icon, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
+import { RunnerAvatar } from '@/components/runner';
 import { Combobox } from '@/components/ui/combobox';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -15,6 +17,8 @@ import { imageUrl, uploadImage, useCrews, useFixers, useGigTypes, useLibrary, us
 interface FormState {
     name: string;
     fixerName: string;
+    /** A fixer character's ID, or '' for a typed name (admins only). */
+    fixerRunnerId: string;
     location: string;
     type: string;
     pay: string;
@@ -26,11 +30,12 @@ interface FormState {
     slots: { crewId: string; count: string }[];
 }
 
-function toForm(fixerName: string, gig?: GigView): FormState {
+function toForm(gig?: GigView): FormState {
     if (!gig) {
         return {
             name: '',
-            fixerName,
+            fixerName: '',
+            fixerRunnerId: '',
             location: '',
             type: '',
             pay: '',
@@ -46,6 +51,7 @@ function toForm(fixerName: string, gig?: GigView): FormState {
     return {
         name: gig.name,
         fixerName: gig.fixerName,
+        fixerRunnerId: gig.fixerRunnerId ? String(gig.fixerRunnerId) : '',
         location: gig.location,
         type: gig.type ?? '',
         pay: String(gig.pay),
@@ -60,6 +66,7 @@ function toForm(fixerName: string, gig?: GigView): FormState {
 function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
     return {
         ...form,
+        fixerRunnerId: form.fixerRunnerId ? Number(form.fixerRunnerId) : null,
         type: form.type.trim() || null,
         pay: form.pay === '' ? NaN : Number(form.pay),
         objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null })),
@@ -84,14 +91,16 @@ function randomFrom(ids: number[], not: number | null): number | null {
 
 export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolean; onSave: (input: GigInput) => void }) {
     const me = useUser();
-    const [form, setForm] = useState(() => toForm(me.isFixer ? me.name : '', gig));
+    const [form, setForm] = useState(() => toForm(gig));
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
 
     const crews = useCrews().data ?? [];
     const types = useGigTypes().data ?? [];
-    const fixers = useFixers(me.isAdmin).data ?? [];
+    // Admins can pick any fixer. Fixers pick from their own fixer characters.
+    const allFixers = useFixers().data ?? [];
+    const fixers = me.isAdmin ? allFixers : allFixers.filter((f) => f.ownerId === me.id);
     const library = useLibrary().data;
 
     const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
@@ -212,18 +221,42 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
 
                 <Card className="space-y-4">
                     <CardTitle>Details</CardTitle>
-                    {me.isAdmin && (
-                        <div>
-                            <Label htmlFor="fixer">Fixer</Label>
+                    <div>
+                        <Label htmlFor="fixer">Fixer</Label>
+                        {me.isAdmin ? (
+                            // Typing a fixer's handle links the gig to them. Anything else is a one-off NPC.
                             <Combobox
                                 id="fixer"
                                 value={form.fixerName}
-                                onChange={(fixerName) => set({ fixerName })}
-                                suggestions={fixers.map((f) => ({ value: f.name, hint: 'Fixer role' }))}
+                                onChange={(fixerName) => {
+                                    const match = fixers.find((f) => f.handle.toLowerCase() === fixerName.trim().toLowerCase());
+                                    set({ fixerName, fixerRunnerId: match ? String(match.id) : '' });
+                                }}
+                                suggestions={fixers.map((f) => ({ value: f.handle, hint: f.owner?.name ?? 'NPC' }))}
                                 maxLength={60}
                             />
-                        </div>
-                    )}
+                        ) : fixers.length > 1 ? (
+                            <Select
+                                id="fixer"
+                                value={form.fixerRunnerId}
+                                onChange={(fixerRunnerId) => set({ fixerRunnerId })}
+                                placeholder="Which of your fixers?"
+                                options={fixers.map((f) => ({ value: String(f.id), label: f.handle }))}
+                            />
+                        ) : fixers.length === 1 ? (
+                            <p className="flex h-9 items-center gap-2">
+                                <RunnerAvatar runner={fixers[0]} /> {fixers[0].handle}
+                            </p>
+                        ) : (
+                            <Say className="text-xs">
+                                you need a fixer character first: a runner with the Fixer role.{' '}
+                                <Link to="/runners/new" className="text-accent hover:underline">
+                                    make one
+                                </Link>
+                            </Say>
+                        )}
+                        {me.isAdmin && form.fixerRunnerId && <p className="mt-1 text-xs text-accent">Linked to their fixer profile.</p>}
+                    </div>
                     <div>
                         <Label htmlFor="location">Location</Label>
                         <Combobox

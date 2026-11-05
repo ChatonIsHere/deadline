@@ -4,6 +4,7 @@ const say = (line: string) => `\`// DEADLINE:\` ${line}`;
 
 /** Discord renders these in each reader's own timezone. */
 const when = (ms: number) => `<t:${Math.floor(ms / 1000)}:F> (<t:${Math.floor(ms / 1000)}:R>)`;
+const list = (names: string[]) => names.map((n) => `**${n}**`).join(', ');
 
 export const voice = {
     footer: (status: string, host: string) => `DEADLINE // ${host} // ${status.toUpperCase()}`,
@@ -15,6 +16,8 @@ export const voice = {
     reserve: (position: number) => say(`slots are full. you're reserve #${position}. you'll get a ping if one opens up.`),
     confirmed: () => say('attendance confirmed. see you there, choom.'),
     left: () => say('slot released. no hard feelings, choom.'),
+    pickRunnerPrompt: () => say('which runner is taking this one?'),
+    rated: (stars: number) => say(`rating logged: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}. change it any time.`),
     error: (message: string) => say(message),
 
     // Asking runners to confirm, by DM (or in the thread if their DMs are closed)
@@ -23,39 +26,41 @@ export const voice = {
     nudge: (gigName: string, at: number, by: number) =>
         say(`still need an answer on **${gigName}** (${when(at)}). confirm by <t:${Math.floor(by / 1000)}:R> or your slot goes to the reserves.`),
     dropped: (gigName: string) => say(`no answer on **${gigName}**, so your slot went to the next runner. sign up again if you can still make it.`),
+    confirmFallback: (mentions: string) => `${mentions} ${say("couldn't DM you. confirm or drop out here.")}`,
 
     // Reminders for confirmed runners
     reminderDay: (gigName: string, at: number) => say(`reminder: **${gigName}** is on ${when(at)}.`),
     reminderSoon: (gigName: string, at: number) => say(`**${gigName}** starts <t:${Math.floor(at / 1000)}:R>. gear up.`),
     remindersOff: (url: string) => say(`reminders off. turn them back on at ${url}/me`),
-    confirmFallback: (mentions: string) => `${mentions} ${say("couldn't DM you. confirm or drop out here.")}`,
-    confirmDone: (gigName: string) => say(`confirmed for **${gigName}**. see you there.`),
-    dropDone: (gigName: string) => say(`you're off **${gigName}**. slot released.`),
 
-    // Posted in the gig's thread
-    runnerIn: (userId: string, state: string) =>
+    // After the job
+    payout: (gigName: string) => say(`**${gigName}** is done. here's your cut.`),
+    rateFixer: (fixer: string) => `Rate ${fixer} (fixer)`,
+
+    // Posted in the gig's thread. Runners go by their handles.
+    runnerIn: (handle: string, state: string) =>
         say(
             state === 'interested'
-                ? `<@${userId}> is interested.`
+                ? `**${handle}** is interested.`
                 : state === 'awaiting'
-                  ? `<@${userId}> was added. waiting on them to confirm.`
-                  : `<@${userId}> signed on.`,
+                  ? `**${handle}** was added. waiting on them to confirm.`
+                  : `**${handle}** signed on.`,
         ),
-    reserveIn: (userId: string, position: number) => say(`<@${userId}> joined the reserves (#${position}).`),
-    runnerConfirmed: (userId: string) => say(`<@${userId}> confirmed.`),
-    runnerOut: (userId: string) => say(`<@${userId}> pulled out.`),
-    promoted: (userIds: string[]) => say(`${userIds.map((id) => `<@${id}>`).join(', ')} moved up from reserves.`),
+    reserveIn: (handle: string, position: number) => say(`**${handle}** joined the reserves (#${position}).`),
+    runnerConfirmed: (handle: string) => say(`**${handle}** confirmed.`),
+    runnerOut: (handle: string) => say(`**${handle}** pulled out.`),
+    promoted: (handles: string[]) => say(`${list(handles)} moved up from reserves.`),
+    noAnswer: (handles: string[]) => say(`no answer from ${list(handles)}. slot(s) released.`),
     sessionSet: (at: number) => say(`session set for ${when(at)}. runners, check your DMs and confirm.`),
     sessionCleared: () => say('session time cleared. back to gauging interest.'),
     sessionSoon: (at: number) => say(`session starts <t:${Math.floor(at / 1000)}:R>.`),
     sessionToday: (at: number) => say(`session is on ${when(at)}. confirmed runners, see you there.`),
-    noAnswer: (userIds: string[]) => say(`no answer from ${userIds.map((id) => `<@${id}>`).join(', ')}. slot(s) released.`),
     slotsOpened: (crewName: string) => say(`${crewName}'s reserved slots are open to any edgerunner now.`),
     statusChanged: {
-        open: 'contract is live. sign-ups open.',
-        closed: 'sign-ups locked. good luck out there.',
-        completed: 'job done. payment cleared.',
-        cancelled: 'contract pulled. stand down.',
+        open: say('contract is live. sign-ups open.'),
+        closed: say('sign-ups locked. good luck out there.'),
+        completed: say('job done. payment cleared. runners, check your DMs.'),
+        cancelled: say('contract pulled. stand down.'),
     } as Record<string, string>,
 
     board: (url: string, open: number) => say(`${open} contract(s) live. full board at ${url}`),
@@ -69,4 +74,6 @@ export const voice = {
     notIn: "you're not on this contract.",
     nothingToConfirm: "there's no session time to confirm yet.",
     notRunner: 'you need the edgerunner role to take gigs.',
+    pickRunner: 'you have more than one runner. pick which one is going.',
+    noRunner: (url: string) => `you don't have a runner yet. make one at ${url}/runners/new`,
 };

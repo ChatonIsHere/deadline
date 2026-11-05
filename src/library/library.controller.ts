@@ -18,15 +18,22 @@ export class LibraryController {
     }
 
     /**
-     * Multipart upload with a `file`. `library=true` adds it to the library (admins),
-     * otherwise it's a one-off picture for a gig (fixers and admins). `regionId` files it under a region.
+     * Multipart upload with a `file`. `kind=avatar` makes a square runner picture (anyone).
+     * Otherwise it's a gig picture: `library=true` adds it to the library (admins), else
+     * it's a one-off for a gig (fixers and admins). `regionId` files it under a region.
      */
     @Post('images')
     @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD } }))
-    async upload(@CurrentUser() user: Me, @UploadedFile() file: Express.Multer.File | undefined, @Body() body: { regionId?: string; library?: string }) {
+    async upload(
+        @CurrentUser() user: Me,
+        @UploadedFile() file: Express.Multer.File | undefined,
+        @Body() body: { regionId?: string; library?: string; kind?: string },
+    ) {
         if (!file) throw new BadRequestException('No file.');
-        const regionId = body.regionId ? Number(body.regionId) : null;
-        return { id: await this.library.upload(user, file.buffer, regionId, body.library === 'true') };
+        const kind = body.kind === 'avatar' ? 'avatar' : 'gig';
+        const regionId = body.regionId && kind === 'gig' ? Number(body.regionId) : null;
+        const inLibrary = body.library === 'true' && kind === 'gig';
+        return { id: await this.library.upload(user, file.buffer, { regionId, inLibrary, kind }) };
     }
 
     @Delete('images/:id')

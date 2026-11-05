@@ -13,10 +13,21 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 | Role | Can |
 | --- | --- |
 | Admin | Everything. Approves gigs, changes status, edits any gig or crew. |
-| Fixer | Submits gigs and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
-| Edgerunner | Takes gigs from Discord, creates and runs crews. |
+| Fixer | Submits gigs from one of their fixer characters, and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
+| Edgerunner | Signs their runners up for gigs, creates and runs crews. |
 
 People with none of these roles can't log in.
+
+## Runners and fixers
+
+- Players make **runners** (characters): a handle, a main role, extra roles and a square picture. The roles come from a list in Settings, starting with RED's core ten.
+- Gigs, crews and Discord posts show runners, not Discord names. A player puts one runner on a gig. If they have several, the post's button asks which (a private menu), and so does the web.
+- A runner with the Fixer role is a **fixer** once their player has the Discord fixer role. Fixers show on the Fixers tab with an office, specialties, how to reach them, a bio, their gigs and their rating. Admins can add NPC fixers that have no player.
+- A fixer's gigs come from one of their fixer characters. Admins can pick any fixer or type a name for a one-off.
+
+## Completing a gig
+
+Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners. Each runner's player gets a DM with their payout and a menu to rate the fixer from one to five stars. They can also rate (and change it) on the gig page. The average shows on the fixer's profile.
 
 ## Discord setup
 
@@ -85,7 +96,7 @@ Each gig is one session.
 
 ## Pictures
 
-Every gig has a picture, framed in the board's colours. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
+Every gig has a picture, framed in the board's colours. Pictures are stored as WebP. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
 
 Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 

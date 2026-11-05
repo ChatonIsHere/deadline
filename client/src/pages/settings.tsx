@@ -1,4 +1,4 @@
-import type { GuildOptions, Option, Settings, SettingsView } from '@shared/schemas';
+import { FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { Say } from '@/components/common';
@@ -108,6 +108,8 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                 </>
             )}
 
+            <RoleList roles={form.runnerRoles} onChange={(runnerRoles) => set({ runnerRoles })} />
+
             <Card className="space-y-4">
                 <CardTitle>Sessions</CardTitle>
                 <div>
@@ -146,3 +148,53 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
 }
 
 const toOptions = (list: Option[]): SelectOption[] => list.map((o) => ({ value: o.id, label: o.name, color: o.color }));
+
+/** The roles runners can pick. Taking one off doesn't change runners who already have it. */
+function RoleList({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
+    const [adding, setAdding] = useState('');
+    const add = () => {
+        const role = adding.trim();
+        if (role && !roles.some((r) => r.toLowerCase() === role.toLowerCase())) onChange([...roles, role]);
+        setAdding('');
+    };
+
+    return (
+        <Card className="space-y-3">
+            <CardTitle>Runner roles</CardTitle>
+            <div className="flex flex-wrap gap-1.5">
+                {roles.map((r) => (
+                    <span key={r} className="cut inline-flex items-center gap-1 bg-muted py-1 pr-1 pl-2 font-display text-xs tracking-wider uppercase [--cut:5px]">
+                        {r}
+                        <button
+                            type="button"
+                            title={`Remove ${r}`}
+                            disabled={r === FIXER_ROLE}
+                            onClick={() => onChange(roles.filter((x) => x !== r))}
+                            className="cursor-pointer px-1 text-muted-foreground hover:text-destructive disabled:hidden"
+                        >
+                            ×
+                        </button>
+                    </span>
+                ))}
+            </div>
+            <div className="flex gap-2">
+                <Input
+                    value={adding}
+                    onChange={(e) => setAdding(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            add();
+                        }
+                    }}
+                    placeholder="Add a role"
+                    maxLength={30}
+                />
+                <Button type="button" variant="outline" className="mt-0.5" disabled={!adding.trim()} onClick={add}>
+                    Add
+                </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Fixer can't be removed: it's what puts a runner on the Fixers tab. Save config to keep changes.</p>
+        </Card>
+    );
+}

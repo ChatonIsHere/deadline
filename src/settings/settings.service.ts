@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { ChannelType, Client, PermissionFlagsBits } from 'discord.js';
 import { DB, Db } from '../db/db';
 import { settings } from '../db/schema';
-import type { GuildOptions, Me, Option, Settings } from '../shared/schemas';
+import { CORE_ROLES, FIXER_ROLE, type GuildOptions, type Me, type Option, type Settings } from '../shared/schemas';
 
 const EMPTY: Settings = {
     guildId: null,
@@ -12,6 +12,7 @@ const EMPTY: Settings = {
     edgerunnerRoleId: null,
     reminderHours: 8,
     confirmHours: 48,
+    runnerRoles: CORE_ROLES,
 };
 
 /** Which server, forum and roles Deadline uses. Kept in SQLite, changed on the web. */
@@ -44,9 +45,11 @@ export class SettingsService {
                 if (roleId && !roles.some((r) => r.id === roleId)) throw new BadRequestException('That role is not in this server.');
             }
         } else {
-            next = { ...EMPTY, reminderHours: next.reminderHours, confirmHours: next.confirmHours };
+            next = { ...EMPTY, reminderHours: next.reminderHours, confirmHours: next.confirmHours, runnerRoles: next.runnerRoles };
         }
 
+        // Fixer always stays: it's what makes a runner a fixer
+        if (!next.runnerRoles.includes(FIXER_ROLE)) next = { ...next, runnerRoles: [...next.runnerRoles, FIXER_ROLE] };
         this.db.insert(settings).values({ id: 1, ...next }).onConflictDoUpdate({ target: settings.id, set: next }).run();
         this.cached = next;
     }

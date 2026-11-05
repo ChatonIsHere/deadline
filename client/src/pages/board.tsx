@@ -13,7 +13,7 @@ interface Tab {
 
 const isLive = (g: GigView) => g.status === 'open' || g.status === 'closed';
 const isMine = (g: GigView, me: Me) =>
-    g.createdBy.id === me.id || g.fixerId === me.id || g.slots.some((s) => s.runner?.id === me.id) || g.reserves.some((r) => r.id === me.id);
+    g.createdBy.id === me.id || g.fixerId === me.id || g.slots.some((s) => s.runner?.ownerId === me.id) || g.reserves.some((r) => r.ownerId === me.id);
 
 const TABS: Tab[] = [
     { key: 'live', label: 'Live', filter: isLive },

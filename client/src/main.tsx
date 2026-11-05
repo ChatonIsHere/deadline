@@ -9,10 +9,14 @@ import { Board } from '@/pages/board';
 import { Crew } from '@/pages/crew';
 import { Crews } from '@/pages/crews';
 import { Gig } from '@/pages/gig';
+import { GigComplete } from '@/pages/gig-complete';
 import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
 import { MePage } from '@/pages/me';
+import { RunnerPage } from '@/pages/runner';
+import { RunnerEdit } from '@/pages/runner-edit';
+import { FixersPage, RunnersPage } from '@/pages/runners';
 import { SettingsPage } from '@/pages/settings';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
@@ -28,6 +32,12 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="gigs/new" element={<GigEdit />} />
                         <Route path="gigs/:id" element={<Gig />} />
                         <Route path="gigs/:id/edit" element={<GigEdit />} />
+                        <Route path="gigs/:id/complete" element={<GigComplete />} />
+                        <Route path="runners" element={<RunnersPage />} />
+                        <Route path="runners/new" element={<RunnerEdit />} />
+                        <Route path="runners/:id" element={<RunnerPage />} />
+                        <Route path="runners/:id/edit" element={<RunnerEdit />} />
+                        <Route path="fixers" element={<FixersPage />} />
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/:id" element={<Crew />} />
                         <Route path="settings/library" element={<LibraryPage />} />

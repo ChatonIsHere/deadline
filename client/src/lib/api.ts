@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewView, GigView, LibraryView, Me, Member, SettingsView } from '@shared/schemas';
-import { framedFile } from '@shared/images';
+import type { CrewView, FixerSummary, GigView, LibraryView, Me, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import { framedFile, plainFile } from '@shared/images';
 import { toast } from 'sonner';
 
 export class ApiError extends Error {
@@ -45,20 +45,28 @@ export const useCrew = (id: string | undefined) =>
     useQuery({ queryKey: ['crews', id], queryFn: () => api<CrewView>(`/api/crews/${id}`), enabled: !!id });
 export const useSettings = (enabled = true) =>
     useQuery({ queryKey: ['settings'], queryFn: () => api<SettingsView>('/api/settings'), enabled });
-export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<Member[]>('/api/members') });
-export const useFixers = (enabled = true) => useQuery({ queryKey: ['fixers'], queryFn: () => api<Member[]>('/api/fixers'), enabled });
 export const useLibrary = () => useQuery({ queryKey: ['library'], queryFn: () => api<LibraryView>('/api/library') });
 
-/** Uploads a picture and returns its ID. */
-export async function uploadImage(file: File, opts: { library?: boolean; regionId?: number | null } = {}): Promise<number> {
+export const useRunners = () => useQuery({ queryKey: ['runners'], queryFn: () => api<RunnerSummary[]>('/api/runners') });
+export const useMyRunners = () => useQuery({ queryKey: ['runners', 'mine'], queryFn: () => api<RunnerCard[]>('/api/runners/mine') });
+export const useRunner = (id: string | undefined) =>
+    useQuery({ queryKey: ['runners', id], queryFn: () => api<RunnerView>(`/api/runners/${id}`), enabled: !!id });
+export const useFixers = () => useQuery({ queryKey: ['fixers'], queryFn: () => api<FixerSummary[]>('/api/fixers') });
+export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api<string[]>('/api/roles') });
+
+/** Uploads a picture and returns its ID. `avatar` makes a square runner picture. */
+export async function uploadImage(file: File, opts: { library?: boolean; regionId?: number | null; kind?: 'gig' | 'avatar' } = {}): Promise<number> {
     const form = new FormData();
     form.append('file', file);
     if (opts.library) form.append('library', 'true');
     if (opts.regionId) form.append('regionId', String(opts.regionId));
+    if (opts.kind) form.append('kind', opts.kind);
     return (await api<{ id: number }>('/api/library/images', 'POST', form)).id;
 }
 
+/** A picture with its frame, or without (for small sizes, where the frame would be lost). */
 export const imageUrl = (id: number) => `/images/${framedFile(id)}`;
+export const plainImageUrl = (id: number) => `/images/${plainFile(id)}`;
 
 /** A change that refreshes everything when it lands and shows errors as toasts. */
 export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, done?: string | ((result: R) => void)) {

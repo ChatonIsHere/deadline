@@ -7,12 +7,14 @@ import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { gigs, images, regions } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
-import { FRAME_VERSION, framedFile } from '../shared/images';
-import { frameSvg, HEIGHT, WIDTH } from './frame';
+import { FRAME_VERSION, framedFile, plainFile } from '../shared/images';
+import { frameSvg, type ImageKind, SIZES } from './frame';
 import { NIGHT_CITY } from './night-city';
 
 const POOL_DIR = join(__dirname, '..', '..', 'assets', 'pool');
 const IMAGE_FILE = /\.(jpe?g|png|webp)$/i;
+/** High quality WebP: no visible loss, a bit smaller than the old JPEGs. */
+const WEBP = { quality: 85, effort: 5 };
 
 /** The picture library: Night City regions, their pictures and the general pool. */
 @Injectable()
@@ -30,22 +32,31 @@ export class LibraryService implements OnModuleInit {
         if (!this.db.query.regions.findFirst().sync()) this.seedRegions();
         if (!this.db.query.images.findFirst().sync()) await this.importFolder(POOL_DIR, null);
         await this.importDrops();
-        await this.reframe();
+        await this.upgradeFiles();
     }
 
-    /** Builds framed copies missing for the current FRAME_VERSION and clears out older ones. */
-    private async reframe() {
-        let count = 0;
-        for (const { id } of this.db.select({ id: images.id }).from(images).all()) {
+    /**
+     * Converts plain pictures saved as JPEG (before WebP) and builds framed copies missing
+     * for the current FRAME_VERSION. Older framed files stay: finished posts link to them.
+     */
+    private async upgradeFiles() {
+        let converted = 0;
+        let framed = 0;
+        for (const { id, kind } of this.db.select({ id: images.id, kind: images.kind }).from(images).all()) {
+            const plain = join(this.dir, plainFile(id));
+            const jpeg = join(this.dir, `${id}.jpg`);
+            if (!existsSync(plain) && existsSync(jpeg)) {
+                writeFileSync(plain, await sharp(jpeg).webp(WEBP).toBuffer());
+                unlinkSync(jpeg);
+                converted++;
+            }
             const target = join(this.dir, framedFile(id));
-            const plain = join(this.dir, `${id}.jpg`);
             if (existsSync(target) || !existsSync(plain)) continue;
-            writeFileSync(target, await frame(readFileSync(plain)));
-            count++;
+            writeFileSync(target, await frame(readFileSync(plain), kind));
+            framed++;
         }
-        const current = new Set(this.db.select({ id: images.id }).from(images).all().map((r) => framedFile(r.id)));
-        for (const file of readdirSync(this.dir).filter((f) => f.includes('-framed') && !current.has(f))) rmSync(join(this.dir, file));
-        if (count) this.logger.log(`Rebuilt ${count} framed image(s) for frame v${FRAME_VERSION}`);
+        if (converted) this.logger.log(`Converted ${converted} picture(s) to WebP`);
+        if (framed) this.logger.log(`Built ${framed} framed picture(s) for frame v${FRAME_VERSION}`);
     }
 
     list(): LibraryView {
@@ -60,26 +71,39 @@ export class LibraryService implements OnModuleInit {
         };
     }
 
-    /** Resizes to 16:9, saves a plain and a framed copy, and returns the new image's ID. */
-    async add(data: Buffer, opts: { regionId: number | null; inLibrary: boolean; createdBy: string | null }): Promise<number> {
+    /**
+     * Crops to the kind's size (16:9 for gigs, square for runners), saves a plain and a
+     * framed WebP, and returns the new image's ID.
+     */
+    async add(data: Buffer, opts: { regionId: number | null; inLibrary: boolean; createdBy: string | null; kind?: ImageKind }): Promise<number> {
+        const kind = opts.kind ?? 'gig';
+        const { width, height } = SIZES[kind];
         let plain: Buffer;
         try {
-            plain = await sharp(data).rotate().resize(WIDTH, HEIGHT, { fit: 'cover' }).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+            plain = await sharp(data).rotate().resize(width, height, { fit: 'cover' }).webp(WEBP).toBuffer();
         } catch {
             throw new BadRequestException("That file isn't an image I can read.");
         }
-        const framed = await frame(plain);
+        const framed = await frame(plain, kind);
 
-        const [row] = this.db.insert(images).values(opts).returning({ id: images.id }).all();
-        writeFileSync(join(this.dir, `${row.id}.jpg`), plain);
+        const [row] = this.db
+            .insert(images)
+            .values({ ...opts, kind })
+            .returning({ id: images.id })
+            .all();
+        writeFileSync(join(this.dir, plainFile(row.id)), plain);
         writeFileSync(join(this.dir, framedFile(row.id)), framed);
         return row.id;
     }
 
-    async upload(user: Me, data: Buffer, regionId: number | null, inLibrary: boolean): Promise<number> {
-        if (inLibrary ? !user.isAdmin : !(user.isAdmin || user.isFixer)) throw new ForbiddenException();
-        if (regionId && !this.db.query.regions.findFirst({ where: eq(regions.id, regionId) }).sync()) throw new NotFoundException('No such region.');
-        return this.add(data, { regionId, inLibrary, createdBy: user.id });
+    /** Library pictures are admins only. Gig pictures are for fixers and admins. Runner pictures are for anyone. */
+    async upload(user: Me, data: Buffer, opts: { regionId: number | null; inLibrary: boolean; kind: ImageKind }): Promise<number> {
+        const allowed = opts.inLibrary ? user.isAdmin : opts.kind === 'avatar' || user.isAdmin || user.isFixer;
+        if (!allowed) throw new ForbiddenException();
+        if (opts.regionId && !this.db.query.regions.findFirst({ where: eq(regions.id, opts.regionId) }).sync()) {
+            throw new NotFoundException('No such region.');
+        }
+        return this.add(data, { ...opts, createdBy: user.id });
     }
 
     /** Takes an image out of the library. Its files stay while a gig still uses it. */
@@ -91,7 +115,7 @@ export class LibraryService implements OnModuleInit {
             return;
         }
         this.db.delete(images).where(eq(images.id, id)).run();
-        for (const file of [`${id}.jpg`, framedFile(id)]) rmSync(join(this.dir, file), { force: true });
+        for (const file of [plainFile(id), framedFile(id)]) rmSync(join(this.dir, file), { force: true });
     }
 
     exists(id: number): boolean {
@@ -172,9 +196,10 @@ export class LibraryService implements OnModuleInit {
 }
 
 /** Draws the frame over a plain 1280x720 image. */
-function frame(plain: Buffer): Promise<Buffer> {
+function frame(plain: Buffer, kind: ImageKind): Promise<Buffer> {
+    const { width, height } = SIZES[kind];
     return sharp(plain)
-        .composite([{ input: Buffer.from(frameSvg()) }])
-        .jpeg({ quality: 82, mozjpeg: true })
+        .composite([{ input: Buffer.from(frameSvg(width, height)) }])
+        .webp(WEBP)
         .toBuffer();
 }

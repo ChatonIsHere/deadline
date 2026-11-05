@@ -1,6 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
+import { CORE_ROLES, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
 
 const createdAt = () =>
     integer({ mode: 'timestamp_ms' })
@@ -19,6 +19,8 @@ export const settings = sqliteTable('settings', {
     reminderHours: integer().notNull().default(8),
     // How long runners get to confirm a session time
     confirmHours: integer().notNull().default(48),
+    // Roles runners can pick. Starts as RED's core ten.
+    runnerRoles: text({ mode: 'json' }).$type<string[]>().notNull().default(CORE_ROLES),
 });
 
 /** Per-person choices. No row means the defaults. */
@@ -47,16 +49,41 @@ export const crewMembers = sqliteTable(
         crewId: integer()
             .notNull()
             .references(() => crews.id, { onDelete: 'cascade' }),
-        userId: text().notNull(),
+        runnerId: integer()
+            .notNull()
+            .references(() => runners.id, { onDelete: 'cascade' }),
     },
-    (t) => [primaryKey({ columns: [t.crewId, t.userId] })],
+    (t) => [primaryKey({ columns: [t.crewId, t.runnerId] })],
 );
+
+/**
+ * A character. Players can have several. A runner with the Fixer role counts as a fixer
+ * (Fixers tab, gig fixer, ratings) only while its player has the Discord fixer role.
+ * NPC fixers are added by admins and have no player.
+ */
+export const runners = sqliteTable('runners', {
+    id: integer().primaryKey({ autoIncrement: true }),
+    // The player. Empty for NPC fixers.
+    ownerId: text(),
+    handle: text().notNull(),
+    role: text().notNull(),
+    extraRoles: text({ mode: 'json' }).$type<string[]>().notNull().default([]),
+    imageId: integer().references(() => images.id),
+    // Fixer profile
+    officeLocation: text(),
+    specialties: text(),
+    contact: text(),
+    bio: text(),
+    createdAt: createdAt(),
+});
 
 export const gigs = sqliteTable('gigs', {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     fixerName: text().notNull(),
-    // Set when the fixer is a real person with the fixer role. NPC fixers are just a name.
+    // The fixer character, if there is one. Admins can also type a name for a one-off NPC.
+    fixerRunnerId: integer().references(() => runners.id, { onDelete: 'set null' }),
+    // The fixer character's player, if they have one
     fixerId: text(),
     location: text().notNull(),
     type: text(),
@@ -72,8 +99,41 @@ export const gigs = sqliteTable('gigs', {
     // Reminders already sent for the current session time
     remindedDay: integer({ mode: 'boolean' }).notNull().default(false),
     remindedSoon: integer({ mode: 'boolean' }).notNull().default(false),
+    // Filled in when an admin completes the gig. Rewards here go to everyone on it.
+    summary: text(),
+    rewardEb: integer(),
+    rewardIp: integer(),
+    rewardHqIp: integer(),
+    rewardText: text(),
     createdAt: createdAt(),
 });
+
+/** Extra rewards for one runner, on top of the crew's. */
+export const gigRewards = sqliteTable('gig_rewards', {
+    id: integer().primaryKey({ autoIncrement: true }),
+    gigId: integer()
+        .notNull()
+        .references(() => gigs.id, { onDelete: 'cascade' }),
+    runnerId: integer()
+        .notNull()
+        .references(() => runners.id, { onDelete: 'cascade' }),
+    eb: integer(),
+    ip: integer(),
+    text: text(),
+});
+
+/** A player's star rating (1 to 5) for a gig's fixer, given after the gig. */
+export const fixerRatings = sqliteTable(
+    'fixer_ratings',
+    {
+        gigId: integer()
+            .notNull()
+            .references(() => gigs.id, { onDelete: 'cascade' }),
+        userId: text().notNull(),
+        stars: integer().notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.gigId, t.userId] })],
+);
 
 /** Night City districts, suggested for gig locations. Seeded on first start, editable by admins. */
 export const regions = sqliteTable('regions', {
@@ -90,6 +150,8 @@ export const images = sqliteTable('images', {
     id: integer().primaryKey({ autoIncrement: true }),
     regionId: integer().references(() => regions.id, { onDelete: 'set null' }),
     inLibrary: integer({ mode: 'boolean' }).notNull(),
+    // gig: 16:9 post picture. avatar: square runner picture.
+    kind: text({ enum: ['gig', 'avatar'] }).notNull().default('gig'),
     createdBy: text(),
     createdAt: createdAt(),
 });
@@ -111,7 +173,9 @@ export const gigSlots = sqliteTable('gig_slots', {
         .notNull()
         .references(() => gigs.id, { onDelete: 'cascade' }),
     crewId: integer().references(() => crews.id, { onDelete: 'set null' }),
+    // The player (one runner each per gig) and which of their runners is going
     userId: text(),
+    runnerId: integer().references(() => runners.id, { onDelete: 'set null' }),
     // Where the runner stands. Only meaningful while userId is set.
     state: text({ enum: RUNNER_STATES }).notNull().default('interested'),
     // When an awaiting runner was asked to confirm, and whether they've been nudged since
@@ -128,6 +192,7 @@ export const gigReserves = sqliteTable(
             .notNull()
             .references(() => gigs.id, { onDelete: 'cascade' }),
         userId: text().notNull(),
+        runnerId: integer().references(() => runners.id, { onDelete: 'cascade' }),
         joinedAt: createdAt(),
     },
     (t) => [primaryKey({ columns: [t.gigId, t.userId] })],
@@ -143,6 +208,7 @@ export const gigsRelations = relations(gigs, ({ many }) => ({
     objectives: many(gigObjectives),
     slots: many(gigSlots),
     reserves: many(gigReserves),
+    rewards: many(gigRewards),
 }));
 
 export const gigObjectivesRelations = relations(gigObjectives, ({ one }) => ({
@@ -156,4 +222,8 @@ export const gigSlotsRelations = relations(gigSlots, ({ one }) => ({
 
 export const gigReservesRelations = relations(gigReserves, ({ one }) => ({
     gig: one(gigs, { fields: [gigReserves.gigId], references: [gigs.id] }),
+}));
+
+export const gigRewardsRelations = relations(gigRewards, ({ one }) => ({
+    gig: one(gigs, { fields: [gigRewards.gigId], references: [gigs.id] }),
 }));
