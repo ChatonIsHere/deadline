@@ -29,7 +29,7 @@ export function Avatar({ member, className }: { member: Member; className?: stri
 
 export function Person({ member }: { member: Member }) {
     return (
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-2 align-middle">
             <Avatar member={member} />
             {member.name}
         </span>
