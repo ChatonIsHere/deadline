@@ -33,6 +33,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         ...(canCreateGig(me) ? [{ to: '/gigs/new', label: 'New gig' }] : []),
         { to: '/runners/new', label: 'New runner' },
         ...(canCreateCrew(me) ? [{ to: '/crews/new', label: 'Register a crew' }] : []),
+        ...(me.isAdmin ? [{ to: '/fixers/new', label: 'New NPC fixer' }] : []),
     ];
     // Live gigs first, finished ones after
     const live = (s: string) => s === 'open' || s === 'closed' || s === 'pending';

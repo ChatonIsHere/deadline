@@ -76,7 +76,7 @@ export function Layout() {
             : pathname === '/runners'
               ? { to: '/runners/new', label: 'New runner' }
               : pathname === '/fixers' && me.isAdmin
-                ? { to: '/runners/new?npc=1', label: 'New NPC fixer' }
+                ? { to: '/fixers/new', label: 'New NPC fixer' }
                 : pathname === '/crews' && canCreateCrew(me)
                   ? { to: '/crews/new', label: 'Register a crew' }
                   : null;

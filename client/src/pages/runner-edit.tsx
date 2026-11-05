@@ -1,6 +1,6 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
@@ -15,32 +15,31 @@ import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/
 import { cn, firstIssue } from '@/lib/utils';
 
 /**
- * New runner, or editing one. Admins pick who plays the runner (or nobody, for an NPC
- * fixer). `?npc=1` starts a new one as an NPC fixer.
+ * New runner, or editing one. Players make their own characters here, fixers included (a
+ * fixer only counts once they have the fixer role in Discord). Admins can pick who plays it.
+ * NPC fixers have their own form (fixer-edit.tsx).
  */
 export function RunnerEdit() {
     const { id } = useParams();
     const me = useUser();
-    const [params] = useSearchParams();
     const { data: runner, isError } = useRunner(id);
     if (isError) return <Say>no such runner.</Say>;
     if (id && !runner) return <Say>loading runner...</Say>;
     if (runner && !me.isAdmin && runner.ownerId !== me.id) return <Say>that runner isn't yours to change.</Say>;
+    if (runner && !runner.ownerId) return <Navigate to={`/fixers/${runner.slug}/edit`} replace />;
     // Keyed so going from editing one runner to a new one starts a fresh form
-    return <RunnerForm key={runner?.id ?? `new-${params.get('npc') ?? ''}`} runner={runner} />;
+    return <RunnerForm key={runner?.id ?? 'new'} runner={runner} />;
 }
 
 function RunnerForm({ runner }: { runner?: RunnerView }) {
     const me = useUser();
     const navigate = useNavigate();
-    const [params] = useSearchParams();
-    const npc = !runner && me.isAdmin && params.get('npc') === '1';
     const roles = useRoles().data ?? [];
     const players = usePlayers(me.isAdmin).data ?? [];
     const [error, setError] = useState('');
     const [form, setForm] = useState<RunnerInput>(() => ({
         handle: runner?.handle ?? '',
-        role: runner?.role ?? (npc ? FIXER_ROLE : ''),
+        role: runner?.role ?? '',
         extraRoles: runner?.extraRoles ?? [],
         imageId: runner?.imageId ?? null,
         officeLocation: runner?.officeLocation ?? null,
@@ -48,9 +47,8 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         contact: runner?.contact ?? null,
         bio: runner?.bio ?? null,
         // Only admins send a player. Everyone else's runners are their own.
-        ownerId: me.isAdmin ? (runner ? runner.ownerId : npc ? null : me.id) : undefined,
+        ownerId: me.isAdmin ? (runner?.ownerId ?? me.id) : undefined,
     }));
-    const isNpc = form.ownerId === null;
     const set = (patch: Partial<RunnerInput>) => setForm((f) => ({ ...f, ...patch }));
 
     const save = useAction(
@@ -80,21 +78,12 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
             {me.isAdmin && (
                 <Card className="space-y-2">
-                    <CardTitle
-                        help={
-                            isNpc
-                                ? 'an NPC fixer has no player. they show on the Fixers tab and can be picked for gigs.'
-                                : "the runner shows on that player's Runners tab, and they can sign it up for gigs."
-                        }
-                    >
-                        Player
-                    </CardTitle>
+                    <CardTitle help="the runner shows on that player's Runners tab, and they can sign it up for gigs.">Player</CardTitle>
                     <Select
                         id="player"
                         value={form.ownerId ?? ''}
-                        onChange={(ownerId) => set({ ownerId: ownerId || null, ...(!ownerId && !isFixer ? { role: FIXER_ROLE } : {}) })}
+                        onChange={(ownerId) => set({ ownerId })}
                         options={[
-                            { value: '', label: 'Nobody (NPC fixer)' },
                             ...players.map((p) => ({ value: p.id, label: p.name, hint: p.id === me.id ? 'you' : undefined })),
                             // Someone who has left the server still shows as the current player
                             ...(form.ownerId && !players.some((p) => p.id === form.ownerId) ? [{ value: form.ownerId, label: runner?.owner?.name ?? 'Unknown player' }] : []),

@@ -10,6 +10,7 @@ import { Crew } from '@/pages/crew';
 import { Crews, NewCrewPage } from '@/pages/crews';
 import { Gig } from '@/pages/gig';
 import { GigComplete } from '@/pages/gig-complete';
+import { FixerEdit } from '@/pages/fixer-edit';
 import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
@@ -40,7 +41,9 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="runners/:id" element={<RunnerPage />} />
                         <Route path="runners/:id/edit" element={<RunnerEdit />} />
                         <Route path="fixers" element={<FixersPage />} />
+                        <Route path="fixers/new" element={<FixerEdit />} />
                         <Route path="fixers/:id" element={<RunnerPage />} />
+                        <Route path="fixers/:id/edit" element={<FixerEdit />} />
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/new" element={<NewCrewPage />} />
                         <Route path="crews/:id" element={<Crew />} />

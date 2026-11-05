@@ -54,7 +54,7 @@ export function RunnerPage() {
                 {canManage && (
                     <div className="flex gap-2">
                         <Button asChild variant="outline" size="sm">
-                            <Link to={`/runners/${runner.slug}/edit`}>Edit</Link>
+                            <Link to={runner.ownerId ? `/runners/${runner.slug}/edit` : `/fixers/${runner.slug}/edit`}>Edit</Link>
                         </Button>
                         <ConfirmButton
                             size="sm"
