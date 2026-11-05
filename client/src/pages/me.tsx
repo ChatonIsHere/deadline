@@ -1,6 +1,8 @@
 import type { Prefs } from '@shared/schemas';
 import { useQuery } from '@tanstack/react-query';
+import { LogOut } from 'lucide-react';
 import { Avatar, Say } from '@/components/common';
+import { logout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { api, useAction, useUser } from '@/lib/api';
@@ -34,6 +36,10 @@ export function MePage() {
                 )}
                 <p className="text-xs text-muted-foreground">Asks to confirm a session time still come through, since your slot depends on them.</p>
             </Card>
+
+            <Button variant="outline" className="w-full" onClick={logout}>
+                <LogOut className="size-4" /> Log out
+            </Button>
         </div>
     );
 }

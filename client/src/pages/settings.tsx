@@ -2,6 +2,7 @@ import type { GuildOptions, Option, Settings, SettingsView } from '@shared/schem
 import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { Say } from '@/components/common';
+import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -19,7 +20,12 @@ export function SettingsPage() {
     const { data } = useSettings();
     if (!me.isAdmin) return <Say>admins only.</Say>;
     if (!data) return <Say>loading config...</Say>;
-    return <SettingsForm view={data} isOwner={me.isOwner} />;
+    return (
+        <>
+            <SettingsTabs />
+            <SettingsForm view={data} isOwner={me.isOwner} />
+        </>
+    );
 }
 
 function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }) {
@@ -43,7 +49,6 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
-            <h1 className="text-3xl text-primary">Settings</h1>
 
             <Card className="space-y-3">
                 <CardTitle>Server</CardTitle>

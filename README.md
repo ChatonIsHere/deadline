@@ -87,7 +87,7 @@ Each gig is one session.
 
 Every gig has a picture, framed in the board's colours. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
 
-Admins manage the library on the **Library** page. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
+Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 
 For bulk imports, drop images in `data/import/<Region name>/` (or `data/import/pool/`) and restart. They get added to the library and the files are deleted.
 

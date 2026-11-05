@@ -4,6 +4,7 @@ import { Plus, Trash2, Upload, X } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmButton, Say } from '@/components/common';
+import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -23,8 +24,8 @@ export function LibraryPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl text-primary">Library</h1>
-                <Say className="mt-1">gigs get a picture from their region, then its district, then the general pool.</Say>
+                <SettingsTabs />
+                <Say>gig pictures. a gig gets one from its region, then its district, then the general pool.</Say>
             </div>
 
             <Pictures title="General pool" ids={data.pool} region={null} />
