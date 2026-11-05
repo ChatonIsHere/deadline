@@ -5,10 +5,11 @@ import { FORUM, frameSvg, type Variant } from './frame';
 
 /**
  * A gig's picture for Discord: cut to the forum gallery preview's shape, framed, with the
- * operation's name in the bottom left, one word per line, as big as fits.
+ * operation's name on the left, centred top to bottom (clear of the forum's tags along the
+ * bottom), one word per line, as big as fits. PNG: Discord labels WebP pictures as GIFs.
  * Bump when the look changes, so Discord fetches new copies.
  */
-export const CARD_VERSION = 1;
+export const CARD_VERSION = 2;
 
 /** Chakra Petch Bold (SIL Open Font License, see assets/fonts/OFL.txt), the site's heading font. */
 const FONT = join(__dirname, '..', '..', 'assets', 'fonts', 'ChakraPetch-Bold.ttf');
@@ -47,7 +48,7 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
         .toBuffer();
 
     const words = name.toUpperCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return sharp(framed).webp({ quality: 85 }).toBuffer();
+    if (!words.length) return sharp(framed).png({ palette: true, quality: 95, effort: 10, dither: 1 }).toBuffer();
 
     // The frame's margin and padding inside it (same scale as frame.ts, sized off 720 high)
     const s = Math.min(W, H) / 720;
@@ -63,10 +64,11 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
     const capPx = (cap * size) / 100;
 
     const x = margin + pad;
-    const lastBaseline = H - margin - pad;
+    const blockHeight = capPx * (1 + (words.length - 1) * LINE);
+    const firstBaseline = (H - blockHeight) / 2 + capPx;
     const lines = words
         .map((word, i) => {
-            const y = lastBaseline - (words.length - 1 - i) * capPx * LINE;
+            const y = firstBaseline + i * capPx * LINE;
             const text = escape(word);
             const font = `font-family="Chakra Petch" font-weight="700" font-size="${size.toFixed(1)}"`;
             // A pink offset copy behind (the glitch look of the emoji), then yellow with a dark edge to read on any picture
@@ -80,6 +82,7 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
     const label = new Resvg(textSvg(lines, W, H), RESVG).render().asPng();
     return sharp(framed)
         .composite([{ input: label }])
-        .webp({ quality: 85 })
+        // A 256 colour palette: looks the same at preview size, a fifth of the size
+        .png({ palette: true, quality: 95, effort: 10, dither: 1 })
         .toBuffer();
 }

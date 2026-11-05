@@ -126,7 +126,7 @@ Admins manage the library under **Settings > Library**. Night City's 2077 distri
 
 For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) next to the database (by default `data/import/`) and restart. They get added to the library and the files are deleted.
 
-Gig posts use a **gig card** made for each gig (`src/library/gig-card.ts`): its picture cut to 1070x720 (the shape Discord's forum gallery previews use, about 1.485:1), framed with a margin so desktop and mobile both show the whole frame, and the operation's name in the bottom left, one word per line, as big as fits. It's rebuilt when the gig's name or picture changes. The font is Chakra Petch Bold (`assets/fonts`, SIL Open Font License).
+Gig posts use a **gig card** made for each gig (`src/library/gig-card.ts`): its picture cut to 1070x720 (the shape Discord's forum gallery previews use, about 1.485:1), framed with a margin so desktop and mobile both show the whole frame, and the operation's name on the left, centred top to bottom so it clears the forum's tags, one word per line, as big as fits. Cards are PNG: Discord marks WebP pictures as GIFs in the forum gallery. It's rebuilt when the gig's name or picture changes. The font is Chakra Petch Bold (`assets/fonts`, SIL Open Font License).
 
 ## Emoji
 

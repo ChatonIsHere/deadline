@@ -161,7 +161,7 @@ export class LibraryService implements OnModuleInit {
      */
     async gigCardUrl(gig: { id: number; imageId: number; name: string }): Promise<string> {
         const hash = createHash('sha1').update(`${gig.imageId}|${gig.name}|${FRAME_VERSION}|${CARD_VERSION}`).digest('hex').slice(0, 8);
-        const file = `gig-${gig.id}-${hash}.webp`;
+        const file = `gig-${gig.id}-${hash}.png`;
         if (!existsSync(join(this.dir, file))) {
             // A picture whose file is gone gets the plain framed one instead of failing the post
             const plainPath = join(this.dir, plainFile(gig.imageId));
