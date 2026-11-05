@@ -69,15 +69,17 @@ export function Layout() {
         ...(me.isAdmin ? [{ to: '/settings', label: 'Settings', short: 'SET' }] : []),
     ];
 
-    // The corner + makes whatever the page lists, and a gig everywhere else
-    const fab =
-        pathname === '/runners'
-            ? { to: '/runners/new', label: 'New runner' }
-            : pathname === '/fixers' && me.isAdmin
-              ? { to: '/runners/new?npc=1', label: 'New NPC fixer' }
-              : canCreateGig(me) && pathname !== '/gigs/new'
-                ? { to: '/gigs/new', label: 'New gig' }
-                : null;
+    // The corner + makes whatever the page lists, and a gig everywhere else. Not on forms: you're already making something.
+    const onForm = /\/(new|edit|complete)$/.test(pathname);
+    const fab = onForm
+        ? null
+        : pathname === '/runners'
+          ? { to: '/runners/new', label: 'New runner' }
+          : pathname === '/fixers' && me.isAdmin
+            ? { to: '/runners/new?npc=1', label: 'New NPC fixer' }
+            : canCreateGig(me)
+              ? { to: '/gigs/new', label: 'New gig' }
+              : null;
 
     return (
         <div className="min-h-screen md:grid md:grid-cols-[13rem_1fr]">
