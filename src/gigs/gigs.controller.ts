@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
+import { voice } from '../discord/voice';
 import { gigInput, type GigInput, type Me, memberInput, openSlotsInput, sessionInput, statusInput, type StatusInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { GigsService } from './gigs.service';
@@ -76,6 +77,24 @@ export class GigsController {
         return this.gigs.unreserve(user, id, userId);
     }
 
+    // The signed in runner's own sign-up, same as the buttons on the Discord post
+
+    @Post(':id/join')
+    async join(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
+        return { message: plain(await this.gigs.join(user.id, id)) };
+    }
+
+    @Post(':id/confirm')
+    confirm(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
+        return { message: plain(this.gigs.confirm(user.id, id)) };
+    }
+
+    @Post(':id/leave')
+    leave(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
+        this.gigs.leave(user.id, id);
+        return { message: plain(voice.left()) };
+    }
+
     /** Lets any edgerunner take a crew's reserved slots. */
     @Post(':id/open-slots')
     openSlots(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(openSlotsInput)) body: { crewId: number }) {
@@ -88,3 +107,6 @@ export class GigsController {
         return this.gigs.setSession(user, id, body.sessionAt);
     }
 }
+
+/** The bot's lines without Discord formatting, for the web. */
+const plain = (line: string) => line.replace(/[`*]/g, '');

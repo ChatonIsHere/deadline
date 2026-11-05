@@ -6,7 +6,7 @@ const say = (line: string) => `\`// DEADLINE:\` ${line}`;
 const when = (ms: number) => `<t:${Math.floor(ms / 1000)}:F> (<t:${Math.floor(ms / 1000)}:R>)`;
 
 export const voice = {
-    footer: (status: string) => `DEADLINE // fixer board node // ${status.toUpperCase()}`,
+    footer: (status: string, host: string) => `DEADLINE // ${host} // ${status.toUpperCase()}`,
     when,
 
     // Replies to the person who pressed a button

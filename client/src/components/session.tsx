@@ -1,6 +1,7 @@
 import type { GigView } from '@shared/schemas';
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,51 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
                     </p>
                 </>
             )}
+        </Card>
+    );
+}
+
+/** The signed in runner's own place on the gig, with the same actions as the Discord post. */
+export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
+    const act = (action: 'join' | 'confirm' | 'leave') => api<{ message: string }>(`/api/gigs/${gig.id}/${action}`, 'POST');
+    const done = ({ message }: { message: string }) => toast.success(message);
+    const join = useAction(() => act('join'), done);
+    const confirm = useAction(() => act('confirm'), done);
+    const leave = useAction(() => act('leave'), done);
+    const busy = join.isPending || confirm.isPending || leave.isPending;
+
+    const slot = gig.slots.find((s) => s.runner?.id === userId);
+    const reserve = gig.reserves.findIndex((r) => r.id === userId) + 1;
+
+    let status: string;
+    if (slot?.state === 'confirmed') status = "you're confirmed.";
+    else if (slot?.state === 'awaiting') status = `confirm you can make it${slot.confirmBy ? ` by ${formatSession(slot.confirmBy)}` : ''}.`;
+    else if (slot) status = "you're interested. you'll be asked to confirm once there's a time.";
+    else if (reserve) status = `you're reserve #${reserve}.`;
+    else if (gig.status === 'open') status = gig.slots.some((s) => !s.runner) ? 'slots open.' : 'slots are full. signing up puts you on the reserves.';
+    else status = 'sign-ups are locked.';
+
+    return (
+        <Card className="space-y-3 [--frame:var(--color-primary)]">
+            <CardTitle>Your spot</CardTitle>
+            <Say>{status}</Say>
+            <div className="flex flex-wrap gap-2">
+                {!slot && !reserve && gig.status === 'open' && (
+                    <Button size="sm" disabled={busy} onClick={() => join.mutate()}>
+                        {gig.sessionAt ? 'Take the job' : "I'm interested"}
+                    </Button>
+                )}
+                {slot?.state === 'awaiting' && (
+                    <Button size="sm" variant="accent" disabled={busy} onClick={() => confirm.mutate()}>
+                        Confirm
+                    </Button>
+                )}
+                {(slot || reserve > 0) && (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => leave.mutate()}>
+                        Pull out
+                    </Button>
+                )}
+            </div>
         </Card>
     );
 }

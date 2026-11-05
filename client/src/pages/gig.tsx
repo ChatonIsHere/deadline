@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Money, Person, Say, StatusBadge } from '@/components/common';
 import { Markdown } from '@/components/markdown';
-import { AssignRunner, SessionCard } from '@/components/session';
+import { AssignRunner, MySpot, SessionCard } from '@/components/session';
 import { SlotList } from '@/components/slot-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -121,6 +121,7 @@ export function Gig() {
                         <Detail icon="eb" label="Pay" value={<Money amount={gig.pay} />} />
                     </Card>
 
+                    {me.isEdgerunner && active && <MySpot gig={gig} userId={me.id} />}
                     <SessionCard gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />
 
                     <Card>
@@ -134,7 +135,7 @@ export function Gig() {
                             onOpenCrew={canRunGig(me, gig) && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
-                        {gig.status === 'open' && <Say className="mt-4 text-xs">runners sign up from the Discord post.</Say>}
+                        {gig.status === 'open' && <Say className="mt-4 text-xs">runners can sign up here or on the Discord post.</Say>}
                     </Card>
 
                     {(nextStatuses.length > 0 || canDelete) && (

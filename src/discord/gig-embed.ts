@@ -63,7 +63,8 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
             ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. <@${r.id}>`).join('\n') }] : []),
         )
-        .setFooter({ text: voice.footer(gig.status) })
+        // Footers can't hold links, so the address is shown as text and the button below links to it
+        .setFooter({ text: voice.footer(gig.status, new URL(boardUrl).host), iconURL: `${boardUrl}/logo.png` })
         .setImage(imageUrl)
         .setTimestamp(gig.createdAt);
 
@@ -76,6 +77,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             .setDisabled(gig.status !== 'open'),
         ...(gig.sessionAt ? [confirmButton(gig.id).setDisabled(!active)] : []),
         dropButton(gig.id).setDisabled(!active),
+        new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/gigs/${gig.id}`),
     );
 
     return { embeds: [embed], components: [buttons] };
