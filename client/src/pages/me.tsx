@@ -1,17 +1,16 @@
 import type { Prefs } from '@shared/schemas';
-import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { Avatar, Say } from '@/components/common';
 import { logout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { api, useAction, useCrewInvites, useUser } from '@/lib/api';
+import { api, useAction, useCrewInvites, usePrefs, useUser } from '@/lib/api';
 import { RunnerChip } from '@/components/runner';
 import { Link } from 'react-router';
 
 export function MePage() {
     const me = useUser();
-    const { data: prefs } = useQuery({ queryKey: ['prefs'], queryFn: () => api<Prefs>('/api/prefs') });
+    const { data: prefs } = usePrefs();
     const save = useAction((next: Prefs) => api('/api/prefs', 'PUT', next), 'Saved.');
 
     const roles = [me.isAdmin && 'Admin', me.isFixer && 'Fixer', me.isEdgerunner && 'Edgerunner'].filter(Boolean).join(', ');
@@ -25,6 +24,18 @@ export function MePage() {
                     <p className="text-muted-foreground">{roles}</p>
                 </div>
             </div>
+
+            {me.isOwner && prefs && (
+                <Card className="space-y-3 [--frame:var(--color-accent)]">
+                    <CardTitle help="as the bot owner you're always an admin. player view hides that, so the board and the bot treat you like any player with your Discord roles. turn it off here or from the strip at the top of the page.">
+                        Player view
+                    </CardTitle>
+                    <p>{prefs.playerView ? 'On. Admin tools are hidden.' : 'Off. You have full admin powers.'}</p>
+                    <Button variant={prefs.playerView ? 'default' : 'outline'} disabled={save.isPending} onClick={() => save.mutate({ ...prefs, playerView: !prefs.playerView })}>
+                        {prefs.playerView ? 'Back to admin' : 'View as a player'}
+                    </Button>
+                </Card>
+            )}
 
             <CrewInvites />
 

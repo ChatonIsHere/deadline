@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Client, Guild, GuildMember, type MessageCreateOptions, PermissionFlagsBits, Team, User } from 'discord.js';
 import { Context, ContextOf, Once } from 'necord';
+import { PrefsService } from '../auth/prefs.service';
 import { SettingsService } from '../settings/settings.service';
 import { FIXER_ROLE, type Me, type Member } from '../shared/schemas';
 
@@ -14,6 +15,7 @@ export class MembersService {
     constructor(
         @Inject(Client) private readonly client: Client,
         private readonly settings: SettingsService,
+        private readonly prefs: PrefsService,
     ) {}
 
     @Once('clientReady')
@@ -37,15 +39,19 @@ export class MembersService {
         return id ? this.client.guilds.cache.get(id) : undefined;
     }
 
-    /** A person with their roles, or null if they can't use Deadline. */
+    /**
+     * A person with their roles, or null if they can't use Deadline. The owner with player
+     * view on (Me page) isn't an admin, so they see the board as a player with their real roles.
+     */
     async me(id: string): Promise<Me | null> {
         const isOwner = this.owners.has(id);
+        const playerView = isOwner && this.prefs.get(id).playerView;
         const member = this.guild?.members.cache.get(id) ?? (await this.guild?.members.fetch(id).catch(() => null));
 
         if (!member) {
             if (!isOwner) return null;
             const user = await this.client.users.fetch(id);
-            return { id, name: user.displayName, avatar: user.displayAvatarURL({ size: 64 }), isOwner, isAdmin: true, isFixer: false, isEdgerunner: false };
+            return { id, name: user.displayName, avatar: user.displayAvatarURL({ size: 64 }), isOwner, isAdmin: !playerView, isFixer: false, isEdgerunner: false, playerView };
         }
 
         const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();
@@ -53,9 +59,10 @@ export class MembersService {
         return {
             ...toMember(member),
             isOwner,
-            isAdmin: isOwner || member.permissions.has(PermissionFlagsBits.ManageGuild) || has(adminRoleId),
+            isAdmin: !playerView && (isOwner || member.permissions.has(PermissionFlagsBits.ManageGuild) || has(adminRoleId)),
             isFixer: has(fixerRoleId),
             isEdgerunner: has(edgerunnerRoleId),
+            playerView,
         };
     }
 

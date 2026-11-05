@@ -27,6 +27,8 @@ export const settings = sqliteTable('settings', {
 export const userPrefs = sqliteTable('user_prefs', {
     userId: text().primaryKey(),
     reminders: integer({ mode: 'boolean' }).notNull().default(true),
+    // The bot owner browsing as a normal player, admin powers hidden
+    playerView: integer({ mode: 'boolean' }).notNull().default(false),
 });
 
 export const sessions = sqliteTable('sessions', {

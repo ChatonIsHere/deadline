@@ -312,7 +312,7 @@ describe('GigsService', () => {
             gigs.setSession(admin, gig.id, sessionAt);
             gigs.confirm('a', gig.id);
             gigs.confirm('b', gig.id);
-            prefs.set('b', { reminders: false });
+            prefs.set('b', { reminders: false, playerView: false });
             gigs.tick(sessionAt - 9 * H);
             gigs.tick(sessionAt - 8 * H);
             gigs.tick(sessionAt - 7 * H);

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewInvite, CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
@@ -30,6 +30,8 @@ export const useGigs = () => useQuery({ queryKey: ['gigs'], queryFn: () => api<G
 export const useGig = (id: string | undefined) =>
     useQuery({ queryKey: ['gigs', id], queryFn: () => api<GigView>(`/api/gigs/${id}`), enabled: !!id });
 export const useGigTypes = () => useQuery({ queryKey: ['gig-types'], queryFn: () => api<string[]>('/api/gigs/types') });
+
+export const usePrefs = () => useQuery({ queryKey: ['prefs'], queryFn: () => api<Prefs>('/api/prefs') });
 
 /** Crew invites waiting on the signed in player's runners. */
 export const useCrewInvites = () => useQuery({ queryKey: ['crews', 'invites'], queryFn: () => api<CrewInvite[]>('/api/crews/invites') });

@@ -3,7 +3,8 @@ import { type GigStatus, isLive, type Me } from './schemas';
 // Used by the server to enforce and by the client to hide buttons.
 // Once approved, a gig is a session and only admins (the GMs) run it: status, time, slots, runners.
 
-export const canLogIn = (u: Me) => u.isAdmin || u.isFixer || u.isEdgerunner;
+/** The owner can always get in, so player view can't lock them out. */
+export const canLogIn = (u: Me) => u.isOwner || u.isAdmin || u.isFixer || u.isEdgerunner;
 
 export const canCreateGig = (u: Me) => u.isAdmin || u.isFixer;
 

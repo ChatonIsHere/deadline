@@ -143,7 +143,11 @@ export const rankInput = z.object({ rank: text(30) });
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
 
-export const prefsInput = z.object({ reminders: z.boolean() });
+export const prefsInput = z.object({
+    reminders: z.boolean(),
+    /** Bot owner only: use the board as a normal player, admin powers hidden. */
+    playerView: z.boolean().default(false),
+});
 export type Prefs = z.infer<typeof prefsInput>;
 
 /** Which crew's slots to open to anyone. */
@@ -208,6 +212,8 @@ export interface Me extends Member {
     isAdmin: boolean;
     isFixer: boolean;
     isEdgerunner: boolean;
+    /** The owner has player view on: isAdmin is off until they turn it off on the Me page. */
+    playerView?: boolean;
 }
 
 /** A runner as shown in lists and slots. */

@@ -71,6 +71,13 @@
       "when": 1793901896437,
       "tag": "0009_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793905301172,
+      "tag": "0010_player_view",
+      "breakpoints": true
     }
   ]
 }

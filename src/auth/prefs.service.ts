@@ -4,7 +4,7 @@ import { DB, Db } from '../db/db';
 import { userPrefs } from '../db/schema';
 import type { Prefs } from '../shared/schemas';
 
-const DEFAULTS: Prefs = { reminders: true };
+const DEFAULTS: Prefs = { reminders: true, playerView: false };
 
 /** Each person's own choices, like whether they get session reminders. */
 @Injectable()
