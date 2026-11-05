@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify';
 import { Bold, Code, Italic, Link, List, ListOrdered, type LucideIcon, Quote, Strikethrough } from 'lucide-react';
 import { marked } from 'marked';
 import { useEffect } from 'react';
-import { fieldClass } from '@/components/ui/input';
+import { CharCount, fieldClass } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 // Only what Discord embeds render the same way: bold, italic, strike, code, links, lists, quotes.
@@ -17,7 +17,8 @@ const OneLine = Extension.create({
     addKeyboardShortcuts: () => ({ Enter: () => true, 'Shift-Enter': () => true }),
 });
 
-export function MarkdownEditor({ value, onChange, singleLine = false }: { value: string; onChange: (markdown: string) => void; singleLine?: boolean }) {
+/** `max`: a character limit, counted on the markdown. Shown on the toolbar once the text gets close. */
+export function MarkdownEditor({ value, onChange, singleLine = false, max }: { value: string; onChange: (markdown: string) => void; singleLine?: boolean; max?: number }) {
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -95,6 +96,7 @@ export function MarkdownEditor({ value, onChange, singleLine = false }: { value:
                         <Icon className="size-3.5" />
                     </button>
                 ))}
+                {max && <CharCount length={value.length} max={max} className="ml-auto self-center" />}
             </div>
             <EditorContent editor={editor} />
         </div>

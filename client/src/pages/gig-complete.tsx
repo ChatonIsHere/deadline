@@ -63,7 +63,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
 
             <Card className="space-y-2">
                 <CardTitle>What happened</CardTitle>
-                <MarkdownEditor value={summary} onChange={setSummary} />
+                <MarkdownEditor value={summary} onChange={setSummary} max={2000} />
             </Card>
 
             <Card className="space-y-4">

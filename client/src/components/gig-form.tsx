@@ -148,8 +148,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     </div>
                     <div>
                         <Label help="the post's description in Discord, up to 4,000 characters. bold, italic, lists, links and quotes carry over.">Brief</Label>
-                        <MarkdownEditor value={form.brief} onChange={(brief) => set({ brief })} />
-                        <p className={cn('mt-1 text-right text-xs', form.brief.length > 4000 ? 'text-destructive' : 'text-muted-foreground')}>{form.brief.length} / 4000</p>
+                        <MarkdownEditor value={form.brief} onChange={(brief) => set({ brief })} max={4000} />
                     </div>
                 </Card>
 
@@ -160,6 +159,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                             <div className="flex-1">
                                 <MarkdownEditor
                                     singleLine
+                                    max={150}
                                     value={part}
                                     onChange={(text) => set({ primaryObjective: form.primaryObjective.map((p, j) => (j === i ? text : p)) })}
                                 />
@@ -199,7 +199,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         // Text on its own line on phones, bonus beside it on wider screens
                         <div key={i} className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
                             <div className="w-full sm:w-auto sm:flex-1">
-                                <MarkdownEditor singleLine value={o.text} onChange={(text) => setRow('objectives', i, { text })} />
+                                <MarkdownEditor singleLine max={150} value={o.text} onChange={(text) => setRow('objectives', i, { text })} />
                             </div>
                             <div className="relative flex-1 sm:w-32 sm:flex-none">
                                 <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
@@ -324,7 +324,9 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
 
                 <Card className="space-y-3">
                     <CardTitle help="one runner per slot. crew slots are kept for that crew's runners until an admin opens them up. full gigs still take sign-ups as reserves.">
-                        Slots {totalSlots}/{MAX_SLOTS}
+                        {/* The cap only shows once it's reached */}
+                        Slots {totalSlots}
+                        {totalSlots >= MAX_SLOTS && <span className={cn(totalSlots > MAX_SLOTS && 'text-destructive')}> / {MAX_SLOTS} max</span>}
                     </CardTitle>
                     {form.slots.map((s, i) => (
                         <div key={i} className="flex gap-2">

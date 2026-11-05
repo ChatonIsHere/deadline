@@ -169,7 +169,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                     </div>
                     <div>
                         <Label>Bio</Label>
-                        <MarkdownEditor value={form.bio ?? ''} onChange={(bio) => set({ bio })} />
+                        <MarkdownEditor value={form.bio ?? ''} onChange={(bio) => set({ bio })} max={2000} />
                     </div>
                 </Card>
             )}
