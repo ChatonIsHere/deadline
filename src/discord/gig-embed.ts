@@ -1,7 +1,8 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
+import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import type { Payout } from '../gigs/debrief.service';
 import { groupSlots } from '../shared/slots';
 import type { GigStatus, GigView, RunnerCard } from '../shared/schemas';
+import { packEmbeds } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
 import { voice } from './voice';
 
@@ -26,29 +27,25 @@ export const openSlots = (gig: GigView) => gig.slots.filter((s) => !s.runner).le
 const cut = (text: string, max = 1024) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 /** The GM's summary and the crew's rewards, once a gig is complete. */
-function debriefFields(gig: GigView, emoji: EmojiLookup) {
+function debriefFields(gig: GigView, emoji: EmojiLookup): APIEmbedField[] {
     if (gig.status !== 'completed' || !gig.crewRewards) return [];
     const r = gig.crewRewards;
     const rewards = [r.eb ? money(r.eb, emoji) : '', r.ip ? `${r.ip} IP` : '', r.hqIp ? `${r.hqIp} HQ IP` : '', r.text ?? ''].filter(Boolean);
     const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
     return [
-        ...(gig.summary ? [{ name: 'Debrief', value: cut(gig.summary) }] : []),
-        ...(rewards.length || extra.length ? [{ name: 'Crew rewards', value: cut([rewards.join(' · ') || 'none', ...extra].join('\n')) }] : []),
+        ...(gig.summary ? [{ name: 'Debrief', value: gig.summary }] : []),
+        ...(rewards.length || extra.length ? [{ name: 'Crew rewards', value: [rewards.join(' · ') || 'none', ...extra].join('\n') }] : []),
     ];
 }
 
-/** The forum post's starter message: the gig card and its buttons. */
+/**
+ * The forum post. `first` is the starter message: the brief as the description, the
+ * details as fields, and the buttons. Nothing gets cut: whatever doesn't fit Discord's
+ * limits goes in `more`, follow-up messages in the thread.
+ */
 export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, images: { gig: string | null; fixer: string | null } = { gig: null, fixer: null }) {
     const icon = (name: string, fallback = '') => emoji(name) || fallback;
     const typeIcon = gig.type ? emoji(`type_${gig.type.toLowerCase().replace(/\W+/g, '_')}`) : '';
-
-    const description = [`${icon('objective')} **PRIMARY**`.trim(), gig.objective];
-    if (gig.objectives.length) {
-        description.push('', `${icon('bonus')} **SECONDARY**`.trim());
-        for (const o of gig.objectives) {
-            description.push(`- ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`);
-        }
-    }
 
     // Once a time is set, say who has confirmed. Before that everyone is just interested.
     const runnerLine = (s: GigView['slots'][number]) => {
@@ -60,31 +57,35 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         const title = group.crew ? `**${group.crew.name}**` : '**Any edgerunner**';
         return [title, ...group.slots.map(runnerLine)].join('\n');
     });
-
     const taken = gig.slots.length - openSlots(gig);
     const active = gig.status === 'open' || gig.status === 'closed';
 
-    const embed = new EmbedBuilder()
-        .setColor(COLOURS[gig.status])
-        .setTitle(gig.name)
-        .setURL(`${boardUrl}/gigs/${gig.id}`)
-        .setDescription(description.join('\n'))
-        .addFields(
-            { name: 'Fixer', value: `${icon('fixer')} ${gig.fixerName}`.trim(), inline: true },
-            { name: 'Location', value: `${icon('location')} ${gig.location}`.trim(), inline: true },
-            { name: 'Pay', value: money(gig.pay, emoji), inline: true },
-            ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
-            { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
-            // Discord rejects fields over 1024 characters, which a big crew can reach
-            { name: `Crew ${taken}/${gig.slots.length}`, value: cut(slotLines.join('\n\n')) },
-            ...(gig.reserves.length ? [{ name: 'Reserves', value: cut(gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n')) }] : []),
-            ...debriefFields(gig, emoji),
-        )
+    const fields: APIEmbedField[] = [
+        { name: 'Fixer', value: `${icon('fixer')} ${gig.fixerName}`.trim(), inline: true },
+        { name: 'Location', value: `${icon('location')} ${gig.location}`.trim(), inline: true },
+        { name: 'Pay', value: money(gig.pay, emoji), inline: true },
+        ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
+        ...(gig.objectives.length
+            ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`).join('\n') }]
+            : []),
+        { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
+        { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
+        ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n') }] : []),
+        ...debriefFields(gig, emoji),
+    ];
+
+    const head: APIEmbed = {
+        color: COLOURS[gig.status],
+        title: gig.name,
+        url: `${boardUrl}/gigs/${gig.id}`,
+        description: gig.objective,
         // Footers can't hold links, so the address is shown as text and the button below links to it
-        .setFooter({ text: voice.footer(gig.status, new URL(boardUrl).host), iconURL: `${boardUrl}/logo.png` })
-        .setThumbnail(images.fixer)
-        .setImage(images.gig)
-        .setTimestamp(gig.createdAt);
+        footer: { text: voice.footer(gig.status, new URL(boardUrl).host), icon_url: `${boardUrl}/logo.png` },
+        thumbnail: images.fixer ? { url: images.fixer } : undefined,
+        image: images.gig ? { url: images.gig } : undefined,
+        timestamp: new Date(gig.createdAt).toISOString(),
+    };
+    const [embeds, ...more] = packEmbeds(head, fields, { color: COLOURS[gig.status] });
 
     // Full gigs still take sign-ups: they go on the reserves.
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -98,7 +99,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/gigs/${gig.id}`),
     );
 
-    return { embeds: [embed], components: [buttons] };
+    return { first: { embeds, components: [buttons] }, more: more.map((embeds) => ({ embeds })) };
 }
 
 const confirmButton = (id: number) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
@@ -132,8 +133,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
         );
 
     const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
-    // The fixer's own player doesn't rate them
-    if (gig.fixerRunnerId && payout.userId !== gig.fixerId) {
+    if (gig.fixerRunnerId) {
         const menu = new StringSelectMenuBuilder()
             .setCustomId(`rate/${gig.id}`)
             .setPlaceholder(voice.rateFixer(gig.fixerName))

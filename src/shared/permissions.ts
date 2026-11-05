@@ -23,7 +23,12 @@ export const canSeeGig = (u: Me, gig: { createdBy: string; status: GigStatus }) 
 
 export const canCreateCrew = (u: Me) => u.isAdmin || u.isEdgerunner;
 
-export const canManageCrew = (u: Me, crew: { ownerId: string }) => u.isAdmin || crew.ownerId === u.id;
+/** A crew's first rank is its founder rank. Founders run the crew. */
+export const isFounderRank = (crew: { ranks: string[] }, rank: string) => rank === crew.ranks[0];
+
+/** Admins, and players with a runner holding the founder rank. */
+export const canManageCrew = (u: Me, crew: { ranks: string[]; members: { rank: string; ownerId: string | null }[] }) =>
+    u.isAdmin || crew.members.some((m) => m.ownerId === u.id && isFounderRank(crew, m.rank));
 
 /** Status changes an admin can make on a posted gig. Pending gigs are approved or rejected instead. */
 export const NEXT_STATUSES: Record<GigStatus, GigStatus[]> = {

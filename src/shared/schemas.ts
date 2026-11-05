@@ -18,6 +18,9 @@ export const CORE_ROLES = ['Rockerboy', 'Solo', 'Netrunner', 'Tech', 'Medtech', 
 /** The role that makes a runner a fixer (if their player has the Discord fixer role). */
 export const FIXER_ROLE = 'Fixer';
 
+/** A crew's ranks, highest first. Whoever holds the first (Founder unless renamed) runs the crew. */
+export const DEFAULT_RANKS = ['Founder', 'Lieutenant', 'Member', 'Prospect'];
+
 /** Statuses an admin can move a posted gig to. Completing has its own form (completeInput). */
 export const SET_STATUSES = ['open', 'closed', 'cancelled'] as const;
 
@@ -43,7 +46,8 @@ export const gigInput = z.object({
     location: text(100),
     type: z.string().trim().max(40).nullable(),
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
-    objective: text(2000),
+    /** The brief. It's the post's description, which Discord caps at 4096. */
+    objective: text(4000),
     imageId: z.number().int().nullable(),
     objectives: z
         // One line each: they're list items in the Discord post
@@ -73,7 +77,8 @@ export const completeInput = z.object({
 });
 export type CompleteInput = z.infer<typeof completeInput>;
 
-export const ratingInput = z.object({ stars: z.number().int().min(1).max(5) });
+export const ratingInput = z.object({ stars: z.number().int().min(1).max(5), comment: optionalText(300).default(null) });
+export type RatingInput = z.infer<typeof ratingInput>;
 
 /** Signing up. A player with one runner can leave it out. */
 export const joinInput = z.object({ runnerId: z.number().int().optional() });
@@ -98,12 +103,30 @@ export const runnerInput = z.object({
 });
 export type RunnerInput = z.infer<typeof runnerInput>;
 
+export const newCrewInput = z.object({
+    name: text(50),
+    tagline: z.string().trim().max(120),
+    /** The runner founding it. Your own, or anyone's for admins. */
+    runnerId: z.number().int(),
+});
+export type NewCrewInput = z.infer<typeof newCrewInput>;
+
 export const crewInput = z.object({
     name: text(50),
     tagline: z.string().trim().max(120),
-    ownerId: z.string().optional(),
+    /**
+     * Highest first. The first is the founder rank. `was` is a rank's name before this edit
+     * (null for a new one), so renaming a rank keeps its runners in it.
+     */
+    ranks: z
+        .array(z.object({ name: text(30), was: z.string().nullable() }))
+        .min(2, 'Keep at least two ranks')
+        .max(10)
+        .refine((ranks) => new Set(ranks.map((r) => r.name.toLowerCase())).size === ranks.length, 'Rank names must differ'),
 });
 export type CrewInput = z.infer<typeof crewInput>;
+
+export const rankInput = z.object({ rank: text(30) });
 
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
@@ -225,6 +248,18 @@ export interface RunnerView extends RunnerSummary {
     /** Gigs this runner was the fixer for. */
     fixerGigs: GigLink[];
     rating: Rating;
+    /** Fixers only: the latest ratings, newest first. */
+    reviews: Review[];
+}
+
+export interface Review {
+    stars: number;
+    comment: string | null;
+    gig: { id: number; name: string };
+    /** The runner the rater had on the gig. */
+    by: RunnerCard | null;
+    /** Unix ms. Missing on ratings from before comments. */
+    at: number | null;
 }
 
 export interface SlotView {
@@ -273,7 +308,7 @@ export interface GigView {
     /** Whether the signed in player had a runner on this finished gig and can rate its fixer. */
     canRate: boolean;
     /** The signed in player's rating of the fixer for this gig. */
-    myRating: number | null;
+    myRating: { stars: number; comment: string | null } | null;
 }
 
 export interface Option {
@@ -297,10 +332,28 @@ export interface SettingsView {
     inviteUrl: string;
 }
 
+export interface CrewMember extends RunnerCard {
+    rank: string;
+}
+
 export interface CrewView {
     id: number;
     name: string;
     tagline: string;
-    owner: Member;
-    members: RunnerCard[];
+    /** Highest first. The first is the founder rank. */
+    ranks: string[];
+    /** Highest rank first. */
+    members: CrewMember[];
+    /** Known and trusted runners who aren't members. */
+    allies: RunnerCard[];
+    /** Runners asked to join who haven't answered yet. */
+    invites: RunnerCard[];
+}
+
+/** A crew asking one of your runners to join. */
+export interface CrewInvite {
+    crew: { id: number; name: string; tagline: string };
+    runner: RunnerCard;
+    invitedBy: Member;
+    createdAt: number;
 }

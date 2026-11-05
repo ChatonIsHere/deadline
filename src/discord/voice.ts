@@ -38,6 +38,12 @@ export const voice = {
     // After the job
     payout: (gigName: string) => say(`**${gigName}** is done. here's your cut.`),
     rateFixer: (fixer: string) => `Rate ${fixer} (fixer)`,
+    rateComment: (stars: number) => `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)} saved. Add a note?`,
+
+    // Crews
+    crewInvite: (crewName: string, handle: string, from: string) => say(`**${crewName}** wants **${handle}** in the crew. ${from} sent the invite.`),
+    crewJoined: (crewName: string, handle: string) => say(`**${handle}** is in **${crewName}** now. welcome to the family.`),
+    crewDeclined: (crewName: string) => say(`invite from **${crewName}** declined.`),
 
     // Posted in the gig's thread. Runners go by their handles.
     runnerIn: (handle: string, state: string) =>

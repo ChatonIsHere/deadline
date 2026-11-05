@@ -1,6 +1,7 @@
-import type { Rating, RunnerCard } from '@shared/schemas';
+import { CORE_ROLES, type Rating, type RunnerCard } from '@shared/schemas';
 import { Star } from 'lucide-react';
 import { Link } from 'react-router';
+import { Icon } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { imageUrl, plainImageUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,11 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
     ) : (
         <span className="inline-flex items-center gap-2 align-middle text-muted-foreground">{inner}</span>
     );
+}
+
+/** The bot's icon for one of RED's core roles. Roles added in Settings have none. */
+export function RoleIcon({ role, className }: { role: string; className?: string }) {
+    return CORE_ROLES.includes(role) ? <Icon name={`role_${role.toLowerCase()}`} className={className} /> : null;
 }
 
 /** Main role first, then any extras. */

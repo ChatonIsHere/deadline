@@ -1,11 +1,14 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
-import { type ButtonInteraction, MessageFlags } from 'discord.js';
+import { type ButtonInteraction, LabelBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import {
     Button,
     type ButtonContext,
     ComponentParam,
     Context,
     type ContextOf,
+    Modal,
+    type ModalContext,
+    ModalParam,
     On,
     SelectedStrings,
     StringSelect,
@@ -57,12 +60,32 @@ export class GigInteractions {
         }
     }
 
-    /** Star rating for the fixer, from the payout DM. Can be changed by picking again. */
+    /**
+     * Star rating for the fixer, from the payout DM. The stars are saved straight away, then
+     * a box asks for an optional note. Closing it keeps the stars. Picking again changes them.
+     */
     @StringSelect('rate/:id')
     async rate(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [stars]: string[]) {
         try {
-            const reply = this.debrief.rate(interaction.user.id, Number(id), Number(stars));
-            await interaction.reply(reply);
+            this.debrief.rate(interaction.user.id, Number(id), Number(stars));
+        } catch (err) {
+            return interaction.reply(explain(err));
+        }
+        const note = new TextInputBuilder().setCustomId('comment').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(300);
+        const existing = this.debrief.myRating(interaction.user.id, Number(id))?.comment;
+        if (existing) note.setValue(existing);
+        const modal = new ModalBuilder()
+            .setCustomId(`rate/comment/${id}/${stars}`)
+            .setTitle(voice.rateComment(Number(stars)))
+            .addLabelComponents(new LabelBuilder().setLabel('Note for the fixer (optional)').setTextInputComponent(note));
+        await interaction.showModal(modal);
+    }
+
+    @Modal('rate/comment/:id/:stars')
+    async rateComment(@Context() [interaction]: ModalContext, @ModalParam('id') id: string, @ModalParam('stars') stars: string) {
+        try {
+            const comment = interaction.fields.getTextInputValue('comment').trim().slice(0, 300) || null;
+            await interaction.reply(this.debrief.rate(interaction.user.id, Number(id), Number(stars), comment));
         } catch (err) {
             await interaction.reply(explain(err));
         }
@@ -115,7 +138,7 @@ export class GigInteractions {
 }
 
 /** What to tell someone when an action fails. Our own errors say why; anything else stays vague. */
-function explain(err: unknown): string {
+export function explain(err: unknown): string {
     if (err instanceof HttpException) return voice.error(err.message);
     new Logger(GigInteractions.name).error(err);
     return voice.error(voice.broken);

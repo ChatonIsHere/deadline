@@ -5,6 +5,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { openDb } from '../db/db';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import { CrewsService } from '../crews/crews.service';
 import { GigsService } from '../gigs/gigs.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
@@ -23,7 +24,7 @@ const members = {
 } as unknown as MembersService;
 const settings = { get: () => ({ guildId: '1', runnerRoles: CORE_ROLES, reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
 const library = { exists: () => true, pick: () => null } as unknown as LibraryService;
-const posts = { sync: async () => 'thread', askToConfirm: async () => {} } as unknown as GigPostService;
+const posts = { sync: async () => ({ threadId: 'thread', overflowIds: [] }), askToConfirm: async () => {} } as unknown as GigPostService;
 
 const input = (patch: Partial<RunnerInput> = {}): RunnerInput => ({
     handle: 'Vex',
@@ -44,7 +45,7 @@ describe('RunnersService', () => {
     beforeEach(() => {
         const db = openDb(':memory:');
         gigs = new GigsService(db, members, posts, settings, library, new PrefsService(db));
-        runners = new RunnersService(db, members, settings, library, gigs);
+        runners = new RunnersService(db, members, settings, library, gigs, new CrewsService(db, members, gigs));
     });
 
     it("makes a player's runner their own", async () => {

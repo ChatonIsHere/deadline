@@ -14,7 +14,7 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 | --- | --- |
 | Admin | Everything. Approves gigs and runs them (status, session time, runners, debrief), edits any unfinished gig, crew or runner. |
 | Fixer | Submits gigs from one of their fixer characters, and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
-| Edgerunner | Signs their runners up for gigs, creates and runs crews. |
+| Edgerunner | Signs their runners up for gigs, founds crews. |
 
 People with none of these roles can't log in. Admins are people with the admin role, anyone with Manage Server, and the app's owner. Only the owner can change the server.
 
@@ -27,7 +27,13 @@ People with none of these roles can't log in. Admins are people with the admin r
 
 ## Crews
 
-A crew is a group of runners, run by the player who made it. A gig can hold slots for a crew, and only its runners can take them until an admin opens them to anyone. Deleting a crew opens its slots.
+A crew is a group of runners with ranks. A gig can hold slots for a crew, and only its runners can take them until an admin opens them to anyone. Deleting a crew opens its slots.
+
+- **Ranks** are just names, highest first. New crews get Founder, Lieutenant, Member and Prospect. The top rank (Founder unless renamed) runs the crew: edits it, sets ranks, invites, removes runners and keeps the allies list. Admins can do all of that too.
+- A crew always has at least one Founder. A Founder can't step down or leave on their own: another Founder or an admin has to do it. If the last Founder's runner is deleted, the highest ranked runner left takes over.
+- **Invites**: Founders invite a player's runner. The player gets a DM with Join and Decline, and the invite also shows on their **Me** page. New members start at the bottom rank. Admins can also add a runner straight in.
+- **Allies** are runners (or NPC fixers) the crew knows and trusts without them being members. Founders can invite an ally to join from the list.
+- Renaming a rank keeps its runners. Runners in a removed rank drop to the bottom one.
 
 ## Sessions
 
@@ -44,7 +50,7 @@ Each gig is one session.
 
 ## Completing a gig
 
-Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners. Each runner's player gets a DM with their payout and, if the fixer is a character, a menu to rate them from one to five stars. They can also rate (and change it) on the gig page. A fixer's own player can't rate them. The average shows on the fixer's profile. Finished gigs can't be edited.
+Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners. Each runner's player gets a DM with their payout and, if the fixer is a character, a menu to rate them from one to five stars. Picking stars saves them and opens a box for an optional note (300 characters). They can also rate, and change it, on the gig page. Anyone who had a runner on the gig can rate, including the fixer's own player if they went as a runner. The fixer's profile shows the average and the latest five ratings with their notes. Finished gigs can't be edited.
 
 ## Discord setup
 
@@ -90,7 +96,8 @@ Server, forum and roles live in the database and are set on the Settings page.
 | `/board` | Link to the web board (private) |
 | `/gig gig` | A live gig, compact, with links to its post and the board. Suggests gigs as you type |
 | `/runner [handle]` | A runner's card. Leave out the handle to see your own |
-| `/fixer handle` | A fixer's profile and rating |
+| `/fixer handle` | A fixer's profile, rating and latest notes |
+| `/crew name` | A crew, one field per rank with its runners, then its allies |
 | `/newrunner handle role` | Makes a runner. Add a picture and extra roles on the web (private) |
 | `/mygigs` | Live gigs your runners are on, and what you still need to confirm (private) |
 | `/reminders set` | Session reminder DMs on or off (private) |
@@ -101,7 +108,9 @@ Server, forum and roles live in the database and are set on the Settings page.
 - The forum is switched to gallery view and posts auto-archive after a week, the longest Discord allows. Live gigs (open or with sign-ups locked) get reopened if Discord or anyone archives or locks them. The bot also checks every 6 hours and on startup.
 - Completing or cancelling a gig locks and archives its post.
 - Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
-- Objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
+- The brief is the post's description (up to 4,000 characters). Secondary objectives, the crew and the debrief are fields.
+- Nothing gets cut. Long fields split into "(cont.)" fields, and whatever doesn't fit Discord's limits (6,000 characters a message) goes in follow-up messages in the thread, which are kept up to date.
+- The brief and objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
 
 ## Pictures
 
@@ -113,7 +122,7 @@ For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) nex
 
 ## Emoji
 
-`assets/emoji/*.svg` get uploaded as the bot's application emojis on startup if they're missing. To change one, edit the SVG, delete the emoji in the developer portal and restart. Types get an emoji when one is named `type_<type>`, e.g. `type_heist`.
+`assets/emoji/*.svg` get uploaded as the bot's application emojis on startup if they're missing. To change one, edit the SVG, delete the emoji in the developer portal and restart. Types get an emoji when one is named `type_<type>`, e.g. `type_heist`. Runner roles use `role_<role>` (RED's core ten have one); roles added in Settings show without. All of them are drawn for Deadline, not taken from the games.
 
 ## Scripts
 

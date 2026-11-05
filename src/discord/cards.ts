@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import type { GigView, RunnerView } from '../shared/schemas';
+import type { GigView, Review, RunnerView } from '../shared/schemas';
 import type { EmojiLookup } from './emoji.service';
 import { COLOURS, money, openSlots } from './gig-embed';
 import { voice } from './voice';
@@ -50,6 +50,11 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
             ...(runner.contact ? [{ name: 'Reach them', value: runner.contact, inline: true }] : []),
             ...(runner.specialties ? [{ name: 'Specialties', value: runner.specialties, inline: false }] : []),
         );
+        if (runner.reviews.length) {
+            const review = (r: Review) =>
+                `${stars(r.stars)} [${r.gig.name}](${boardUrl}/gigs/${r.gig.id})${r.by ? ` · ${r.by.handle}` : ''}${r.comment ? `\n> ${cut(r.comment, 150)}` : ''}`;
+            fields.push({ name: 'Latest ratings', value: cut(runner.reviews.slice(0, 3).map(review).join('\n'), 1024), inline: false });
+        }
     }
     if (recent.length) {
         fields.push({

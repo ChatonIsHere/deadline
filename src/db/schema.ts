@@ -1,6 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { CORE_ROLES, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
+import { CORE_ROLES, DEFAULT_RANKS, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
 
 const createdAt = () =>
     integer({ mode: 'timestamp_ms' })
@@ -35,11 +35,15 @@ export const sessions = sqliteTable('sessions', {
     expiresAt: integer({ mode: 'timestamp_ms' }).notNull(),
 });
 
+/** A crew of runners. Whoever holds its top rank (Founder by default) runs it. */
 export const crews = sqliteTable('crews', {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull().unique(),
     tagline: text().notNull().default(''),
+    // The player who made it. Kept for the record; the top rank runs the crew.
     ownerId: text().notNull(),
+    // Rank names, highest first. The first is the founder rank and is never removed.
+    ranks: text({ mode: 'json' }).$type<string[]>().notNull().default(DEFAULT_RANKS),
     createdAt: createdAt(),
 });
 
@@ -52,6 +56,38 @@ export const crewMembers = sqliteTable(
         runnerId: integer()
             .notNull()
             .references(() => runners.id, { onDelete: 'cascade' }),
+        // One of the crew's ranks, by name
+        rank: text().notNull().default('Member'),
+    },
+    (t) => [primaryKey({ columns: [t.crewId, t.runnerId] })],
+);
+
+/** Runners a crew knows and trusts, without them being members. */
+export const crewAllies = sqliteTable(
+    'crew_allies',
+    {
+        crewId: integer()
+            .notNull()
+            .references(() => crews.id, { onDelete: 'cascade' }),
+        runnerId: integer()
+            .notNull()
+            .references(() => runners.id, { onDelete: 'cascade' }),
+    },
+    (t) => [primaryKey({ columns: [t.crewId, t.runnerId] })],
+);
+
+/** A crew asking a runner to join. Their player accepts or declines (DM or web). */
+export const crewInvites = sqliteTable(
+    'crew_invites',
+    {
+        crewId: integer()
+            .notNull()
+            .references(() => crews.id, { onDelete: 'cascade' }),
+        runnerId: integer()
+            .notNull()
+            .references(() => runners.id, { onDelete: 'cascade' }),
+        invitedBy: text().notNull(),
+        createdAt: createdAt(),
     },
     (t) => [primaryKey({ columns: [t.crewId, t.runnerId] })],
 );
@@ -105,6 +141,8 @@ export const gigs = sqliteTable('gigs', {
     rewardIp: integer(),
     rewardHqIp: integer(),
     rewardText: text(),
+    // Thread messages carrying whatever didn't fit in the post's first message
+    overflowMessageIds: text({ mode: 'json' }).$type<string[]>().notNull().default([]),
     createdAt: createdAt(),
 });
 
@@ -131,6 +169,8 @@ export const fixerRatings = sqliteTable(
             .references(() => gigs.id, { onDelete: 'cascade' }),
         userId: text().notNull(),
         stars: integer().notNull(),
+        comment: text(),
+        ratedAt: integer({ mode: 'timestamp_ms' }),
     },
     (t) => [primaryKey({ columns: [t.gigId, t.userId] })],
 );
@@ -199,7 +239,7 @@ export const gigReserves = sqliteTable(
     (t) => [primaryKey({ columns: [t.gigId, t.userId] })],
 );
 
-export const crewsRelations = relations(crews, ({ many }) => ({ members: many(crewMembers) }));
+export const crewsRelations = relations(crews, ({ many }) => ({ members: many(crewMembers), allies: many(crewAllies), invites: many(crewInvites) }));
 
 export const crewMembersRelations = relations(crewMembers, ({ one }) => ({
     crew: one(crews, { fields: [crewMembers.crewId], references: [crews.id] }),
@@ -227,4 +267,12 @@ export const gigReservesRelations = relations(gigReserves, ({ one }) => ({
 
 export const gigRewardsRelations = relations(gigRewards, ({ one }) => ({
     gig: one(gigs, { fields: [gigRewards.gigId], references: [gigs.id] }),
+}));
+
+export const crewAlliesRelations = relations(crewAllies, ({ one }) => ({
+    crew: one(crews, { fields: [crewAllies.crewId], references: [crews.id] }),
+}));
+
+export const crewInvitesRelations = relations(crewInvites, ({ one }) => ({
+    crew: one(crews, { fields: [crewInvites.crewId], references: [crews.id] }),
 }));

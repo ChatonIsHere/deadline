@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, avg, count, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, avg, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { CrewsService } from '../crews/crews.service';
 import { DB, Db } from '../db/db';
 import { crewMembers, crews, fixerRatings, gigReserves, gigs, gigSlots, runners } from '../db/schema';
 import { MembersService } from '../discord/members.service';
@@ -7,7 +8,7 @@ import { GigsService, toCard } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn, canSeeGig } from '../shared/permissions';
-import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RunnerCard, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
+import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
 
 type Runner = typeof runners.$inferSelect;
 
@@ -20,6 +21,7 @@ export class RunnersService {
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
         private readonly gigs: GigsService,
+        private readonly crews: CrewsService,
     ) {}
 
     /** Every player's runners. NPC fixers only show on the Fixers tab. */
@@ -90,6 +92,7 @@ export class RunnersService {
             gigs: ran.filter(visible).sort(newest).map(link),
             fixerGigs: fixed.filter(visible).sort(newest).map(link),
             rating: this.rating(id),
+            reviews: this.members.isFixerRunner(r) ? this.reviews(id) : [],
         };
     }
 
@@ -169,7 +172,9 @@ export class RunnersService {
         const r = this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
         this.gigs.dropRunner(id);
+        const crewIds = this.crews.crewsOf(id);
         this.db.delete(runners).where(eq(runners.id, id)).run();
+        this.crews.keepFounders(crewIds);
     }
 
     canManage(user: Me, runner: { ownerId: string | null }) {
@@ -194,6 +199,23 @@ export class RunnersService {
             .where(eq(gigs.fixerRunnerId, fixerId))
             .get();
         return { average: row?.average ? Number(row.average) : null, count: row?.count ?? 0 };
+    }
+
+    /** The fixer's latest five ratings, newest first, with the runner each rater had on the gig. */
+    private reviews(fixerId: number): Review[] {
+        const rows = this.db
+            .select({ stars: fixerRatings.stars, comment: fixerRatings.comment, at: fixerRatings.ratedAt, userId: fixerRatings.userId, gigId: gigs.id, gigName: gigs.name })
+            .from(fixerRatings)
+            .innerJoin(gigs, eq(gigs.id, fixerRatings.gigId))
+            .where(eq(gigs.fixerRunnerId, fixerId))
+            .orderBy(desc(fixerRatings.ratedAt), desc(gigs.id))
+            .limit(5)
+            .all();
+        return rows.map((r) => {
+            const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, r.gigId), eq(gigSlots.userId, r.userId)) }).sync();
+            const by = slot?.runnerId ? this.db.query.runners.findFirst({ where: eq(runners.id, slot.runnerId) }).sync() : undefined;
+            return { stars: r.stars, comment: r.comment, gig: { id: r.gigId, name: r.gigName }, by: by ? toCard(by) : null, at: r.at?.getTime() ?? null };
+        });
     }
 
     /** Roles have to come from the list in Settings, but a runner keeps roles that were taken off it since. */

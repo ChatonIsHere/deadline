@@ -44,7 +44,7 @@ let dropped: string[] = [];
 let reminders: string[][] = [];
 let payouts: Payout[] = [];
 const posts = {
-    sync: async () => 'thread',
+    sync: async () => ({ threadId: 'thread', overflowIds: [] }),
     askToConfirm: async (_gig: unknown, _thread: string, ids: string[], _by: number, nudge = false) => (nudge ? nudged : asked).push(...ids),
     remind: async (_gig: unknown, _thread: string, ids: string[], kind: string) => reminders.push([kind, ...ids]),
     notifyDropped: async (_gig: unknown, ids: string[]) => dropped.push(...ids),
@@ -174,8 +174,7 @@ describe('GigsService', () => {
         });
 
         it('fills crew slots with the crew’s runners first, then open ones', async () => {
-            const crew = crews.create(people[2], { name: 'Moxes', tagline: '' });
-            crews.addMember(people[2], crew.id, ids.b);
+            const crew = crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.b });
             const gig = gigs.create(admin, input([{ crewId: crew.id, count: 1 }, { crewId: null, count: 1 }]));
             await gigs.join('b', gig.id);
             await gigs.join('a', gig.id);
@@ -204,14 +203,14 @@ describe('GigsService', () => {
         });
 
         it('opens up crew slots when the crew is deleted', () => {
-            const crew = crews.create(people[2], { name: 'Moxes', tagline: '' });
+            const crew = crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.b });
             const gig = gigs.create(admin, input([{ crewId: crew.id, count: 1 }]));
-            crews.delete(people[2], crew.id);
+            crews.delete(admin, crew.id);
             assert.equal(gigs.get(admin, gig.id).slots[0].crew, null);
         });
 
         it('opens crew slots to anyone and fills them from the reserves', async () => {
-            const crew = crews.create(people[2], { name: 'Moxes', tagline: '' });
+            const crew = crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.b });
             const gig = gigs.create(admin, input([{ crewId: crew.id, count: 1 }]));
             await gigs.join('c', gig.id);
             const after = gigs.openCrewSlots(admin, gig.id, crew.id);
@@ -362,7 +361,7 @@ describe('GigsService', () => {
             assert.equal(gigs.get(admin, gig.id).reserves.length, 0);
         });
 
-        it("won't let a fixer's player rate their own fixer", async () => {
+        it("lets a fixer's player rate their fixer when they went as a runner", async () => {
             people.push(person('both', { isFixer: true }));
             addRunner('both', 'Fixer Two', 'Fixer');
             addRunner('both', 'Solo Two');
@@ -371,8 +370,11 @@ describe('GigsService', () => {
             db.update(gigsTable).set({ fixerRunnerId: ids['Fixer Two'], fixerId: 'both' }).run();
             await gigs.join('both', gig.id, ids['Solo Two']);
             debrief.complete(admin, gig.id, { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] });
-            assert.throws(() => debrief.rate('both', gig.id, 5), /your own fixer/);
-            assert.equal(gigs.get(person('both'), gig.id).canRate, false);
+            assert.equal(gigs.get(person('both'), gig.id).canRate, true);
+            debrief.rate('both', gig.id, 4, 'Paid on time.');
+            // Rating again from the DM menu (no comment given) keeps the comment
+            debrief.rate('both', gig.id, 5);
+            assert.deepEqual(gigs.get(person('both'), gig.id).myRating, { stars: 5, comment: 'Paid on time.' });
             people.pop();
         });
 
@@ -418,7 +420,7 @@ describe('GigsService', () => {
             debrief.complete(admin, gig.id, { ...crewRewards, runners: [] });
             debrief.rate('a', gig.id, 3);
             debrief.rate('a', gig.id, 5);
-            assert.equal(gigs.get(people[2], gig.id).myRating, 5);
+            assert.deepEqual(gigs.get(people[2], gig.id).myRating, { stars: 5, comment: null });
             assert.throws(() => debrief.rate('b', gig.id, 1), /only runners on the gig/);
         });
     });

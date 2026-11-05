@@ -50,6 +50,20 @@
       "when": 1793892060524,
       "tag": "0006_runners_step3",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793897718944,
+      "tag": "0007_crew_ranks_ratings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793897920451,
+      "tag": "0008_rebuild_gig_fks",
+      "breakpoints": true
     }
   ]
 }

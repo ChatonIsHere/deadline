@@ -1,7 +1,7 @@
 import type { RegionView } from '@shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmButton, Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { api, imageUrl, uploadImage, useAction, useLibrary, useUser } from '@/lib/api';
+import { UploadButton } from '@/components/upload-button';
+import { api, imageUrl, useAction, useLibrary, useUser } from '@/lib/api';
 
 export function LibraryPage() {
     const me = useUser();
@@ -49,26 +50,9 @@ export function LibraryPage() {
 }
 
 function Pictures({ title, ids, region }: { title: string; ids: number[]; region: RegionView | null }) {
-    const fileInput = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
     const remove = useAction((id: number) => api(`/api/library/images/${id}`, 'DELETE'));
     const removeRegion = useAction(() => api(`/api/library/regions/${region!.id}`, 'DELETE'), 'Region deleted.');
     const queryClient = useQueryClient();
-
-    const upload = async (e: ChangeEvent<HTMLInputElement>) => {
-        const files = [...(e.target.files ?? [])];
-        e.target.value = '';
-        setUploading(true);
-        try {
-            for (const file of files) await uploadImage(file, { library: true, regionId: region?.id });
-            await queryClient.invalidateQueries({ queryKey: ['library'] });
-            toast.success('Uploaded.');
-        } catch (err) {
-            toast.error((err as Error).message);
-        } finally {
-            setUploading(false);
-        }
-    };
 
     return (
         <Card className="space-y-3">
@@ -76,10 +60,14 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
                 <CardTitle className="mb-0 flex-1">
                     {title} <span className="text-muted-foreground">({ids.length})</span>
                 </CardTitle>
-                <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInput.current?.click()}>
-                    <Upload className="size-4" /> {uploading ? 'Uploading' : 'Upload'}
-                </Button>
-                <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={upload} />
+                <UploadButton
+                    multiple
+                    options={{ library: true, regionId: region?.id }}
+                    onUploaded={async () => {
+                        await queryClient.invalidateQueries({ queryKey: ['library'] });
+                        toast.success('Uploaded.');
+                    }}
+                />
                 {region && (
                     <ConfirmButton
                         size="icon"

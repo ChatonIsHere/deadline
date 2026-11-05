@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import type { CrewInvite, CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { framedFile, plainFile } from '@shared/images';
 import { toast } from 'sonner';
 
@@ -31,6 +31,8 @@ export const useGig = (id: string | undefined) =>
     useQuery({ queryKey: ['gigs', id], queryFn: () => api<GigView>(`/api/gigs/${id}`), enabled: !!id });
 export const useGigTypes = () => useQuery({ queryKey: ['gig-types'], queryFn: () => api<string[]>('/api/gigs/types') });
 
+/** Crew invites waiting on the signed in player's runners. */
+export const useCrewInvites = () => useQuery({ queryKey: ['crews', 'invites'], queryFn: () => api<CrewInvite[]>('/api/crews/invites') });
 export const useCrews = () => useQuery({ queryKey: ['crews'], queryFn: () => api<CrewView[]>('/api/crews') });
 export const useCrew = (id: string | undefined) =>
     useQuery({ queryKey: ['crews', id], queryFn: () => api<CrewView>(`/api/crews/${id}`), enabled: !!id });
@@ -47,8 +49,15 @@ export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api
 /** Everyone who can be given a runner. Admins only. */
 export const usePlayers = (enabled: boolean) => useQuery({ queryKey: ['players'], queryFn: () => api<Member[]>('/api/players'), enabled });
 
-/** Uploads a picture and returns its ID. `avatar` makes a square runner picture. */
-export async function uploadImage(file: File, opts: { library?: boolean; regionId?: number | null; kind?: 'gig' | 'avatar' } = {}): Promise<number> {
+/** `library` adds it to the picture library (admins). `avatar` makes a square runner picture. */
+export interface UploadOptions {
+    library?: boolean;
+    regionId?: number | null;
+    kind?: 'gig' | 'avatar';
+}
+
+/** Uploads a picture and returns its ID. Use UploadButton rather than calling this. */
+export async function uploadImage(file: File, opts: UploadOptions = {}): Promise<number> {
     const form = new FormData();
     form.append('file', file);
     if (opts.library) form.append('library', 'true');

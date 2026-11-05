@@ -1,6 +1,5 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
-import { Upload } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Say } from '@/components/common';
@@ -10,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { api, uploadImage, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
+import { UploadButton } from '@/components/upload-button';
+import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
 import { cn, firstIssue } from '@/lib/utils';
 
 /**
@@ -36,8 +36,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
     const npc = !runner && me.isAdmin && params.get('npc') === '1';
     const roles = useRoles().data ?? [];
     const players = usePlayers(me.isAdmin).data ?? [];
-    const fileInput = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState<RunnerInput>(() => ({
         handle: runner?.handle ?? '',
@@ -58,20 +56,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         (input: RunnerInput) => (runner ? api<RunnerView>(`/api/runners/${runner.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),
         (saved) => navigate(`/runners/${saved.id}`),
     );
-
-    const upload = async (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        e.target.value = '';
-        if (!file) return;
-        setUploading(true);
-        try {
-            set({ imageId: await uploadImage(file, { kind: 'avatar' }) });
-        } catch (err) {
-            toast.error((err as Error).message);
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const toggleExtra = (role: string) =>
         set({ extraRoles: form.extraRoles.includes(role) ? form.extraRoles.filter((r) => r !== role) : [...form.extraRoles, role] });
@@ -120,10 +104,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                 <Card className="space-y-3">
                     <CardTitle>Picture</CardTitle>
                     <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
-                    <Button type="button" variant="outline" size="sm" className="w-full" disabled={uploading} onClick={() => fileInput.current?.click()}>
-                        <Upload className="size-4" /> {uploading ? 'Uploading' : 'Upload'}
-                    </Button>
-                    <input ref={fileInput} type="file" accept="image/*" hidden onChange={upload} />
+                    <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
                 </Card>
 
                 <Card className="space-y-4">
@@ -193,7 +174,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
             )}
 
             {error && <p className="text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={save.isPending || uploading}>
+            <Button type="submit" className="w-full" disabled={save.isPending}>
                 {runner ? 'Save changes' : 'Create'}
             </Button>
         </form>

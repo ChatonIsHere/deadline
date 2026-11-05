@@ -57,20 +57,29 @@ export class DebriefService {
         return this.gigs.view(id, user.id);
     }
 
-    /** A runner's player rates the gig's fixer, 1 to 5 stars. Can be changed later. */
-    rate(userId: string, id: number, stars: number): string {
+    /**
+     * A player who had a runner on the gig rates its fixer, 1 to 5 stars, with an optional
+     * comment. That includes the fixer's own player when they went as a runner. Can be
+     * changed later. Leaving `comment` out keeps the one already there.
+     */
+    rate(userId: string, id: number, stars: number, comment?: string | null): string {
         const gig = this.gigs.row(id);
         if (gig.status !== 'completed' || !gig.fixerRunnerId) throw new BadRequestException("there's no fixer to rate on that gig.");
-        if (gig.fixerId === userId) throw new BadRequestException("you can't rate your own fixer.");
         const wasOn = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, id), eq(gigSlots.userId, userId)) }).sync();
         if (!wasOn) throw new BadRequestException('only runners on the gig can rate its fixer.');
 
+        const set = { stars, ratedAt: new Date(), ...(comment !== undefined && { comment }) };
         this.db
             .insert(fixerRatings)
-            .values({ gigId: id, userId, stars })
-            .onConflictDoUpdate({ target: [fixerRatings.gigId, fixerRatings.userId], set: { stars } })
+            .values({ gigId: id, userId, ...set })
+            .onConflictDoUpdate({ target: [fixerRatings.gigId, fixerRatings.userId], set })
             .run();
         return voice.rated(stars);
+    }
+
+    /** The player's rating for a gig, for prefilling the comment box. */
+    myRating(userId: string, id: number) {
+        return this.db.query.fixerRatings.findFirst({ where: and(eq(fixerRatings.gigId, id), eq(fixerRatings.userId, userId)) }).sync();
     }
 }
 

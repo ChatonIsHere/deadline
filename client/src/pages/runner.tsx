@@ -1,8 +1,8 @@
-import type { GigLink } from '@shared/schemas';
+import type { GigLink, Review } from '@shared/schemas';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Person, Say, StatusBadge } from '@/components/common';
 import { Markdown } from '@/components/markdown';
-import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
+import { RatingLine, Roles, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
 import { formatSession } from '@/components/session';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -77,6 +77,8 @@ export function RunnerPage() {
                 </Card>
             )}
 
+            {runner.isFixer && runner.reviews.length > 0 && <Reviews reviews={runner.reviews} />}
+
             <div className="grid gap-5 lg:grid-cols-2">
                 {runner.isFixer && <GigList title="Gigs put out" gigs={runner.fixerGigs} empty="no gigs yet." />}
                 {runner.owner && <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />}
@@ -113,6 +115,30 @@ function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]; empty
             ) : (
                 <Say>{empty}</Say>
             )}
+        </Card>
+    );
+}
+
+/** A fixer's latest ratings, newest first. */
+function Reviews({ reviews }: { reviews: Review[] }) {
+    return (
+        <Card>
+            <CardTitle>Latest ratings</CardTitle>
+            <ul className="space-y-4">
+                {reviews.map((r) => (
+                    <li key={r.gig.id + (r.by?.handle ?? '')} className="space-y-1">
+                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <Stars value={r.stars} />
+                            <Link to={`/gigs/${r.gig.id}`} className="hover:text-primary">
+                                {r.gig.name}
+                            </Link>
+                            {r.by && <RunnerChip runner={r.by} />}
+                            {r.at && <span className="ml-auto text-xs text-muted-foreground">{new Date(r.at).toLocaleDateString('en-GB')}</span>}
+                        </p>
+                        {r.comment && <p className="border-l-2 border-accent pl-3 text-muted-foreground italic">{r.comment}</p>}
+                    </li>
+                ))}
+            </ul>
         </Card>
     );
 }

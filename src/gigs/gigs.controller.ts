@@ -11,6 +11,7 @@ import {
     type Me,
     openSlotsInput,
     ratingInput,
+    type RatingInput,
     runnerRefInput,
     sessionInput,
     statusInput,
@@ -95,8 +96,8 @@ export class GigsController {
 
     /** A player rates the gig's fixer, from the web. The payout DM has the same menu. */
     @Post(':id/rating')
-    rate(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(ratingInput)) body: { stars: number }) {
-        return { message: plain(this.debrief.rate(user.id, id, body.stars)) };
+    rate(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(ratingInput)) body: RatingInput) {
+        return { message: plain(this.debrief.rate(user.id, id, body.stars, body.comment)) };
     }
 
     @Delete(':id/reserves/:userId')

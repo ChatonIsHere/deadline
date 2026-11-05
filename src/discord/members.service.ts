@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Client, Guild, GuildMember, PermissionFlagsBits, Team, User } from 'discord.js';
+import { Client, Guild, GuildMember, type MessageCreateOptions, PermissionFlagsBits, Team, User } from 'discord.js';
 import { Context, ContextOf, Once } from 'necord';
 import { SettingsService } from '../settings/settings.service';
 import { FIXER_ROLE, type Me, type Member } from '../shared/schemas';
@@ -90,6 +90,19 @@ export class MembersService {
         if (!runner.ownerId) return true;
         const roleId = this.settings.get().fixerRoleId;
         return !!roleId && !!this.guild?.members.cache.get(runner.ownerId)?.roles.cache.has(roleId);
+    }
+
+    /** Sends a DM to each person. Returns who couldn't be reached (DMs closed, or gone). */
+    async dm(userIds: string[], message: MessageCreateOptions): Promise<string[]> {
+        const failed: string[] = [];
+        for (const id of userIds) {
+            try {
+                await (await this.client.users.fetch(id)).send(message);
+            } catch {
+                failed.push(id);
+            }
+        }
+        return failed;
     }
 }
 

@@ -7,7 +7,8 @@ import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import { api, useAction, useCrews, useUser } from '@/lib/api';
+import { Select } from '@/components/ui/select';
+import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
 
 export function Crews() {
     const me = useUser();
@@ -51,11 +52,19 @@ function CrewCard({ crew }: { crew: CrewView }) {
     );
 }
 
+/** The founding runner is the player's own. Admins can found a crew for anyone's runner. */
 function NewCrew() {
+    const me = useUser();
     const navigate = useNavigate();
+    const mine = useMyRunners().data ?? [];
+    const everyone = useRunners().data ?? [];
+    const choices = me.isAdmin ? everyone.map((r) => ({ value: String(r.id), label: r.handle, hint: r.owner?.name })) : mine.map((r) => ({ value: String(r.id), label: r.handle }));
     const [name, setName] = useState('');
     const [tagline, setTagline] = useState('');
-    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, tagline }), (crew) => navigate(`/crews/${crew.id}`));
+    const [picked, setPicked] = useState('');
+    // One runner of your own needs no picking
+    const runnerId = picked || (mine.length === 1 ? String(mine[0].id) : '');
+    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, tagline, runnerId: Number(runnerId) }), (crew) => navigate(`/crews/${crew.id}`));
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -74,7 +83,17 @@ function NewCrew() {
                     <Label htmlFor="crew-tagline">Tagline</Label>
                     <Input id="crew-tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={120} />
                 </div>
-                <Button type="submit" className="w-full" disabled={create.isPending || !name.trim()}>
+                <div>
+                    <Label htmlFor="crew-founder">Founder</Label>
+                    {choices.length ? (
+                        <Select id="crew-founder" value={runnerId} onChange={setPicked} placeholder="Which runner founds it?" options={choices} />
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            Make a runner first. <Link to="/runners/new" className="text-accent hover:underline">New runner</Link>
+                        </p>
+                    )}
+                </div>
+                <Button type="submit" className="w-full" disabled={create.isPending || !name.trim() || !runnerId}>
                     Register
                 </Button>
             </form>

@@ -95,7 +95,7 @@ export function Gig() {
                     {gig.canRate && <RateFixer gig={gig} />}
                     <Card>
                         <CardTitle className="flex items-center gap-2">
-                            <Icon name="objective" /> Primary objective
+                            <Icon name="objective" /> Brief
                         </CardTitle>
                         <Markdown text={gig.objective} />
                     </Card>

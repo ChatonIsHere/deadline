@@ -3,6 +3,7 @@ import { type AutocompleteInteraction, MessageFlags } from 'discord.js';
 import { AutocompleteInterceptor, Context, Options, SlashCommand, type SlashCommandContext, StringOption } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
+import { CrewsService } from '../crews/crews.service';
 import { GigsService } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
 import { RunnersService } from '../runners/runners.service';
@@ -10,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { canLogIn } from '../shared/permissions';
 import type { Me } from '../shared/schemas';
 import { gigCard, myGigsCard, runnerCard } from './cards';
+import { crewCard } from './crew-messages';
 import { EmojiService } from './emoji.service';
 import { MembersService } from './members.service';
 import { voice } from './voice';
@@ -29,6 +31,11 @@ class RunnerOptions {
 class FixerOptions {
     @StringOption({ name: 'handle', description: "Start typing a fixer's handle", required: true, autocomplete: true })
     handle: string;
+}
+
+class CrewOptions {
+    @StringOption({ name: 'name', description: 'Start typing a crew name', required: true, autocomplete: true })
+    name: string;
 }
 
 class NewRunnerOptions {
@@ -55,13 +62,14 @@ class ReminderOptions {
 const fits = (text: string, typed: string) => text.toLowerCase().includes(typed.trim().toLowerCase());
 const short = (text: string) => (text.length > 100 ? `${text.slice(0, 99)}…` : text);
 
-/** Suggestions while typing: live gigs, runners, fixers and roles. */
+/** Suggestions while typing: live gigs, runners, fixers, crews and roles. */
 @Injectable()
 class Suggestions extends AutocompleteInterceptor {
     constructor(
         private readonly gigs: GigsService,
         private readonly runners: RunnersService,
         private readonly settings: SettingsService,
+        private readonly crews: CrewsService,
     ) {
         super();
     }
@@ -80,6 +88,12 @@ class Suggestions extends AutocompleteInterceptor {
             case 'fixer':
                 choices = this.runners.search(typed, interaction.commandName === 'fixer').map((r) => ({ name: short(`${r.handle} (${r.role})`), value: String(r.id) }));
                 break;
+            case 'crew':
+                choices = this.crews
+                    .list()
+                    .filter((c) => fits(c.name, typed))
+                    .map((c) => ({ name: short(c.name), value: String(c.id) }));
+                break;
             case 'newrunner':
                 choices = this.settings
                     .get()
@@ -91,7 +105,7 @@ class Suggestions extends AutocompleteInterceptor {
     }
 }
 
-/** Slash commands. Lookups (/gig, /runner, /fixer) are posted for everyone; the rest are private. */
+/** Slash commands. Lookups (/gig, /runner, /fixer, /crew) are posted for everyone; the rest are private. */
 @Injectable()
 export class Commands {
     constructor(
@@ -101,6 +115,7 @@ export class Commands {
         private readonly prefs: PrefsService,
         private readonly library: LibraryService,
         private readonly emoji: EmojiService,
+        private readonly crews: CrewsService,
     ) {}
 
     @SlashCommand({ name: 'board', description: 'Link to the gig board' })
@@ -148,6 +163,18 @@ export class Commands {
         } catch {
             await this.oops(interaction, 'no fixer by that handle.');
         }
+    }
+
+    @UseInterceptors(Suggestions)
+    @SlashCommand({ name: 'crew', description: 'Show a crew and its ranks' })
+    async crew(@Context() [interaction]: SlashCommandContext, @Options() { name }: CrewOptions) {
+        const all = this.crews.list();
+        const crew = all.find((c) => c.id === Number(name)) ?? all.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+        if (!crew) return this.oops(interaction, 'no crew by that name.');
+        // Big crews spill over into more messages
+        const [first, ...more] = crewCard(crew, this.emoji.get, config.PUBLIC_URL);
+        await interaction.reply(first);
+        for (const message of more) await interaction.followUp(message);
     }
 
     @UseInterceptors(Suggestions)

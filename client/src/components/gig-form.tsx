@@ -1,6 +1,6 @@
 import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } from '@shared/schemas';
-import { Plus, Shuffle, Upload, X } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react';
+import { Plus, Shuffle, X } from 'lucide-react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { Icon, Say } from '@/components/common';
@@ -11,8 +11,9 @@ import { RunnerAvatar } from '@/components/runner';
 import { Combobox } from '@/components/ui/combobox';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { firstIssue } from '@/lib/utils';
-import { imageUrl, uploadImage, useCrews, useFixers, useGigTypes, useLibrary, useUser } from '@/lib/api';
+import { UploadButton } from '@/components/upload-button';
+import { cn, firstIssue } from '@/lib/utils';
+import { imageUrl, useCrews, useFixers, useGigTypes, useLibrary, useUser } from '@/lib/api';
 
 // Numbers are kept as strings while typing so fields can be empty.
 interface FormState {
@@ -94,8 +95,6 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
     const me = useUser();
     const [form, setForm] = useState(() => toForm(gig));
     const [error, setError] = useState('');
-    const [uploading, setUploading] = useState(false);
-    const fileInput = useRef<HTMLInputElement>(null);
 
     const crews = useCrews().data ?? [];
     const types = useGigTypes().data ?? [];
@@ -117,20 +116,6 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
     useEffect(() => {
         if (pictures && form.imageAuto) set({ imageId: randomFrom(pictures.ids, null) });
     }, [pictures?.key]);
-
-    const upload = async (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        e.target.value = '';
-        if (!file) return;
-        setUploading(true);
-        try {
-            set({ imageId: await uploadImage(file), imageAuto: false });
-        } catch (err) {
-            toast.error((err as Error).message);
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const totalSlots = form.slots.reduce((sum, s) => sum + (Number(s.count) || 0), 0);
 
@@ -155,8 +140,9 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <Input id="name" value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={100} />
                     </div>
                     <div>
-                        <Label>Primary objective</Label>
+                        <Label>Brief</Label>
                         <MarkdownEditor value={form.objective} onChange={(objective) => set({ objective })} />
+                        <p className={cn('mt-1 text-right text-xs', form.objective.length > 4000 ? 'text-destructive' : 'text-muted-foreground')}>{form.objective.length} / 4000</p>
                     </div>
                 </Card>
 
@@ -212,10 +198,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         >
                             <Shuffle className="size-4" /> Shuffle
                         </Button>
-                        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInput.current?.click()}>
-                            <Upload className="size-4" /> {uploading ? 'Uploading' : 'Upload'}
-                        </Button>
-                        <input ref={fileInput} type="file" accept="image/*" hidden onChange={upload} />
+                        <UploadButton onUploaded={([imageId]) => set({ imageId, imageAuto: false })} />
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {form.imageAuto ? 'Picked for the location. Changes with it.' : 'Your pick. Shuffle to go back to the library.'}
@@ -308,7 +291,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 {error && <p className="text-destructive">{error}</p>}
-                <Button type="submit" className="w-full" disabled={saving || uploading || noFixer}>
+                <Button type="submit" className="w-full" disabled={saving || noFixer}>
                     {gig ? 'Save changes' : 'Post the gig'}
                 </Button>
             </div>

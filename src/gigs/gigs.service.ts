@@ -576,8 +576,10 @@ export class GigsService {
             try {
                 const gig = this.row(id);
                 const view = this.view(id);
-                const threadId = await this.posts.sync(view, gig.threadId, note);
-                if (threadId !== gig.threadId) this.db.update(gigs).set({ threadId }).where(eq(gigs.id, id)).run();
+                const { threadId, overflowIds } = await this.posts.sync(view, { threadId: gig.threadId, overflowIds: gig.overflowMessageIds }, note);
+                if (threadId !== gig.threadId || overflowIds.join() !== gig.overflowMessageIds.join()) {
+                    this.db.update(gigs).set({ threadId, overflowMessageIds: overflowIds }).where(eq(gigs.id, id)).run();
+                }
                 if (!threadId) return;
                 // Only players still waiting to confirm by now (someone may have pulled out meanwhile)
                 const stillAsked = ask.filter((userId) => view.slots.some((s) => s.runner?.ownerId === userId && s.state === 'awaiting'));
@@ -661,8 +663,8 @@ export class GigsService {
             runnerRewards: gig.rewards
                 .filter((r) => cards.has(r.runnerId))
                 .map((r) => ({ runner: toCard(cards.get(r.runnerId)!), eb: r.eb, ip: r.ip, text: r.text })),
-            canRate: done && !!gig.fixerRunnerId && !!userId && gig.fixerId !== userId && gig.slots.some((s) => s.userId === userId),
-            myRating: rating?.stars ?? null,
+            canRate: done && !!gig.fixerRunnerId && !!userId && gig.slots.some((s) => s.userId === userId),
+            myRating: rating ? { stars: rating.stars, comment: rating.comment } : null,
         };
     }
 

@@ -8,7 +8,9 @@ export function Input({ className, ...props }: ComponentProps<'input'>) {
     return <input className={cn(fieldClass, 'h-9', className)} {...props} />;
 }
 
-
+export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
+    return <textarea className={cn(fieldClass, 'min-h-20 py-2', className)} {...props} />;
+}
 
 export function Label({ className, ...props }: ComponentProps<'label'>) {
     return <label className={cn('mb-1 block font-display text-xs tracking-widest text-muted-foreground uppercase', className)} {...props} />;

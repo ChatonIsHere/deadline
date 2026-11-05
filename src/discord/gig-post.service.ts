@@ -1,11 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ChannelType, Client, DiscordAPIError, ForumChannel, ForumLayoutType, type MessageCreateOptions, RESTJSONErrorCodes, ThreadAutoArchiveDuration } from 'discord.js';
+import { type AnyThreadChannel, type APIEmbed, ChannelType, Client, DiscordAPIError, ForumChannel, ForumLayoutType, RESTJSONErrorCodes, ThreadAutoArchiveDuration } from 'discord.js';
 import { Once } from 'necord';
 import { config } from '../config';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { EmojiService } from './emoji.service';
+import { MembersService } from './members.service';
 import type { Payout } from '../gigs/debrief.service';
 import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
 import { voice } from './voice';
@@ -53,6 +54,7 @@ export class GigPostService {
         private readonly emoji: EmojiService,
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
+        private readonly members: MembersService,
     ) {}
 
     @Once('clientReady')
@@ -87,11 +89,11 @@ export class GigPostService {
     }
 
     /**
-     * Creates or updates the gig's post and returns its thread ID. `note` is posted in
-     * the thread before a finished gig gets archived.
+     * Creates or updates the gig's post. `note` is posted in the thread before a finished
+     * gig gets archived. Returns where the post is now.
      */
-    async sync(gig: GigView, threadId: string | null, note?: string): Promise<string | null> {
-        if (gig.status === 'pending' || gig.status === 'rejected') return threadId;
+    async sync(gig: GigView, post: PostRef, note?: string): Promise<PostRef> {
+        if (gig.status === 'pending' || gig.status === 'rejected') return post;
 
         // Emoji load on startup; posts built before that would fall back to plain text
         await this.emoji.ready;
@@ -100,13 +102,13 @@ export class GigPostService {
             gig: gig.imageId ? this.library.url(gig.imageId) : null,
             fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
         };
-        const message = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
+        const { first, more } = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
         const appliedTags = this.tagIds(forum, gig);
 
         // A new post only if there's none yet or Discord says it was deleted. Any other
         // error (a timeout, an outage) is thrown, so a hiccup can't make a duplicate.
-        const thread = threadId
-            ? await forum.threads.fetch(threadId).catch((err) => {
+        const thread = post.threadId
+            ? await forum.threads.fetch(post.threadId).catch((err) => {
                   if (err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownChannel) return null;
                   throw err;
               })
@@ -114,20 +116,22 @@ export class GigPostService {
         if (!thread) {
             const created = await forum.threads.create({
                 name: gig.name,
-                message,
+                message: first,
                 appliedTags,
                 autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
             });
+            const overflowIds = await this.syncOverflow(created, [], more);
             if (isFinal(gig)) {
                 await created.setLocked(true);
                 await created.setArchived(true);
             }
-            return created.id;
+            return { threadId: created.id, overflowIds };
         }
 
         if (thread.archived) await thread.setArchived(false);
         const starter = await thread.fetchStarterMessage();
-        await starter?.edit(message);
+        await starter?.edit(first);
+        const overflowIds = await this.syncOverflow(thread, post.overflowIds, more);
         if (thread.name !== gig.name) await thread.setName(gig.name);
         if (!sameIds(thread.appliedTags, appliedTags)) await thread.setAppliedTags(appliedTags);
         if (thread.autoArchiveDuration !== ThreadAutoArchiveDuration.OneWeek) {
@@ -140,14 +144,35 @@ export class GigPostService {
         } else if (thread.locked) {
             await thread.setLocked(false);
         }
-        return thread.id;
+        return { threadId: thread.id, overflowIds };
+    }
+
+    /** Edits the follow-up messages in place, sends any new ones and deletes the spares. Returns their IDs. */
+    private async syncOverflow(thread: AnyThreadChannel, ids: string[], messages: { embeds: APIEmbed[] }[]): Promise<string[]> {
+        const kept: string[] = [];
+        for (const [i, message] of messages.entries()) {
+            const id = ids[i];
+            const edited = id
+                ? await thread.messages.edit(id, message).catch((err) => {
+                      if (isGone(err)) return null;
+                      throw err;
+                  })
+                : null;
+            kept.push(edited ? edited.id : (await thread.send({ ...message, allowedMentions: { parse: [] } })).id);
+        }
+        for (const id of ids.slice(messages.length)) {
+            await thread.messages.delete(id).catch((err) => {
+                if (!isGone(err)) throw err;
+            });
+        }
+        return kept;
     }
 
     /** DMs runners to confirm the session. Anyone whose DMs are closed gets pinged in the thread instead. */
     async askToConfirm(gig: GigView, threadId: string, userIds: string[], confirmBy: number, nudge = false) {
         if (!gig.sessionAt) return;
         const content = (nudge ? voice.nudge : voice.confirmAsk)(gig.name, gig.sessionAt, confirmBy);
-        const failed = await this.dm(userIds, confirmMessage(gig.id, content, this.threadUrl(threadId)));
+        const failed = await this.members.dm(userIds, confirmMessage(gig.id, content, this.threadUrl(threadId)));
         if (!failed.length) return;
 
         const thread = await this.client.channels.fetch(threadId);
@@ -163,7 +188,7 @@ export class GigPostService {
     async remind(gig: GigView, threadId: string, userIds: string[], kind: 'day' | 'soon') {
         if (!gig.sessionAt) return;
         const content = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
-        await this.dm(userIds, reminderMessage(content, this.threadUrl(threadId)));
+        await this.members.dm(userIds, reminderMessage(content, this.threadUrl(threadId)));
 
         const thread = await this.client.channels.fetch(threadId);
         if (thread?.isThread()) await thread.send((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt));
@@ -171,28 +196,15 @@ export class GigPostService {
 
     /** Tells runners they were dropped for not confirming. */
     async notifyDropped(gig: GigView, userIds: string[]) {
-        await this.dm(userIds, { content: voice.dropped(gig.name) });
+        await this.members.dm(userIds, { content: voice.dropped(gig.name) });
     }
 
     /** DMs each runner's player what they earned, with a menu to rate the fixer. */
     async sendPayouts(gig: GigView, payouts: Payout[]) {
         const threadUrl = gig.threadUrl;
         for (const payout of payouts) {
-            await this.dm([payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
+            await this.members.dm([payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
         }
-    }
-
-    /** Sends a DM to each person. Returns who couldn't be reached. */
-    private async dm(userIds: string[], message: MessageCreateOptions): Promise<string[]> {
-        const failed: string[] = [];
-        for (const id of userIds) {
-            try {
-                await (await this.client.users.fetch(id)).send(message);
-            } catch {
-                failed.push(id);
-            }
-        }
-        return failed;
     }
 
     private threadUrl(threadId: string) {
@@ -240,3 +252,11 @@ export class GigPostService {
 }
 
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
+
+/** Where a gig's post lives: its thread, and the follow-up messages holding what didn't fit the first. */
+export interface PostRef {
+    threadId: string | null;
+    overflowIds: string[];
+}
+
+const isGone = (err: unknown) => err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownMessage;
