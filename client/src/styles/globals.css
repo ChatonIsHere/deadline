@@ -103,3 +103,16 @@
         background: var(--fill, var(--color-card));
     }
 }
+
+/* A terminal cursor. Holds still for people who turn motion off. */
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+@utility blink {
+    animation: blink 1s steps(1) infinite;
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}

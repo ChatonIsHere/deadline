@@ -122,7 +122,9 @@ For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) nex
 
 ## Emoji
 
-`assets/emoji/*.svg` get uploaded as the bot's application emojis on startup if they're missing. To change one, edit the SVG, delete the emoji in the developer portal and restart. Types get an emoji when one is named `type_<type>`, e.g. `type_heist`. Runner roles use `role_<role>` (RED's core ten have one); roles added in Settings show without. All of them are drawn for Deadline, not taken from the games.
+`assets/emoji/*.svg` are the bot's application emojis, also used on the web. They're original drawings in one style, made by `scripts/draw-emoji.js`: change a shape there and run `npm run emoji`. On startup each one is uploaded as `name_hash` (the hash comes from the SVG), so a changed drawing goes up as a new emoji and old messages keep the old one.
+
+Types get an emoji when one is named `type_<type>`, e.g. `type_heist`. Runner roles use `role_<role>`: RED's core ten have one, roles added in Settings show without.
 
 ## Scripts
 
@@ -133,4 +135,5 @@ For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) nex
 | `npm run start:prod` | Runs the build. Set `NODE_ENV=production` |
 | `npm test` | Unit tests |
 | `npm run typecheck` | Server and client |
+| `npm run emoji` | Redraws `assets/emoji` from `scripts/draw-emoji.js` |
 | `npm run db:generate` | New migration after changing `src/db/schema.ts`. Migrations run on startup. |

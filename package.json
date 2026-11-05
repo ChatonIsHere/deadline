@@ -12,7 +12,8 @@
         "start:prod": "node dist/main",
         "typecheck": "tsc --noEmit && tsc --noEmit -p client",
         "test": "tsc -p tsconfig.spec.json && node --test \"dist-test/**/*.spec.js\"",
-        "db:generate": "drizzle-kit generate"
+        "db:generate": "drizzle-kit generate",
+        "emoji": "node scripts/draw-emoji.js"
     },
     "dependencies": {
         "@nestjs/common": "^11.2.8",
@@ -20,6 +21,7 @@
         "@nestjs/platform-express": "^11.2.8",
         "@resvg/resvg-js": "^2.6.2",
         "better-sqlite3": "^12.11.1",
+        "cmdk": "^1.1.1",
         "cookie-parser": "^1.4.7",
         "discord.js": "^14.28.1",
         "drizzle-orm": "^0.45.4",

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -11,9 +12,9 @@ export const EMOJI_DIR = join(__dirname, '..', '..', 'assets', 'emoji');
 export type EmojiLookup = (name: string) => string;
 
 /**
- * Keeps the bot's application emojis in sync with assets/emoji. Missing ones are
- * uploaded on startup. To replace one, delete it in the Discord developer portal
- * and restart.
+ * Keeps the bot's application emojis in sync with assets/emoji. Each is uploaded as
+ * name_hash (e.g. eb_3fa2c1), the hash coming from the SVG, so editing a file uploads
+ * a new version on the next start. Old versions stay, so old messages keep their icons.
  */
 @Injectable()
 export class EmojiService {
@@ -38,11 +39,13 @@ export class EmojiService {
 
             for (const file of files) {
                 const name = file.replace(/\.svg$/, '');
-                let emoji = existing.find((e) => e.name === name);
+                const svg = readFileSync(join(EMOJI_DIR, file), 'utf8');
+                const versioned = `${name}_${createHash('sha1').update(svg).digest('hex').slice(0, 6)}`;
+                let emoji = existing.find((e) => e.name === versioned);
                 if (!emoji) {
-                    const png = new Resvg(readFileSync(join(EMOJI_DIR, file), 'utf8'), { fitTo: { mode: 'width', value: 128 } }).render().asPng();
-                    emoji = await client.application.emojis.create({ name, attachment: png });
-                    this.logger.log(`Uploaded emoji ${name}`);
+                    const png = new Resvg(svg, { fitTo: { mode: 'width', value: 128 } }).render().asPng();
+                    emoji = await client.application.emojis.create({ name: versioned, attachment: png });
+                    this.logger.log(`Uploaded emoji ${versioned}`);
                 }
                 this.emojis.set(name, emoji.toString());
             }

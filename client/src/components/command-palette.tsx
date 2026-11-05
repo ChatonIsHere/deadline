@@ -1,0 +1,126 @@
+import { canCreateGig } from '@shared/permissions';
+import { Command } from 'cmdk';
+import { Dialog as D } from 'radix-ui';
+import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router';
+import { logout } from '@/components/layout';
+import { useCrews, useFixers, useGigs, useRunners, useUser } from '@/lib/api';
+
+/**
+ * Ctrl+K (or a click on the prompt bar): type to jump to any page, gig, runner, fixer or
+ * crew. Built on cmdk, the library behind shadcn's Command component.
+ */
+export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+    const me = useUser();
+    const navigate = useNavigate();
+    const gigs = useGigs().data ?? [];
+    const runners = useRunners().data ?? [];
+    const fixers = useFixers().data ?? [];
+    const crews = useCrews().data ?? [];
+
+    const go = (to: string) => {
+        onOpenChange(false);
+        navigate(to);
+    };
+
+    const pages = [
+        { to: '/', label: 'Board' },
+        { to: '/runners', label: 'Runners' },
+        { to: '/fixers', label: 'Fixers' },
+        { to: '/crews', label: 'Crews' },
+        { to: '/me', label: 'Me' },
+        ...(me.isAdmin ? [{ to: '/settings', label: 'Settings' }, { to: '/settings/library', label: 'Picture library' }] : []),
+        ...(canCreateGig(me) ? [{ to: '/gigs/new', label: 'New gig' }] : []),
+        { to: '/runners/new', label: 'New runner' },
+    ];
+    // Live gigs first, finished ones after
+    const live = (s: string) => s === 'open' || s === 'closed' || s === 'pending';
+    const sortedGigs = [...gigs].sort((a, b) => Number(live(b.status)) - Number(live(a.status)));
+
+    return (
+        <D.Root open={open} onOpenChange={onOpenChange}>
+            <D.Portal>
+                <D.Overlay className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" />
+                <D.Content className="cut-frame fixed top-[12vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 [--frame:var(--color-primary)]" aria-describedby={undefined}>
+                    <D.Title className="sr-only">Jump to</D.Title>
+                    <Command loop className="flex max-h-[70vh] flex-col">
+                        <div className="flex items-center gap-2 border-b border-border px-4">
+                            <span className="font-display text-primary">&gt;</span>
+                            <Command.Input autoFocus placeholder="jump to..." className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+                            <kbd className="hidden text-xs text-muted-foreground sm:block">esc</kbd>
+                        </div>
+                        <Command.List className="overflow-y-auto p-2">
+                            <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">// DEADLINE: no match on the wire.</Command.Empty>
+                            <Group heading="Pages">
+                                {pages.map((p) => (
+                                    <Item key={p.to} value={`page ${p.label}`} tag="PAGE" onSelect={() => go(p.to)}>
+                                        {p.label}
+                                    </Item>
+                                ))}
+                            </Group>
+                            <Group heading="Gigs">
+                                {sortedGigs.map((g) => (
+                                    <Item key={g.id} value={`gig ${g.id} ${g.name} ${g.fixerName} ${g.location}`} tag={g.status.toUpperCase()} onSelect={() => go(`/gigs/${g.id}`)}>
+                                        {g.name}
+                                    </Item>
+                                ))}
+                            </Group>
+                            <Group heading="Runners">
+                                {runners.map((r) => (
+                                    <Item key={r.id} value={`runner ${r.id} ${r.handle} ${r.role}`} tag={r.role.toUpperCase()} onSelect={() => go(`/runners/${r.id}`)}>
+                                        {r.handle}
+                                    </Item>
+                                ))}
+                            </Group>
+                            <Group heading="Fixers">
+                                {fixers
+                                    .filter((f) => !f.ownerId)
+                                    .map((f) => (
+                                        <Item key={f.id} value={`fixer ${f.id} ${f.handle}`} tag="NPC" onSelect={() => go(`/runners/${f.id}`)}>
+                                            {f.handle}
+                                        </Item>
+                                    ))}
+                            </Group>
+                            <Group heading="Crews">
+                                {crews.map((c) => (
+                                    <Item key={c.id} value={`crew ${c.id} ${c.name}`} tag="CREW" onSelect={() => go(`/crews/${c.id}`)}>
+                                        {c.name}
+                                    </Item>
+                                ))}
+                            </Group>
+                            <Group heading="Session">
+                                <Item value="log out sign out" tag="EXIT" onSelect={() => void logout()}>
+                                    Log out
+                                </Item>
+                            </Group>
+                        </Command.List>
+                    </Command>
+                </D.Content>
+            </D.Portal>
+        </D.Root>
+    );
+}
+
+function Group({ heading, children }: { heading: string; children: ReactNode }) {
+    return (
+        <Command.Group
+            heading={heading}
+            className="mb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:font-display [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-accent [&_[cmdk-group-heading]]:uppercase"
+        >
+            {children}
+        </Command.Group>
+    );
+}
+
+function Item({ value, tag, onSelect, children }: { value: string; tag: string; onSelect: () => void; children: ReactNode }) {
+    return (
+        <Command.Item
+            value={value}
+            onSelect={onSelect}
+            className="flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm data-[selected=true]:border-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+        >
+            <span className="min-w-0 flex-1 truncate">{children}</span>
+            <span className="shrink-0 text-[10px] tracking-widest text-muted-foreground">{tag}</span>
+        </Command.Item>
+    );
+}
