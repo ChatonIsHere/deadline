@@ -6,7 +6,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { api, useAction, useCrew, useGig, useGigs, useMe, usePrefs, useRunner, useSettings } from '@/lib/api';
+import { api, useCrew, useGig, useGigs, useMe, useRunner, useSettings } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export const logout = async () => {
@@ -24,20 +24,6 @@ function SetupReminder() {
             <Say className="flex-1">not configured. pick a server and a gig forum before posting gigs.</Say>
             <Button asChild size="sm">
                 <Link to="/settings">Settings</Link>
-            </Button>
-        </div>
-    );
-}
-
-/** Shown to the owner while player view is on, with a way straight back. */
-function PlayerViewStrip() {
-    const { data: prefs } = usePrefs();
-    const back = useAction(() => api('/api/prefs', 'PUT', { ...prefs!, playerView: false }), 'Admin tools are back.');
-    return (
-        <div className="cut-frame mb-6 flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-accent)]">
-            <Say className="flex-1">player view. admin tools are hidden.</Say>
-            <Button size="sm" variant="accent" disabled={!prefs || back.isPending} onClick={() => back.mutate()}>
-                Back to admin
             </Button>
         </div>
     );
@@ -91,7 +77,6 @@ export function Layout() {
                 <PromptBar onOpen={() => setPalette(true)} />
                 {/* Bottom padding on phones keeps content clear of the channel bar */}
                 <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-40 md:px-8 md:pb-10">
-                    {me.playerView && <PlayerViewStrip />}
                     {me.isAdmin && <SetupReminder />}
                     <Outlet />
                 </main>

@@ -27,7 +27,7 @@ export function MePage() {
 
             {me.isOwner && prefs && (
                 <Card className="space-y-3 [--frame:var(--color-accent)]">
-                    <CardTitle help="as the bot owner you're always an admin. player view hides that, so the board and the bot treat you like any player with your Discord roles. turn it off here or from the strip at the top of the page.">
+                    <CardTitle help="as the bot owner you're always an admin. player view hides that, so the board and the bot treat you like any player with your Discord roles. turn it back off here.">
                         Player view
                     </CardTitle>
                     <p>{prefs.playerView ? 'On. Admin tools are hidden.' : 'Off. You have full admin powers.'}</p>

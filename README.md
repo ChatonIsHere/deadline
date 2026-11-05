@@ -16,7 +16,7 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 | Fixer | Submits gigs from one of their fixer characters, and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
 | Edgerunner | Signs their runners up for gigs, founds crews. |
 
-People with none of these roles can't log in. Admins are people with the admin role, anyone with Manage Server, and the app's owner. Only the owner can change the server. The owner can turn on **player view** on the Me page to use the board and bot as a normal player with their real Discord roles; a strip at the top of every page turns it back off.
+People with none of these roles can't log in. Admins are people with the admin role, anyone with Manage Server, and the app's owner. Only the owner can change the server. The owner can turn on **player view** on the Me page to use the board and bot as a normal player with their real Discord roles. It only shows, and only turns off, on the Me page.
 
 ## Runners and fixers
 
