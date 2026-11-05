@@ -11,26 +11,27 @@ import { SlugField } from '@/components/slug-field';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
 
+/** The crew list. New crews are registered at /crews/new, from the corner +. */
 export function Crews() {
-    const me = useUser();
     const { data: crews, isPending } = useCrews();
 
+    if (isPending) return <Say>scanning...</Say>;
+    if (!crews?.length) return <Say>no crews registered.</Say>;
     return (
-        <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
-            <div>
-                {isPending ? (
-                    <Say>scanning...</Say>
-                ) : crews?.length ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {crews.map((c) => (
-                            <CrewCard key={c.id} crew={c} />
-                        ))}
-                    </div>
-                ) : (
-                    <Say>no crews registered.</Say>
-                )}
-            </div>
-            {canCreateCrew(me) && <NewCrew />}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {crews.map((c) => (
+                <CrewCard key={c.id} crew={c} />
+            ))}
+        </div>
+    );
+}
+
+export function NewCrewPage() {
+    const me = useUser();
+    if (!canCreateCrew(me)) return <Say>you need the edgerunner role to register a crew.</Say>;
+    return (
+        <div className="mx-auto max-w-xl">
+            <NewCrew />
         </div>
     );
 }

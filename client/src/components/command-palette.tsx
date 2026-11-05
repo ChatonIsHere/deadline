@@ -1,4 +1,4 @@
-import { canCreateGig } from '@shared/permissions';
+import { canCreateCrew, canCreateGig } from '@shared/permissions';
 import { Command } from 'cmdk';
 import { Dialog as D } from 'radix-ui';
 import type { ReactNode } from 'react';
@@ -32,6 +32,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         ...(me.isAdmin ? [{ to: '/settings', label: 'Settings' }, { to: '/settings/library', label: 'Picture library' }] : []),
         ...(canCreateGig(me) ? [{ to: '/gigs/new', label: 'New gig' }] : []),
         { to: '/runners/new', label: 'New runner' },
+        ...(canCreateCrew(me) ? [{ to: '/crews/new', label: 'Register a crew' }] : []),
     ];
     // Live gigs first, finished ones after
     const live = (s: string) => s === 'open' || s === 'closed' || s === 'pending';

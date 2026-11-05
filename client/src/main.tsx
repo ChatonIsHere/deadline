@@ -7,7 +7,7 @@ import { Layout } from '@/components/layout';
 import { Toaster } from '@/components/ui/sonner';
 import { Board } from '@/pages/board';
 import { Crew } from '@/pages/crew';
-import { Crews } from '@/pages/crews';
+import { Crews, NewCrewPage } from '@/pages/crews';
 import { Gig } from '@/pages/gig';
 import { GigComplete } from '@/pages/gig-complete';
 import { GigEdit } from '@/pages/gig-edit';
@@ -42,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="fixers" element={<FixersPage />} />
                         <Route path="fixers/:id" element={<RunnerPage />} />
                         <Route path="crews" element={<Crews />} />
+                        <Route path="crews/new" element={<NewCrewPage />} />
                         <Route path="crews/:id" element={<Crew />} />
                         <Route path="settings/library" element={<LibraryPage />} />
                         {/* Old /library links */}
