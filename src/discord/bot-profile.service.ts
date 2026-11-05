@@ -44,7 +44,8 @@ export class BotProfileService {
     /** Admins only. The banner is a library picture with the board's frame on it. */
     async set(user: Me, input: BotProfileInput): Promise<BotProfile> {
         if (!user.isAdmin) throw new ForbiddenException();
-        await this.client.application!.edit({ description: input.about });
+        // About me first, so a banner Discord refuses doesn't lose it
+        await this.discord('About me', () => this.client.application!.edit({ description: input.about }));
         if (input.bannerImageId) {
             if (!this.library.exists(input.bannerImageId)) throw new BadRequestException('That picture is gone. Pick another.');
             const plain = readFileSync(join(this.library.dir, plainFile(input.bannerImageId)));
@@ -54,9 +55,20 @@ export class BotProfileService {
                 .composite([{ input: Buffer.from(frameSvg(BANNER.width, BANNER.height, { solid: true }).overlay) }])
                 .png()
                 .toBuffer();
-            await this.client.user!.setBanner(banner);
+            await this.discord('Banner', () => this.client.user!.setBanner(banner));
         }
         return this.get();
+    }
+
+    /** Runs a profile change, turning Discord's refusal (e.g. changing the banner too often) into a message for the page. */
+    private async discord(what: string, change: () => Promise<unknown>) {
+        try {
+            await change();
+        } catch (err) {
+            this.logger.warn(`${what} not saved: ${err}`);
+            const message = err instanceof Error ? err.message : String(err);
+            throw new BadRequestException(`${what} not saved. Discord says: ${message}`);
+        }
     }
 
     /** "Watching 3 contracts on the wire". Only sent to Discord when the number changes. */
