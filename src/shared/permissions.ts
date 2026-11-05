@@ -21,8 +21,7 @@ export const canCreateCrew = (u: Me) => u.isAdmin || u.isEdgerunner;
 
 export const canManageCrew = (u: Me, crew: { ownerId: string }) => u.isAdmin || crew.ownerId === u.id;
 
-/** The gig's own fixer runs it alongside admins: locking sign-ups, completing, cancelling. */
-export const canRunGig = (u: Me, gig: { fixerId: string | null }) => u.isAdmin || (!!gig.fixerId && gig.fixerId === u.id);
+// Once approved, a gig is a session and only admins (the GMs) run it: status, time, slots, runners.
 
 /** Status changes on a posted gig. Pending gigs are approved or rejected instead. */
 export const NEXT_STATUSES: Record<GigStatus, GigStatus[]> = {

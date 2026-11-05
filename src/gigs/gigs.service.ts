@@ -8,7 +8,7 @@ import { GigPostService } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
-import { canCreateGig, canDeleteGig, canEditGig, canRunGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
+import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
 import type { GigInput, GigStatus, GigView, Me, RunnerState } from '../shared/schemas';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
@@ -105,7 +105,7 @@ export class GigsService {
 
     setStatus(user: Me, id: number, status: GigStatus): GigView {
         const gig = this.row(id);
-        if (!canRunGig(user, gig)) throw new ForbiddenException();
+        if (!user.isAdmin) throw new ForbiddenException();
         if (!NEXT_STATUSES[gig.status].includes(status)) throw new BadRequestException(`Can't go from ${gig.status} to ${status}.`);
 
         this.db.update(gigs).set({ status }).where(eq(gigs.id, id)).run();
@@ -382,7 +382,7 @@ export class GigsService {
     /** Lifts a crew's hold on its slots in this gig, so any edgerunner can take them. */
     openCrewSlots(user: Me, id: number, crewId: number): GigView {
         const gig = this.row(id);
-        if (!canRunGig(user, gig)) throw new ForbiddenException();
+        if (!user.isAdmin) throw new ForbiddenException();
         const crew = this.db.query.crews.findFirst({ where: eq(crews.id, crewId) }).sync();
         const changed = this.db
             .update(gigSlots)

@@ -13,7 +13,7 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 | Role | Can |
 | --- | --- |
 | Admin | Everything. Approves gigs, changes status, edits any gig or crew. |
-| Fixer | Submits gigs. They wait for an admin before they get posted. |
+| Fixer | Submits gigs and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
 | Edgerunner | Takes gigs from Discord, creates and runs crews. |
 
 People with none of these roles can't log in.
@@ -65,7 +65,7 @@ Gig posts have **Take the job** and **Pull out** buttons.
 ## Gig posts
 
 - The forum is switched to gallery view and posts auto-archive after a week, the longest Discord allows. Live gigs (open or closed to sign-ups) get reopened if Discord or anyone archives or locks them. The bot also checks every 6 hours and on startup.
-- Completing or cancelling a gig locks and archives its post. The gig's fixer can do that, as well as admins.
+- Completing or cancelling a gig locks and archives its post. Only admins can do that.
 - Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
 - Objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
 
@@ -81,7 +81,7 @@ Each gig is one session.
 - Runners can drop out after sign-ups lock. Only completing or cancelling the gig stops that.
 - Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.
 - Confirmed runners get a reminder DM 8 hours before (Settings) and 30 minutes before. They can turn reminders off from the DM or on the **Me** page. The thread gets a note too, without pings.
-- Admins and the gig's fixer can open a crew's reserved slots to anyone from the gig page. Reserves who now fit move up.
+- Admins can open a crew's reserved slots to anyone from the gig page. Reserves who now fit move up.
 
 ## Pictures
 

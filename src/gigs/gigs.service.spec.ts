@@ -207,11 +207,14 @@ describe('GigsService', () => {
         assert.equal(gigs.create(admin, input([{ crewId: null, count: 1 }])).fixerId, null);
     });
 
-    it("lets a gig's fixer complete it, but not someone else's", () => {
-        const theirs = gigs.create(admin, { ...input([{ crewId: null, count: 1 }]), fixerName: 'fixer' });
-        const npc = gigs.create(admin, input([{ crewId: null, count: 1 }]));
-        assert.equal(gigs.setStatus(fixer, theirs.id, 'completed').status, 'completed');
-        assert.throws(() => gigs.setStatus(fixer, npc.id, 'completed'), /Forbidden/);
+    it('leaves approved gigs to admins, even for their own fixer', async () => {
+        const gig = gigs.create(fixer, input([{ crewId: null, count: 1 }]));
+        gigs.approve(admin, gig.id, true);
+        assert.throws(() => gigs.setStatus(fixer, gig.id, 'completed'), /Forbidden/);
+        assert.throws(() => gigs.setSession(fixer, gig.id, Date.now() + H), /Forbidden/);
+        assert.throws(() => gigs.update(fixer, gig.id, input([{ crewId: null, count: 2 }])), /Forbidden/);
+        await assert.rejects(gigs.assign(fixer, gig.id, 'a'), /Forbidden/);
+        assert.equal(gigs.setStatus(admin, gig.id, 'completed').status, 'completed');
     });
 
     it('posts admin gigs straight away and holds fixer gigs for approval', () => {

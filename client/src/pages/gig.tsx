@@ -1,4 +1,4 @@
-import { canDeleteGig, canEditGig, canRunGig, NEXT_STATUSES } from '@shared/permissions';
+import { canDeleteGig, canEditGig, NEXT_STATUSES } from '@shared/permissions';
 import type { GigStatus } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -37,7 +37,7 @@ export function Gig() {
     if (!gig) return <Say>decrypting...</Say>;
 
     const owner = { createdBy: gig.createdBy.id, status: gig.status };
-    const nextStatuses = canRunGig(me, gig) ? NEXT_STATUSES[gig.status] : [];
+    const nextStatuses = me.isAdmin ? NEXT_STATUSES[gig.status] : [];
     const canDelete = canDeleteGig(me, owner);
     const active = gig.status === 'open' || gig.status === 'closed';
 
@@ -132,7 +132,7 @@ export function Gig() {
                             gig={gig}
                             onKick={me.isAdmin ? (slotId) => kick.mutate(slotId) : undefined}
                             onUnreserve={me.isAdmin ? (userId) => unreserve.mutate(userId) : undefined}
-                            onOpenCrew={canRunGig(me, gig) && active ? (crewId) => openCrew.mutate(crewId) : undefined}
+                            onOpenCrew={me.isAdmin && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
                         {gig.status === 'open' && <Say className="mt-4 text-xs">runners can sign up here or on the Discord post.</Say>}
