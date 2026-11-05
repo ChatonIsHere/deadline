@@ -36,11 +36,10 @@ export function embedSize(e: APIEmbed): number {
 }
 
 /**
- * Lays out an embed and its fields so nothing gets cut: long text is split, extra embeds are
- * added when one fills up, and extra messages when a message does. Returns the embeds for
- * each message, the first holding `head`. Later embeds start from `more` (e.g. just a colour).
+ * Lays out an embed and its fields so nothing gets cut: long text is split and extra embeds
+ * are added when one fills up. Later embeds start from `more` (e.g. just a colour).
  */
-export function packEmbeds(head: APIEmbed, fields: APIEmbedField[], more: APIEmbed = {}): APIEmbed[][] {
+export function layoutEmbeds(head: APIEmbed, fields: APIEmbedField[], more: APIEmbed = {}): APIEmbed[] {
     const [first, ...rest] = head.description ? splitText(head.description, LIMITS.description) : [];
     const embeds: APIEmbed[] = [{ ...head, description: first, fields: [] }, ...rest.map((description) => ({ ...more, description, fields: [] }))];
 
@@ -53,7 +52,11 @@ export function packEmbeds(head: APIEmbed, fields: APIEmbedField[], more: APIEmb
         }
         current.fields!.push(field);
     }
+    return embeds;
+}
 
+/** Shares embeds out over as few messages as Discord's limits allow. */
+export function toMessages(embeds: APIEmbed[]): APIEmbed[][] {
     const messages: APIEmbed[][] = [];
     let message: APIEmbed[] = [];
     let total = 0;
@@ -70,3 +73,6 @@ export function packEmbeds(head: APIEmbed, fields: APIEmbedField[], more: APIEmb
     messages.push(message);
     return messages;
 }
+
+/** layoutEmbeds then toMessages: the embeds for each message, the first holding `head`. */
+export const packEmbeds = (head: APIEmbed, fields: APIEmbedField[], more: APIEmbed = {}) => toMessages(layoutEmbeds(head, fields, more));

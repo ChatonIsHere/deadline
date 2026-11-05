@@ -2,7 +2,7 @@ import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, But
 import type { Payout } from '../gigs/debrief.service';
 import { groupSlots } from '../shared/slots';
 import { type GigStatus, type GigView, payRange, type RunnerCard } from '../shared/schemas';
-import { packEmbeds } from './embed-pack';
+import { layoutEmbeds, packEmbeds, toMessages } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
 import { voice } from './voice';
 
@@ -76,25 +76,28 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         ...(gig.objectives.length
             ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`).join('\n') }]
             : []),
+        ...debriefFields(gig, emoji),
+    ];
+    const signupFields: APIEmbedField[] = [
         { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
         ...slotFields,
         ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n') }] : []),
-        ...debriefFields(gig, emoji),
     ];
 
+    // Two embeds: the job (brief, details, picture), then sign-ups (session, crew) with the status underneath
+    const colour = { color: COLOURS[gig.status] };
     const head: APIEmbed = {
-        color: COLOURS[gig.status],
+        ...colour,
         title: gig.name,
         url: `${boardUrl}/gigs/${gig.id}`,
         description: gig.brief,
         // Footers can't hold links, so the link to the board goes on the author line, which can
         author: { name: 'DEADLINE // GIG BOARD', url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
-        footer: { text: voice.footer(gig.status) },
         thumbnail: images.fixer ? { url: images.fixer } : undefined,
         image: images.gig ? { url: images.gig } : undefined,
-        timestamp: new Date(gig.createdAt).toISOString(),
     };
-    const [embeds, ...more] = packEmbeds(head, fields, { color: COLOURS[gig.status] });
+    const signups: APIEmbed = { ...colour, title: 'Sign-ups', footer: { text: voice.footer(gig.status) }, timestamp: new Date(gig.createdAt).toISOString() };
+    const [embeds, ...more] = toMessages([...layoutEmbeds(head, fields, colour), ...layoutEmbeds(signups, signupFields, colour)]);
 
     // Full gigs still take sign-ups: they go on the reserves.
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
