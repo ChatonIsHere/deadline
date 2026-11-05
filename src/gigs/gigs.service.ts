@@ -5,7 +5,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { crewMembers, crews, fixerRatings, gigObjectives, gigReserves, gigRewards, gigs, gigSlots, runners } from '../db/schema';
-import { GigPostService } from '../discord/gig-post.service';
+import { GigPostService, type Note } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
@@ -205,7 +205,7 @@ export class GigsService {
         if (slot.state === 'confirmed') throw new BadRequestException(voice.alreadyConfirmed);
 
         this.db.update(gigSlots).set({ state: 'confirmed' }).where(eq(gigSlots.id, slot.id)).run();
-        this.post(id, { note: voice.runnerConfirmed(this.handle(slot.runnerId)) });
+        this.post(id);
         return voice.confirmed();
     }
 
@@ -220,7 +220,7 @@ export class GigsService {
         else if (reserve) this.removeReserve(id, userId);
         else throw new BadRequestException(voice.notIn);
 
-        this.afterRemoval(id, voice.runnerOut(this.handle(slot?.runnerId ?? reserve?.runnerId ?? null)));
+        this.afterRemoval(id);
     }
 
     /** Admin removes a runner from a slot. */
@@ -231,7 +231,7 @@ export class GigsService {
         if (!slot?.userId) throw new NotFoundException();
 
         this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slotId)).run();
-        this.afterRemoval(id, voice.runnerOut(this.handle(slot.runnerId)));
+        this.afterRemoval(id);
         return this.view(id, user.id);
     }
 
@@ -296,7 +296,6 @@ export class GigsService {
             .innerJoin(gigSlots, eq(gigSlots.gigId, gigs.id))
             .where(and(eq(gigSlots.runnerId, runnerId), inArray(gigs.status, [...ACTIVE, 'pending'])))
             .all();
-        const handle = this.handle(runnerId);
 
         this.db.update(gigSlots).set(emptied).where(and(eq(gigSlots.runnerId, runnerId), inArray(gigSlots.gigId, live.map((g) => g.id)))).run();
         // Older gigs just lose the link to the runner
@@ -304,7 +303,7 @@ export class GigsService {
         this.db.delete(gigReserves).where(eq(gigReserves.runnerId, runnerId)).run();
         this.db.update(gigs).set({ fixerRunnerId: null }).where(eq(gigs.fixerRunnerId, runnerId)).run();
 
-        for (const { id } of live) this.afterRemoval(id, voice.runnerOut(handle));
+        for (const { id } of live) this.afterRemoval(id);
     }
 
     /** Takes a slot or a place on the reserves. */
@@ -333,22 +332,21 @@ export class GigsService {
             return { state, left: slots.filter((s) => s.userId === null).length - 1 };
         });
 
-        if (result.reserve) this.post(id, { note: voice.reserveIn(runner.handle, result.reserve) });
-        else this.post(id, { note: voice.runnerIn(runner.handle, result.state!), ask: result.state === 'awaiting' ? [userId] : [] });
+        this.post(id, { ask: !result.reserve && result.state === 'awaiting' ? [userId] : [] });
         return result;
     }
 
     /**
      * After someone leaves (or slots change): fill gaps from the reserves and update the
      * post. Not once the session has happened: removing a no-show shouldn't pull a
-     * reserve into a job they weren't on.
+     * reserve into a job they weren't on. `note` is for gig-wide news only; runners coming
+     * and going show in the post's crew list instead of the thread.
      */
     private afterRemoval(id: number, note?: string) {
         const gig = this.row(id);
         const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
         const promoted = ACTIVE.includes(gig.status) && !played ? this.promote(id) : [];
-        const notes = [note, promoted.length ? voice.promoted(promoted.map((p) => this.handle(p.runnerId))) : ''].filter(Boolean).join('\n');
-        this.post(id, { note: notes || undefined, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
+        this.post(id, { note, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
     }
 
     /** Moves reserves into any empty slots they can take. Returns who moved up. */
@@ -524,14 +522,13 @@ export class GigsService {
             }
 
             if (work.drop.length) {
-                const handles = awaiting.filter((s) => work.drop.includes(s.userId!)).map((s) => this.handle(s.runnerId));
                 this.db
                     .update(gigSlots)
                     .set(emptied)
                     .where(and(eq(gigSlots.gigId, gig.id), inArray(gigSlots.userId, work.drop)))
                     .run();
                 const dropped = work.drop;
-                this.afterRemoval(gig.id, voice.noAnswer(handles));
+                this.afterRemoval(gig.id);
                 this.post(gig.id, { after: (view) => this.posts.notifyDropped(view, dropped) });
             }
         }
@@ -572,7 +569,7 @@ export class GigsService {
      * Updates the gig's post, then posts `note` in its thread, asks the `ask` players to
      * confirm the session time by DM, and runs `after` for anything else that needs the post.
      */
-    post(id: number, { note, ask = [], after }: { note?: string; ask?: string[]; after?: AfterPost } = {}) {
+    post(id: number, { note, ask = [], after }: { note?: Note; ask?: string[]; after?: AfterPost } = {}) {
         const previous = this.postQueue.get(id) ?? Promise.resolve();
         const next = previous.then(async () => {
             try {

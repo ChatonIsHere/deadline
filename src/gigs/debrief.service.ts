@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable } from '@ne
 import { and, eq } from 'drizzle-orm';
 import { DB, Db } from '../db/db';
 import { fixerRatings, gigReserves, gigRewards, gigs, gigSlots } from '../db/schema';
+import { debriefMessages } from '../discord/gig-embed';
 import { GigPostService } from '../discord/gig-post.service';
 import { voice } from '../discord/voice';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
@@ -51,7 +52,7 @@ export class DebriefService {
         const view = this.gigs.view(id);
         const payouts = slots.map((s) => payoutFor(view, s.userId!, s.runnerId!));
         this.gigs.post(id, {
-            note: voice.statusChanged.completed,
+            note: debriefMessages,
             after: (latest) => this.posts.sendPayouts(latest, payouts),
         });
         return this.gigs.view(id, user.id);

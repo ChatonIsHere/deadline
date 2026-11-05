@@ -5,7 +5,7 @@ import { config } from '../config';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
-import { EmojiService } from './emoji.service';
+import { type EmojiLookup, EmojiService } from './emoji.service';
 import { MembersService } from './members.service';
 import type { Payout } from '../gigs/debrief.service';
 import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
@@ -92,7 +92,7 @@ export class GigPostService {
      * Creates or updates the gig's post. `note` is posted in the thread before a finished
      * gig gets archived. Returns where the post is now.
      */
-    async sync(gig: GigView, post: PostRef, note?: string): Promise<PostRef> {
+    async sync(gig: GigView, post: PostRef, note?: Note): Promise<PostRef> {
         if (gig.status === 'pending' || gig.status === 'rejected') return post;
 
         // Emoji load on startup; posts built before that would fall back to plain text
@@ -137,7 +137,10 @@ export class GigPostService {
         if (thread.autoArchiveDuration !== ThreadAutoArchiveDuration.OneWeek) {
             await thread.setAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek);
         }
-        if (note) await thread.send({ content: note, allowedMentions: { parse: [] } });
+        if (note) {
+            const messages = typeof note === 'string' ? [{ content: note }] : note(gig, this.emoji.get);
+            for (const message of messages) await thread.send({ ...message, allowedMentions: { parse: [] } });
+        }
         if (isFinal(gig)) {
             await thread.setLocked(true);
             await thread.setArchived(true);
@@ -252,6 +255,9 @@ export class GigPostService {
 }
 
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
+
+/** Posted in the thread with an update: a line of text, or messages built from the gig (like the debrief). */
+export type Note = string | ((gig: GigView, emoji: EmojiLookup) => { content?: string; embeds?: APIEmbed[] }[]);
 
 /** Where a gig's post lives: its thread, and the follow-up messages holding what didn't fit the first. */
 export interface PostRef {

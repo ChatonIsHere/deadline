@@ -110,7 +110,9 @@ Server, forum and roles live in the database and are set on **Settings > Discord
 
 - Buttons: **I'm interested** (**Take the job** once a time is set), **Confirm**, **Pull out**, and a link to the board.
 - The forum is switched to gallery view and posts auto-archive after a week, the longest Discord allows. Live gigs (open or with sign-ups locked) get reopened if Discord or anyone archives or locks them. The bot also checks every 6 hours and on startup.
-- Completing or cancelling a gig locks and archives its post.
+- The thread only gets gig-wide news: status changes, the session time being set or cleared, crew slots opening up and the session reminders. Runners signing up, confirming or pulling out get a private reply, and the post's crew list updates.
+- Completing a gig posts a debrief as the thread's last message (the summary, the rewards and who went), then locks and archives the post. Cancelling locks and archives it too.
+- The line above the title links to the board. Discord doesn't allow links in footers, so the footer just shows the status.
 - Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
 - The brief is the post's description (up to 4,000 characters). Secondary objectives, the crew and the debrief are fields.
 - Nothing gets cut. Long fields split into "(cont.)" fields, and whatever doesn't fit Discord's limits (6,000 characters a message) goes in follow-up messages in the thread, which are kept up to date.

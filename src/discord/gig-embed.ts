@@ -79,8 +79,9 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         title: gig.name,
         url: `${boardUrl}/gigs/${gig.id}`,
         description: gig.objective,
-        // Footers can't hold links, so the address is shown as text and the button below links to it
-        footer: { text: voice.footer(gig.status, new URL(boardUrl).host), icon_url: `${boardUrl}/logo.png` },
+        // Footers can't hold links, so the board's address goes in the author line, which can
+        author: { name: `DEADLINE // ${new URL(boardUrl).host}`, url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
+        footer: { text: voice.footer(gig.status) },
         thumbnail: images.fixer ? { url: images.fixer } : undefined,
         image: images.gig ? { url: images.gig } : undefined,
         timestamp: new Date(gig.createdAt).toISOString(),
@@ -100,6 +101,21 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
     );
 
     return { first: { embeds, components: [buttons] }, more: more.map((embeds) => ({ embeds })) };
+}
+
+/**
+ * The last message in a finished gig's thread: the GM's summary, the rewards and who went.
+ * The post itself keeps the same details in its fields.
+ */
+export function debriefMessages(gig: GigView, emoji: EmojiLookup): { content?: string; embeds: APIEmbed[] }[] {
+    const crew = gig.slots.filter((s) => s.runner).map((s) => `**${s.runner!.handle}**`);
+    const fields: APIEmbedField[] = [
+        ...debriefFields(gig, emoji).filter((f) => f.name !== 'Debrief'),
+        ...(crew.length ? [{ name: 'Crew', value: crew.join(', ') }] : []),
+    ];
+    const head: APIEmbed = { color: COLOURS.completed, title: `Debrief // ${gig.name}`, description: gig.summary ?? undefined };
+    const [first, ...more] = packEmbeds(head, fields, { color: COLOURS.completed });
+    return [{ content: voice.statusChanged.completed, embeds: first }, ...more.map((embeds) => ({ embeds }))];
 }
 
 const confirmButton = (id: number) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);

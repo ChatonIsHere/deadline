@@ -7,7 +7,7 @@ const when = (ms: number) => `<t:${Math.floor(ms / 1000)}:F> (<t:${Math.floor(ms
 const list = (names: string[]) => names.map((n) => `**${n}**`).join(', ');
 
 export const voice = {
-    footer: (status: string, host: string) => `DEADLINE // ${host} // ${status.toUpperCase()}`,
+    footer: (status: string) => `STATUS // ${status.toUpperCase()}`,
     when,
 
     // Replies to the person who pressed a button
@@ -45,20 +45,7 @@ export const voice = {
     crewJoined: (crewName: string, handle: string) => say(`**${handle}** is in **${crewName}** now. welcome to the family.`),
     crewDeclined: (crewName: string) => say(`invite from **${crewName}** declined.`),
 
-    // Posted in the gig's thread. Runners go by their handles.
-    runnerIn: (handle: string, state: string) =>
-        say(
-            state === 'interested'
-                ? `**${handle}** is interested.`
-                : state === 'awaiting'
-                  ? `**${handle}** was added. waiting on them to confirm.`
-                  : `**${handle}** signed on.`,
-        ),
-    reserveIn: (handle: string, position: number) => say(`**${handle}** joined the reserves (#${position}).`),
-    runnerConfirmed: (handle: string) => say(`**${handle}** confirmed.`),
-    runnerOut: (handle: string) => say(`**${handle}** pulled out.`),
-    promoted: (handles: string[]) => say(`${list(handles)} moved up from reserves.`),
-    noAnswer: (handles: string[]) => say(`no answer from ${list(handles)}. slot(s) released.`),
+    // Posted in the gig's thread: gig-wide news only. Runners coming and going show in the post's crew list.
     sessionSet: (at: number) => say(`session set for ${when(at)}. runners, check your DMs and confirm.`),
     sessionCleared: () => say('session time cleared. back to gauging interest.'),
     sessionSoon: (at: number) => say(`session starts <t:${Math.floor(at / 1000)}:R>.`),
