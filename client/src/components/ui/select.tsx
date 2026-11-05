@@ -13,9 +13,10 @@ export interface SelectOption {
 }
 
 /** The dropdown panel and its rows. Shared with Combobox so both look the same. */
-export const panelClass = 'cut-frame py-1 [--cut:8px] [--frame:var(--color-primary)]';
+// The padding keeps rows inside the 1px frame and clear of the cut corners
+export const panelClass = 'cut-frame px-1 py-2 [--cut:8px] [--frame:var(--color-primary)]';
 export const optionClass =
-    'flex cursor-pointer items-center gap-2 px-3 py-1.5 outline-none data-highlighted:bg-muted data-highlighted:text-primary aria-selected:bg-muted aria-selected:text-primary';
+    'group flex cursor-pointer items-center gap-2 px-3 py-1.5 outline-none data-highlighted:bg-primary data-highlighted:text-primary-foreground! aria-selected:bg-primary aria-selected:text-primary-foreground!';
 
 // Radix can't use '' as an item value (it means "nothing picked"), but our "none" options do.
 const NONE = '__none__';
@@ -55,10 +56,10 @@ export function Select({
                     <div className={panelClass}>
                         <S.Viewport className="max-h-72">
                             {options.map((o) => (
-                                <S.Item key={o.value} value={toItem(o.value)} className={cn(optionClass, 'data-[state=checked]:text-primary')}>
+                                <S.Item key={o.value} value={toItem(o.value)} className={cn(optionClass, 'data-[state=checked]:font-bold data-[state=checked]:text-primary')}>
                                     {o.color && <span className="size-2.5 shrink-0" style={{ background: o.color }} />}
                                     <S.ItemText>{o.label}</S.ItemText>
-                                    {o.hint && <span className="ml-auto text-xs tracking-wider text-muted-foreground uppercase">{o.hint}</span>}
+                                    {o.hint && <span className="ml-auto text-xs tracking-wider text-muted-foreground uppercase group-data-highlighted:text-primary-foreground/70">{o.hint}</span>}
                                 </S.Item>
                             ))}
                         </S.Viewport>

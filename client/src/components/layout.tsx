@@ -131,7 +131,7 @@ function Rail({ channels }: { channels: Channel[] }) {
                         className={({ isActive }) =>
                             cn(
                                 'flex items-center gap-3 border-l-2 px-4 py-2 font-display tracking-wider uppercase',
-                                isActive ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                                isActive ? 'border-primary bg-primary/20 text-primary' : 'border-transparent text-muted-foreground hover:border-primary/60 hover:bg-muted hover:text-foreground',
                             )
                         }
                     >
@@ -274,7 +274,7 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
             className={({ isActive }) =>
                 cn(
                     'flex h-16 flex-1 flex-col items-center justify-center gap-1 border-t-2',
-                    isActive ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground',
+                    isActive ? 'border-primary bg-primary/20 text-primary' : 'border-transparent text-muted-foreground',
                 )
             }
         >

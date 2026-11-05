@@ -110,7 +110,7 @@ export function Combobox({
                                 className={optionClass}
                             >
                                 <span>{s.value}</span>
-                                {s.hint && <span className="ml-auto text-xs tracking-wider text-muted-foreground uppercase">{s.hint}</span>}
+                                {s.hint && <span className="ml-auto text-xs tracking-wider text-muted-foreground uppercase group-aria-selected:text-primary-foreground/70">{s.hint}</span>}
                             </li>
                         ))}
                     </ul>

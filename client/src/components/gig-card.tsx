@@ -1,14 +1,21 @@
 import type { GigView } from '@shared/schemas';
 import { Icon, LinkCard, Money, StatusBadge } from '@/components/common';
 import { formatSession } from '@/components/session';
-import { imageUrl } from '@/lib/api';
+import { plainImageUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export function GigCard({ gig }: { gig: GigView }) {
     const taken = gig.slots.filter((s) => s.runner).length;
     return (
         <LinkCard to={`/gigs/${gig.id}`}>
-            {gig.imageId && <img src={imageUrl(gig.imageId)} alt="" loading="lazy" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" />}
+            {gig.imageId && (
+                <img
+                    src={plainImageUrl(gig.imageId)}
+                    alt=""
+                    loading="lazy"
+                    className="-mx-[15px] -mt-[15px] mb-3 aspect-video w-[calc(100%+30px)] max-w-none object-cover [clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"
+                />
+            )}
             <div className="mb-2 flex items-center gap-2">
                 <StatusBadge status={gig.status} />
                 {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}

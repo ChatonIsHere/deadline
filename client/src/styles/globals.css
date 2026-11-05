@@ -8,8 +8,10 @@
     --color-foreground: #e6e6f0;
     --color-card: #11111c;
     --color-muted: #1a1a29;
-    --color-muted-foreground: #8b8ba7;
-    --color-border: #2c2c44;
+    --color-muted-foreground: #9d9dbb;
+    --color-border: #3b3b5c;
+    /* Edges of things you type in or pick from. Kept at 3:1 or better against the panels. */
+    --color-input: #6e6e94;
     --color-primary: #f3e600;
     --color-primary-foreground: #0a0a12;
     --color-accent: #00e5ff;
@@ -33,6 +35,12 @@
     h2,
     h3 {
         @apply font-display font-bold tracking-wide uppercase;
+    }
+
+    /* Keyboard focus. Cut-corner elements clip outlines, so they set their own (see button.tsx). */
+    :focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
     }
 
     ::selection {

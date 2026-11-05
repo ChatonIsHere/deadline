@@ -110,7 +110,7 @@ export function ConfirmButton({
 /** A card that links somewhere, lighting up its frame on hover. */
 export function LinkCard({ to, className, children }: { to: string; className?: string; children: ReactNode }) {
     return (
-        <Link to={to} className={cn('cut-frame block p-4 transition-colors hover:[--frame:var(--color-primary)]', className)}>
+        <Link to={to} className={cn('cut-frame block p-4 outline-none hover:[--fill:var(--color-muted)] hover:[--frame:var(--color-primary)] focus-visible:[--fill:var(--color-muted)] focus-visible:[--frame:var(--color-accent)]', className)}>
             {children}
         </Link>
     );

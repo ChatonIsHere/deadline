@@ -119,10 +119,10 @@ function Item({ value, tag, onSelect, children }: { value: string; tag: string; 
         <Command.Item
             value={value}
             onSelect={onSelect}
-            className="flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm hover:bg-primary/10 hover:text-primary data-[selected=true]:border-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+            className="group flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground"
         >
             <span className="min-w-0 flex-1 truncate">{children}</span>
-            <span className="shrink-0 text-[10px] tracking-widest text-muted-foreground">{tag}</span>
+            <span className="shrink-0 text-[10px] tracking-widest text-muted-foreground group-data-[selected=true]:text-primary-foreground/70">{tag}</span>
         </Command.Item>
     );
 }
