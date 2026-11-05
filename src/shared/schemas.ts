@@ -5,6 +5,10 @@ import { z } from 'zod';
 export const GIG_STATUSES = ['pending', 'open', 'closed', 'completed', 'cancelled', 'rejected'] as const;
 export type GigStatus = (typeof GIG_STATUSES)[number];
 
+/** interested: no session time yet. awaiting: asked to confirm a time. confirmed: coming. */
+export const RUNNER_STATES = ['interested', 'awaiting', 'confirmed'] as const;
+export type RunnerState = (typeof RUNNER_STATES)[number];
+
 /** Statuses an admin can move a posted gig to. */
 export const SET_STATUSES = ['open', 'closed', 'completed', 'cancelled'] as const;
 
@@ -43,6 +47,9 @@ export const crewInput = z.object({
 export type CrewInput = z.infer<typeof crewInput>;
 
 export const memberInput = z.object({ userId: z.string().min(1) });
+
+/** Unix ms, or null to clear the session time. */
+export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
 
 export const regionInput = z.object({
     name: text(40),
@@ -95,6 +102,7 @@ export interface SlotView {
     id: number;
     crew: { id: number; name: string } | null;
     runner: Member | null;
+    state: RunnerState;
 }
 
 export interface GigView {
@@ -110,6 +118,10 @@ export interface GigView {
     imageId: number | null;
     objectives: { text: string; bonus: number | null }[];
     slots: SlotView[];
+    /** Waiting for a slot, in order. */
+    reserves: Member[];
+    /** Unix ms. */
+    sessionAt: number | null;
     status: GigStatus;
     createdBy: Member;
     threadUrl: string | null;

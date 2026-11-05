@@ -69,6 +69,17 @@ Gig posts have **Take the job** and **Pull out** buttons.
 - Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
 - Objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
 
+## Sessions
+
+Each gig is one session.
+
+- Before an admin sets a session time, signing up marks a runner **interested** and takes a slot. When the slots are full, people go on the **reserves**, first come first served.
+- Setting the time (on the gig's web page) DMs everyone in a slot to **confirm** or drop out. If someone's DMs are closed they get pinged in the gig's thread instead. Changing the time asks everyone again.
+- Once a time is set, new sign-ups are confirmed straight away.
+- When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time.
+- Admins can add edgerunners from the gig page. It works like them signing up, except they're asked to confirm a set time.
+- Runners can drop out after sign-ups lock. Only completing or cancelling the gig stops that.
+
 ## Pictures
 
 Every gig has a picture, framed in the board's colours. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.

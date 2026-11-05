@@ -45,3 +45,25 @@ export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
     }
     return changes;
 }
+
+export interface Reserve {
+    userId: string;
+    crewIds: number[];
+}
+
+/**
+ * Moves reserves (oldest first) into empty slots they can take. Crew slots are filled
+ * first so a crew member doesn't use up an open slot that someone else could have had.
+ */
+export function fillFromReserves(slots: Slot[], reserves: Reserve[]): { slotId: number; userId: string }[] {
+    const waiting = [...reserves];
+    const empty = slots.filter((s) => s.userId === null).sort((a, b) => (a.crewId === null ? 1 : 0) - (b.crewId === null ? 1 : 0));
+    const moves: { slotId: number; userId: string }[] = [];
+    for (const slot of empty) {
+        const i = waiting.findIndex((r) => slot.crewId === null || r.crewIds.includes(slot.crewId));
+        if (i === -1) continue;
+        moves.push({ slotId: slot.id, userId: waiting[i].userId });
+        waiting.splice(i, 1);
+    }
+    return moves;
+}

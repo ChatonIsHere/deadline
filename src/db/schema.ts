@@ -1,6 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { GIG_STATUSES } from '../shared/schemas';
+import { GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
 
 const createdAt = () =>
     integer({ mode: 'timestamp_ms' })
@@ -57,6 +57,8 @@ export const gigs = sqliteTable('gigs', {
     createdBy: text().notNull(),
     // Forum post. In a forum the starter message shares the thread's ID.
     threadId: text(),
+    // When the session is played. Set by an admin. Until then runners are only "interested".
+    sessionAt: integer({ mode: 'timestamp_ms' }),
     createdAt: createdAt(),
 });
 
@@ -97,8 +99,23 @@ export const gigSlots = sqliteTable('gig_slots', {
         .references(() => gigs.id, { onDelete: 'cascade' }),
     crewId: integer().references(() => crews.id, { onDelete: 'set null' }),
     userId: text(),
+    // Where the runner stands. Only meaningful while userId is set.
+    state: text({ enum: RUNNER_STATES }).notNull().default('interested'),
     position: integer().notNull(),
 });
+
+/** Runners waiting for a slot, first come first served. */
+export const gigReserves = sqliteTable(
+    'gig_reserves',
+    {
+        gigId: integer()
+            .notNull()
+            .references(() => gigs.id, { onDelete: 'cascade' }),
+        userId: text().notNull(),
+        joinedAt: createdAt(),
+    },
+    (t) => [primaryKey({ columns: [t.gigId, t.userId] })],
+);
 
 export const crewsRelations = relations(crews, ({ many }) => ({ members: many(crewMembers) }));
 
@@ -109,6 +126,7 @@ export const crewMembersRelations = relations(crewMembers, ({ one }) => ({
 export const gigsRelations = relations(gigs, ({ many }) => ({
     objectives: many(gigObjectives),
     slots: many(gigSlots),
+    reserves: many(gigReserves),
 }));
 
 export const gigObjectivesRelations = relations(gigObjectives, ({ one }) => ({
@@ -118,4 +136,8 @@ export const gigObjectivesRelations = relations(gigObjectives, ({ one }) => ({
 export const gigSlotsRelations = relations(gigSlots, ({ one }) => ({
     gig: one(gigs, { fields: [gigSlots.gigId], references: [gigs.id] }),
     crew: one(crews, { fields: [gigSlots.crewId], references: [crews.id] }),
+}));
+
+export const gigReservesRelations = relations(gigReserves, ({ one }) => ({
+    gig: one(gigs, { fields: [gigReserves.gigId], references: [gigs.id] }),
 }));

@@ -31,7 +31,14 @@ const members = {
     fixers: () => [{ id: 'fixer', name: 'fixer', avatar: null }],
 } as unknown as MembersService;
 
-const posts = { sync: async () => 'thread' } as unknown as GigPostService;
+/** Who the service asked to confirm a session (DMs). */
+let asked: string[] = [];
+const posts = {
+    sync: async () => 'thread',
+    askToConfirm: async (_gig: unknown, _thread: string, ids: string[]) => asked.push(...ids),
+} as unknown as GigPostService;
+/** Post updates (and DMs) run in the background. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 const settings = { get: () => ({ guildId: '1' }) } as unknown as SettingsService;
 const library = { exists: () => true, pick: () => null } as unknown as LibraryService;
 
@@ -55,6 +62,71 @@ describe('GigsService', () => {
         const db = openDb(':memory:');
         gigs = new GigsService(db, members, posts, settings, library);
         crews = new CrewsService(db, members, gigs);
+        asked = [];
+    });
+
+    const states = (id: number) => gigs.get(admin, id).slots.map((s) => [s.runner?.id ?? null, s.state]);
+
+    it('marks runners interested until a time is set, then asks them to confirm', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 2 }]));
+        assert.match(await gigs.join('a', gig.id), /on the list/);
+        await gigs.join('b', gig.id);
+        assert.deepEqual(states(gig.id), [['a', 'interested'], ['b', 'interested']]);
+
+        gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
+        await settle();
+        assert.deepEqual(asked, ['a', 'b']);
+        assert.deepEqual(states(gig.id), [['a', 'awaiting'], ['b', 'awaiting']]);
+
+        assert.match(gigs.confirm('a', gig.id), /confirmed/);
+        assert.match(await gigs.join('b', gig.id), /confirmed/);
+        assert.deepEqual(states(gig.id), [['a', 'confirmed'], ['b', 'confirmed']]);
+    });
+
+    it('confirms new runners straight away once a time is set, but asks people an admin adds', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 2 }]));
+        gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
+        await gigs.join('a', gig.id);
+        await gigs.assign(admin, gig.id, 'b');
+        await settle();
+        assert.deepEqual(states(gig.id), [['a', 'confirmed'], ['b', 'awaiting']]);
+        assert.deepEqual(asked, ['b']);
+    });
+
+    it('asks everyone again when the time changes', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+        await gigs.join('a', gig.id);
+        gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
+        gigs.confirm('a', gig.id);
+        gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 2, 20));
+        await settle();
+        assert.deepEqual(states(gig.id), [['a', 'awaiting']]);
+        assert.deepEqual(asked, ['a', 'a']);
+    });
+
+    it('moves the oldest reserve up when someone drops out, and asks them', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+        await gigs.join('a', gig.id);
+        assert.match(await gigs.join('b', gig.id), /reserve #1/);
+        assert.match(await gigs.join('c', gig.id), /reserve #2/);
+        gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
+        await settle();
+        asked = [];
+
+        gigs.leave('a', gig.id);
+        await settle();
+        assert.deepEqual(states(gig.id), [['b', 'awaiting']]);
+        assert.deepEqual(gigs.get(admin, gig.id).reserves.map((r) => r.id), ['c']);
+        assert.deepEqual(asked, ['b']);
+    });
+
+    it('fills new slots from the reserves', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+        await gigs.join('a', gig.id);
+        await gigs.join('b', gig.id);
+        gigs.update(admin, gig.id, input([{ crewId: null, count: 2 }]));
+        assert.deepEqual(states(gig.id), [['a', 'interested'], ['b', 'interested']]);
+        assert.equal(gigs.get(admin, gig.id).reserves.length, 0);
     });
 
     it('makes fixers the fixer of their own gigs', () => {
@@ -98,14 +170,15 @@ describe('GigsService', () => {
             [['Moxes', 'b'], [null, 'a']],
         );
 
-        await assert.rejects(gigs.join('c', gig.id), /no slot open/);
+        assert.match(await gigs.join('c', gig.id), /reserve #1/);
         await assert.rejects(gigs.join('a', gig.id), /already/);
+        await assert.rejects(gigs.join('c', gig.id), /already on the reserves/);
     });
 
     it('keeps outsiders out of crew slots', async () => {
         const crew = crews.create(people[2], { name: 'Moxes', tagline: '' });
         const gig = gigs.create(admin, input([{ crewId: crew.id, count: 2 }]));
-        await assert.rejects(gigs.join('c', gig.id), /no slot open/);
+        assert.match(await gigs.join('c', gig.id), /reserve/);
     });
 
     it('refuses non-runners and closed gigs', async () => {

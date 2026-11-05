@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { groupSlots } from '../shared/slots';
-import { diffSlots, pickSlot, Slot } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, Slot } from './slots';
 
 const slot = (id: number, crewId: number | null, userId: string | null = null): Slot => ({ id, crewId, userId });
 
@@ -74,5 +74,38 @@ describe('groupSlots', () => {
             groups.map((g) => [g.crew?.name ?? 'open', g.slots.length]),
             [['Moxes', 2], ['open', 1]],
         );
+    });
+});
+
+describe('fillFromReserves', () => {
+    it('moves the oldest reserve into a free slot', () => {
+        const moves = fillFromReserves([slot(1, null, 'a'), slot(2, null)], [
+            { userId: 'b', crewIds: [] },
+            { userId: 'c', crewIds: [] },
+        ]);
+        assert.deepEqual(moves, [{ slotId: 2, userId: 'b' }]);
+    });
+
+    it('only gives crew slots to that crew', () => {
+        const moves = fillFromReserves([slot(1, 7)], [
+            { userId: 'b', crewIds: [] },
+            { userId: 'c', crewIds: [7] },
+        ]);
+        assert.deepEqual(moves, [{ slotId: 1, userId: 'c' }]);
+    });
+
+    it('fills crew slots before open ones', () => {
+        const moves = fillFromReserves([slot(1, null), slot(2, 7)], [
+            { userId: 'c', crewIds: [7] },
+            { userId: 'b', crewIds: [] },
+        ]);
+        assert.deepEqual(moves, [
+            { slotId: 2, userId: 'c' },
+            { slotId: 1, userId: 'b' },
+        ]);
+    });
+
+    it('leaves slots empty when no reserve fits', () => {
+        assert.deepEqual(fillFromReserves([slot(1, 7)], [{ userId: 'b', crewIds: [] }]), []);
     });
 });

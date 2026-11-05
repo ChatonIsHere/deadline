@@ -1,6 +1,7 @@
 import type { GigView } from '@shared/schemas';
 import { Link } from 'react-router';
 import { Icon, Money, StatusBadge } from '@/components/common';
+import { formatSession } from '@/components/session';
 import { imageUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ export function GigCard({ gig }: { gig: GigView }) {
                 <span className="flex items-center gap-1">
                     <Icon name="location" /> {gig.location}
                 </span>
+                {gig.sessionAt && <span className="text-accent">{formatSession(gig.sessionAt)}</span>}
             </p>
             <div className="flex items-center justify-between gap-4">
                 <Money amount={gig.pay} />

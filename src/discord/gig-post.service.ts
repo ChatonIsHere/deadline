@@ -6,7 +6,8 @@ import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { EmojiService } from './emoji.service';
-import { gigMessage, openSlots } from './gig-embed';
+import { confirmButtons, confirmMessage, gigMessage, openSlots } from './gig-embed';
+import { voice } from './voice';
 
 /** Tags the bot sets on posts. Moderated so only the bot and mods can apply them. */
 export const STATUS_TAGS = ['Open', 'Full', 'Closed', 'Completed', 'Cancelled'];
@@ -123,6 +124,31 @@ export class GigPostService {
             await thread.setLocked(false);
         }
         return thread.id;
+    }
+
+    /** DMs runners to confirm the session. Anyone whose DMs are closed gets pinged in the thread instead. */
+    async askToConfirm(gig: GigView, threadId: string, userIds: string[]) {
+        if (!gig.sessionAt) return;
+        const threadUrl = `https://discord.com/channels/${this.settings.get().guildId}/${threadId}`;
+        const message = confirmMessage({ ...gig, sessionAt: gig.sessionAt }, threadUrl);
+
+        const failed: string[] = [];
+        for (const id of userIds) {
+            try {
+                await (await this.client.users.fetch(id)).send(message);
+            } catch {
+                failed.push(id);
+            }
+        }
+        if (!failed.length) return;
+
+        const thread = await this.client.channels.fetch(threadId);
+        if (!thread?.isThread()) return;
+        await thread.send({
+            content: voice.confirmFallback(failed.map((id) => `<@${id}>`).join(' ')),
+            components: [confirmButtons(gig.id)],
+            allowedMentions: { users: failed },
+        });
     }
 
     /** Adds a "Fixer: Name" tag the first time a fixer posts, while the forum has room. */

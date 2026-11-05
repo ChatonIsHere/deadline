@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Money, Person, Say, StatusBadge } from '@/components/common';
 import { Markdown } from '@/components/markdown';
+import { AssignRunner, SessionCard } from '@/components/session';
 import { SlotList } from '@/components/slot-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,7 @@ export function Gig() {
     const reject = useAction(() => api(`${url}/reject`, 'POST'), 'Rejected.');
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'Status updated.');
     const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'Runner removed.');
+    const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'Removed from reserves.');
     const remove = useAction(() => api(url, 'DELETE'), () => navigate('/'));
 
     if (isError) return <Say>no such contract.</Say>;
@@ -36,6 +38,7 @@ export function Gig() {
     const owner = { createdBy: gig.createdBy.id, status: gig.status };
     const nextStatuses = canRunGig(me, gig) ? NEXT_STATUSES[gig.status] : [];
     const canDelete = canDeleteGig(me, owner);
+    const active = gig.status === 'open' || gig.status === 'closed';
 
     return (
         <div className="space-y-6">
@@ -117,12 +120,19 @@ export function Gig() {
                         <Detail icon="eb" label="Pay" value={<Money amount={gig.pay} />} />
                     </Card>
 
+                    <SessionCard gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />
+
                     <Card>
                         <CardTitle className="flex items-center gap-2">
                             <Icon name="crew" /> Crew {gig.slots.filter((s) => s.runner).length}/{gig.slots.length}
                         </CardTitle>
-                        <SlotList gig={gig} onKick={me.isAdmin ? (slotId) => kick.mutate(slotId) : undefined} />
-                        {gig.status === 'open' && <Say className="mt-4 text-xs">sign up from the Discord post.</Say>}
+                        <SlotList
+                            gig={gig}
+                            onKick={me.isAdmin ? (slotId) => kick.mutate(slotId) : undefined}
+                            onUnreserve={me.isAdmin ? (userId) => unreserve.mutate(userId) : undefined}
+                        />
+                        {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
+                        {gig.status === 'open' && <Say className="mt-4 text-xs">runners sign up from the Discord post.</Say>}
                     </Card>
 
                     {(nextStatuses.length > 0 || canDelete) && (

@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
-import { gigInput, type GigInput, type Me, statusInput, type StatusInput } from '../shared/schemas';
+import { gigInput, type GigInput, type Me, memberInput, sessionInput, statusInput, type StatusInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { GigsService } from './gigs.service';
 
@@ -63,5 +63,22 @@ export class GigsController {
     @Delete(':id/slots/:slotId/runner')
     kick(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Param('slotId', ParseIntPipe) slotId: number) {
         return this.gigs.kick(user, id, slotId);
+    }
+
+    /** Admin puts an edgerunner on the gig (a slot, or the reserves if it's full). */
+    @Post(':id/runners')
+    assign(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(memberInput)) body: { userId: string }) {
+        return this.gigs.assign(user, id, body.userId);
+    }
+
+    @Delete(':id/reserves/:userId')
+    unreserve(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Param('userId') userId: string) {
+        return this.gigs.unreserve(user, id, userId);
+    }
+
+    /** Sets (or clears, with null) the session time. Runners get asked to confirm. */
+    @Post(':id/session')
+    session(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(sessionInput)) body: { sessionAt: number | null }) {
+        return this.gigs.setSession(user, id, body.sessionAt);
     }
 }

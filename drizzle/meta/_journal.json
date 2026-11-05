@@ -15,6 +15,13 @@
       "when": 1793879855044,
       "tag": "0001_images_regions_fixers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793882914644,
+      "tag": "0002_sessions",
+      "breakpoints": true
     }
   ]
 }

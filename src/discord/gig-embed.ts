@@ -35,13 +35,19 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         }
     }
 
+    // Once a time is set, say who has confirmed. Before that everyone is just interested.
+    const runnerLine = (s: GigView['slots'][number]) => {
+        if (!s.runner) return `${icon('slot_open', '□')} open`;
+        const state = gig.sessionAt && s.state !== 'confirmed' ? ` · *${s.state}*` : '';
+        return `${icon('slot_filled', '▣')} <@${s.runner.id}>${state}`;
+    };
     const slotLines = groupSlots(gig.slots).map((group) => {
         const title = group.crew ? `**${group.crew.name}**` : '**Any edgerunner**';
-        const lines = group.slots.map((s) => (s.runner ? `${icon('slot_filled', '▣')} <@${s.runner.id}>` : `${icon('slot_open', '□')} open`));
-        return [title, ...lines].join('\n');
+        return [title, ...group.slots.map(runnerLine)].join('\n');
     });
 
     const taken = gig.slots.length - openSlots(gig);
+    const active = gig.status === 'open' || gig.status === 'closed';
 
     const embed = new EmbedBuilder()
         .setColor(COLOURS[gig.status])
@@ -53,25 +59,36 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             { name: 'Location', value: `${icon('location')} ${gig.location}`.trim(), inline: true },
             { name: 'Pay', value: money(gig.pay, emoji), inline: true },
             ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
+            { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
             { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
+            ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. <@${r.id}>`).join('\n') }] : []),
         )
         .setFooter({ text: voice.footer(gig.status) })
         .setImage(imageUrl)
         .setTimestamp(gig.createdAt);
 
-    const canJoin = gig.status === 'open';
+    // Full gigs still take sign-ups: they go on the reserves.
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
             .setCustomId(`gig/join/${gig.id}`)
-            .setLabel('Take the job')
+            .setLabel(gig.sessionAt ? 'Take the job' : "I'm interested")
             .setStyle(ButtonStyle.Primary)
-            .setDisabled(!canJoin || taken === gig.slots.length),
-        new ButtonBuilder()
-            .setCustomId(`gig/leave/${gig.id}`)
-            .setLabel('Pull out')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(!canJoin),
+            .setDisabled(gig.status !== 'open'),
+        ...(gig.sessionAt ? [confirmButton(gig.id).setDisabled(!active)] : []),
+        dropButton(gig.id).setDisabled(!active),
     );
 
     return { embeds: [embed], components: [buttons] };
+}
+
+const confirmButton = (id: number) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
+const dropButton = (id: number) => new ButtonBuilder().setCustomId(`gig/leave/${id}`).setLabel('Pull out').setStyle(ButtonStyle.Secondary);
+
+/** Confirm / drop out buttons for asking runners about a session. */
+export const confirmButtons = (id: number) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
+
+/** The DM asking a runner to confirm the session time. */
+export function confirmMessage(gig: GigView & { sessionAt: number }, threadUrl: string) {
+    const row = confirmButtons(gig.id).addComponents(new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl));
+    return { content: voice.confirmAsk(gig.name, gig.sessionAt), components: [row] };
 }
