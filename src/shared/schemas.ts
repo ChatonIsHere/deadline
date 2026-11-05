@@ -28,6 +28,8 @@ export const SET_STATUSES = ['open', 'closed', 'cancelled'] as const;
 export const MAX_SLOTS = 20;
 
 const text = (max: number) => z.string().trim().min(1, 'Required').max(max);
+/** Required text on one line: line breaks become spaces. For list items in the Discord post. */
+const oneLine = (max: number) => text(max).transform((s) => s.replace(/\s*\n+\s*/g, ' '));
 /** Optional text: blank becomes null. */
 const optionalText = (max: number) =>
     z
@@ -56,14 +58,18 @@ export const gigInput = z.object({
     type: z.string().trim().max(40).nullable(),
     /** The brief: everything about the job. It's the post's description, which Discord caps at 4096. */
     brief: text(4000),
-    /** What the crew has to do to get paid. */
-    primaryObjective: text(500),
+    /** What the crew has to do to get paid: one or more parts, one line each, with one payout. */
+    primaryObjective: z.array(oneLine(150)).min(1, 'Add the primary objective').max(8),
     /** What the primary objective pays. */
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
     imageId: z.number().int().nullable(),
     objectives: z
-        // One line each: they're list items in the Discord post
-        .array(z.object({ text: text(150).transform((s) => s.replace(/\s*\n+\s*/g, ' ')), bonus: z.number().int().min(1).nullable() }))
+        // `each`: paid for each time it's done ("x for each y"), not once on completion
+        .array(
+            z
+                .object({ text: oneLine(150), bonus: z.number().int().min(1).nullable(), each: z.boolean() })
+                .refine((o) => !o.each || o.bonus, 'A per-each objective needs a bonus'),
+        )
         .max(8),
     slots: z
         .array(z.object({ crewId: z.number().int().nullable(), count: z.number().int().min(1) }))
@@ -314,9 +320,11 @@ export interface GigView {
     /** What the primary objective pays. */
     pay: number;
     brief: string;
-    primaryObjective: string;
+    /** One or more parts. */
+    primaryObjective: string[];
     imageId: number | null;
-    objectives: { text: string; bonus: number | null }[];
+    /** `each`: the bonus is paid for each time it's done. */
+    objectives: { text: string; bonus: number | null; each: boolean }[];
     slots: SlotView[];
     /** Waiting for a slot, in order. */
     reserves: RunnerCard[];
@@ -385,8 +393,12 @@ export interface CrewInvite {
     createdAt: number;
 }
 
-/** A gig's pay: the primary objective alone, up to that plus every secondary bonus. */
-export const payRange = (gig: { pay: number; objectives: { bonus: number | null }[] }) => ({
+/**
+ * A gig's pay: the primary objective alone, up to that plus every secondary bonus. Per-each
+ * bonuses count once and make it open-ended (`open`: shown with a + after the top end).
+ */
+export const payRange = (gig: { pay: number; objectives: { bonus: number | null; each?: boolean }[] }) => ({
     min: gig.pay,
     max: gig.pay + gig.objectives.reduce((sum, o) => sum + (o.bonus ?? 0), 0),
+    open: gig.objectives.some((o) => o.each && !!o.bonus),
 });

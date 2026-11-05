@@ -21,14 +21,15 @@ export function Money({ amount, className }: { amount: number; className?: strin
     );
 }
 
-/** A gig's pay: the primary objective alone, up to that plus every bonus. */
-export function Pay({ gig, className }: { gig: { pay: number; objectives: { bonus: number | null }[] }; className?: string }) {
-    const { min, max } = payRange(gig);
+/** A gig's pay: the primary objective alone, up to that plus every bonus. A + means per-each bonuses can take it higher. */
+export function Pay({ gig, className }: { gig: Parameters<typeof payRange>[0]; className?: string }) {
+    const { min, max, open } = payRange(gig);
     return (
         <span className={cn('inline-flex items-center gap-1 font-semibold text-primary', className)}>
             <Icon name="eb" />
             {min.toLocaleString('en-GB')}
             {max > min && ` – ${max.toLocaleString('en-GB')}`}
+            {open && '+'}
         </span>
     );
 }
@@ -73,7 +74,8 @@ export function Say({ children, className }: { children: ReactNode; className?: 
     const shown = useTyped(text ?? '');
     const typing = text !== null && shown < text.length;
     return (
-        <p className={cn('text-muted-foreground', className)}>
+        // Always body size, so every line from the board matches wherever it sits
+        <p className={cn('text-sm text-muted-foreground', className)}>
             <span className="text-accent">// DEADLINE:</span>{' '}
             {text === null ? (
                 children

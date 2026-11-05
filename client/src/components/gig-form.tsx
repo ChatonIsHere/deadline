@@ -24,13 +24,14 @@ interface FormState {
     location: string;
     type: string;
     brief: string;
-    primaryObjective: string;
+    /** One row per part. */
+    primaryObjective: string[];
     /** What the primary objective pays. */
     pay: string;
     imageId: number | null;
     /** The picture came from the library, so it follows the location. */
     imageAuto: boolean;
-    objectives: { text: string; bonus: string }[];
+    objectives: { text: string; bonus: string; each: boolean }[];
     slots: { crewId: string; count: string }[];
 }
 
@@ -43,7 +44,7 @@ function toForm(gig?: GigView): FormState {
             location: '',
             type: '',
             brief: '',
-            primaryObjective: '',
+            primaryObjective: [''],
             pay: '',
             imageId: null,
             imageAuto: true,
@@ -60,11 +61,11 @@ function toForm(gig?: GigView): FormState {
         location: gig.location,
         type: gig.type ?? '',
         brief: gig.brief,
-        primaryObjective: gig.primaryObjective,
+        primaryObjective: gig.primaryObjective.length ? gig.primaryObjective : [''],
         pay: String(gig.pay),
         imageId: gig.imageId,
         imageAuto: false,
-        objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '' })),
+        objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each })),
         slots: [...counts].map(([crewId, count]) => ({ crewId, count: String(count) })),
     };
 }
@@ -75,7 +76,9 @@ function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
         fixerRunnerId: form.fixerRunnerId ? Number(form.fixerRunnerId) : null,
         type: form.type.trim() || null,
         pay: form.pay === '' ? NaN : Number(form.pay),
-        objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null })),
+        // Blank extra parts are dropped rather than failing the form
+        primaryObjective: form.primaryObjective.filter((p, i) => i === 0 || p.trim()),
+        objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each })),
         slots: form.slots.map((s) => ({ crewId: s.crewId ? Number(s.crewId) : null, count: Number(s.count) })),
     };
 }
@@ -151,12 +154,39 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle help="what the crew has to pull off to get paid, and what it pays.">Primary objective</CardTitle>
-                    <div className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
-                        <div className="w-full sm:w-auto sm:flex-1">
-                            <MarkdownEditor singleLine value={form.primaryObjective} onChange={(primaryObjective) => set({ primaryObjective })} />
+                    <CardTitle help="what the crew has to pull off to get paid. split it into parts if it has several, it still pays once.">Primary objective</CardTitle>
+                    {form.primaryObjective.map((part, i) => (
+                        <div key={i} className="flex items-end gap-2">
+                            <div className="flex-1">
+                                <MarkdownEditor
+                                    singleLine
+                                    value={part}
+                                    onChange={(text) => set({ primaryObjective: form.primaryObjective.map((p, j) => (j === i ? text : p)) })}
+                                />
+                            </div>
+                            {form.primaryObjective.length > 1 && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="mb-0.5"
+                                    aria-label="Remove part"
+                                    onClick={() => set({ primaryObjective: form.primaryObjective.filter((_, j) => j !== i) })}
+                                >
+                                    <X className="size-4" />
+                                </Button>
+                            )}
                         </div>
-                        <div className="relative flex-1 sm:w-32 sm:flex-none">
+                    ))}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        {form.primaryObjective.length < 8 ? (
+                            <Button type="button" variant="outline" size="sm" onClick={() => set({ primaryObjective: [...form.primaryObjective, ''] })}>
+                                <Plus className="size-4" /> Add part
+                            </Button>
+                        ) : (
+                            <span />
+                        )}
+                        <div className="relative w-40">
                             <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
                             <Input className="pl-8" type="number" min={1} value={form.pay} onChange={(e) => set({ pay: e.target.value })} placeholder="Pay" aria-label="Pay" />
                         </div>
@@ -164,7 +194,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle help="optional extras, one line each. a bonus is paid on top of the pay when the crew pulls one off.">Secondary objectives</CardTitle>
+                    <CardTitle help="optional extras, one line each. a bonus is paid once when the crew pulls it off, or for each time with Each.">Secondary objectives</CardTitle>
                     {form.objectives.map((o, i) => (
                         // Text on its own line on phones, bonus beside it on wider screens
                         <div key={i} className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
@@ -182,13 +212,23 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                     placeholder="Bonus"
                                 />
                             </div>
+                            <Button
+                                type="button"
+                                variant={o.each ? 'default' : 'outline'}
+                                className="mb-0.5 w-16"
+                                aria-pressed={o.each}
+                                title={o.each ? 'Paid for each time it is done' : 'Paid once, on completion'}
+                                onClick={() => setRow('objectives', i, { each: !o.each })}
+                            >
+                                {o.each ? 'Each' : 'Once'}
+                            </Button>
                             <Button type="button" variant="ghost" size="icon" className="mb-0.5" onClick={() => removeRow('objectives', i)}>
                                 <X className="size-4" />
                             </Button>
                         </div>
                     ))}
                     {form.objectives.length < 8 && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => set({ objectives: [...form.objectives, { text: '', bonus: '' }] })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => set({ objectives: [...form.objectives, { text: '', bonus: '', each: false }] })}>
                             <Plus className="size-4" /> Add objective
                         </Button>
                     )}
@@ -202,7 +242,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <img src={imageUrl(form.imageId)} alt="" className="aspect-video w-full object-cover" />
                     ) : (
                         <div className="grid aspect-video place-items-center bg-muted p-4 text-center">
-                            <Say className="text-xs">no pictures in the library yet. upload one.</Say>
+                            <Say>no pictures in the library yet. upload one.</Say>
                         </div>
                     )}
                     <div className="flex gap-2">
@@ -251,9 +291,9 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                 <RunnerAvatar runner={fixers[0]} /> {fixers[0].handle}
                             </p>
                         ) : fixerQuery.isPending ? (
-                            <Say className="text-xs">checking your fixers...</Say>
+                            <Say>checking your fixers...</Say>
                         ) : (
-                            <Say className="text-xs">
+                            <Say>
                                 you need a fixer character first: a runner with the Fixer role.{' '}
                                 <Link to="/runners/new" className="text-accent hover:underline">
                                     make one
@@ -277,8 +317,8 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <Combobox id="type" value={form.type} onChange={(type) => set({ type })} suggestions={types.map((t) => ({ value: t }))} maxLength={40} />
                     </div>
                     <div>
-                        <Label help="the primary objective's pay, up to that plus every secondary bonus.">Pay</Label>
-                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null })) }} />
+                        <Label help="the primary objective's pay, up to that plus every secondary bonus. a + means per-each bonuses can add more.">Pay</Label>
+                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null, each: o.each })) }} />
                     </div>
                 </Card>
 

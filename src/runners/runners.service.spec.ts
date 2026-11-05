@@ -68,7 +68,7 @@ describe('RunnersService', () => {
         const vex = await runners.create(players[1], input());
         assert.equal((await runners.update(admin, vex.id, input({ ownerId: 'b' }))).ownerId, 'b');
 
-        const gig = gigs.create(admin, { name: 'Job', fixerName: 'Rogue', fixerRunnerId: null, location: 'Watson', type: null, pay: 100, brief: 'Go.', primaryObjective: 'Go.', imageId: null, objectives: [], slots: [{ crewId: null, count: 1 }] });
+        const gig = gigs.create(admin, { name: 'Job', fixerName: 'Rogue', fixerRunnerId: null, location: 'Watson', type: null, pay: 100, brief: 'Go.', primaryObjective: ['Go.'], imageId: null, objectives: [], slots: [{ crewId: null, count: 1 }] });
         await gigs.join('b', gig.id);
         await assert.rejects(runners.update(admin, vex.id, input({ ownerId: 'a' })), /off their live gigs/);
         // Editing other things is fine

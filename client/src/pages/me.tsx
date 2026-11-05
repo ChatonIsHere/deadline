@@ -20,7 +20,7 @@ export function MePage() {
             <div className="flex items-center gap-3">
                 <Avatar member={me} className="size-12 [--cut:8px]" />
                 <div>
-                    <h1 className="text-2xl text-primary">{me.name}</h1>
+                    <h1 className="text-3xl text-primary">{me.name}</h1>
                     <p className="text-muted-foreground">{roles}</p>
                 </div>
             </div>

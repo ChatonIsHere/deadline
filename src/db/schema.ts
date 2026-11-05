@@ -135,7 +135,7 @@ export const gigs = sqliteTable('gigs', {
     pay: integer().notNull(),
     // The brief (the column kept its first name)
     brief: text('objective').notNull(),
-    // The main thing the crew has to do to get paid
+    // The main thing the crew has to do to get paid: one or more parts, one per line, one payout
     primaryObjective: text().notNull().default(''),
     imageId: integer().references(() => images.id),
     status: text({ enum: GIG_STATUSES }).notNull().default('pending'),
@@ -216,6 +216,8 @@ export const gigObjectives = sqliteTable('gig_objectives', {
         .references(() => gigs.id, { onDelete: 'cascade' }),
     text: text().notNull(),
     bonus: integer(),
+    // Paid for each time it's done ("x for each y"), not once on completion
+    each: integer({ mode: 'boolean' }).notNull().default(false),
     position: integer().notNull(),
 });
 

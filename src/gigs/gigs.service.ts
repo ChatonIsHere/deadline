@@ -545,7 +545,7 @@ export class GigsService {
         const fixer = this.resolveFixer(user, input);
         if (input.imageId && !this.library.exists(input.imageId)) throw new BadRequestException('That picture is gone. Pick another.');
         const imageId = input.imageId ?? this.library.pick(input.location);
-        return { ...input, fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId, imageId };
+        return { ...input, primaryObjective: input.primaryObjective.join('\n'), fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId, imageId };
     }
 
     private resolveFixer(user: Me, input: GigInput): { name: string; runnerId: number | null; userId: string | null } {
@@ -638,9 +638,9 @@ export class GigsService {
             type: gig.type,
             pay: gig.pay,
             brief: gig.brief,
-            primaryObjective: gig.primaryObjective,
+            primaryObjective: gig.primaryObjective.split('\n').filter(Boolean),
             imageId: gig.imageId,
-            objectives: gig.objectives.sort((a, b) => a.position - b.position).map((o) => ({ text: o.text, bonus: o.bonus })),
+            objectives: gig.objectives.sort((a, b) => a.position - b.position).map((o) => ({ text: o.text, bonus: o.bonus, each: o.each })),
             slots: gig.slots
                 .sort((a, b) => a.position - b.position)
                 .map((s) => ({
@@ -671,7 +671,7 @@ export class GigsService {
     private writeObjectives(tx: Tx, gigId: number, objectives: GigInput['objectives']) {
         if (!objectives.length) return;
         tx.insert(gigObjectives)
-            .values(objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, position })))
+            .values(objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, each: o.each, position })))
             .run();
     }
 

@@ -33,7 +33,7 @@ export function LibraryPage() {
 
             {districts.map((d) => (
                 <section key={d.id} className="space-y-3">
-                    <h2 className="text-xl text-accent">{d.name}</h2>
+                    <h2 className="text-lg text-accent">{d.name}</h2>
                     <Pictures title={`${d.name} (whole district)`} ids={d.images} region={d} />
                     {inDistrict(d.name).map((r) => (
                         <Pictures key={r.id} title={r.name} ids={r.images} region={r} />

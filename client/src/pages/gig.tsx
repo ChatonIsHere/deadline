@@ -94,17 +94,22 @@ export function Gig() {
                         <CardTitle>Brief</CardTitle>
                         <Markdown text={gig.brief} />
                     </Card>
-                    {gig.primaryObjective && (
+                    {gig.primaryObjective.length > 0 && (
                         <Card>
                             <CardTitle className="flex items-center gap-2">
                                 <Icon name="objective" /> Primary objective
                             </CardTitle>
-                            <p className="flex justify-between gap-4">
-                                <span>
-                                    <Markdown inline text={gig.primaryObjective} />
-                                </span>
-                                <Money amount={gig.pay} className="shrink-0" />
-                            </p>
+                            {/* One payout for the whole thing, however many parts */}
+                            <div className="flex justify-between gap-4">
+                                <ul className="space-y-2">
+                                    {gig.primaryObjective.map((part, i) => (
+                                        <li key={i}>
+                                            - <Markdown inline text={part} />
+                                        </li>
+                                    ))}
+                                </ul>
+                                <Money amount={gig.pay} className="shrink-0 self-start" />
+                            </div>
                         </Card>
                     )}
                     {gig.objectives.length > 0 && (
@@ -118,7 +123,13 @@ export function Gig() {
                                         <span>
                                             - <Markdown inline text={o.text} />
                                         </span>
-                                        {o.bonus && <Money amount={o.bonus} className="shrink-0" />}
+                                        {o.bonus && (
+                                            <span className="flex shrink-0 items-center gap-1 self-start">
+                                                <span className="font-semibold text-primary">+</span>
+                                                <Money amount={o.bonus} />
+                                                {o.each && <span className="text-muted-foreground">each</span>}
+                                            </span>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -164,7 +175,7 @@ export function Gig() {
                             onOpenCrew={me.isAdmin && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
-                        {gig.status === 'open' && <Say className="mt-4 text-xs">runners can sign up here or on the Discord post.</Say>}
+                        {gig.status === 'open' && <Say className="mt-4">runners can sign up here or on the Discord post.</Say>}
                     </Card>
 
                     {(nextStatuses.length > 0 || canDelete) && (

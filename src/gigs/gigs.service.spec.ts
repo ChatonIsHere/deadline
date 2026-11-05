@@ -64,9 +64,9 @@ const input = (slots: GigInput['slots'], patch: Partial<GigInput> = {}): GigInpu
     type: null,
     pay: 2000,
     brief: 'Get in, get out.',
-    primaryObjective: 'Grab the case.',
+    primaryObjective: ['Grab the case.'],
     imageId: null,
-    objectives: [{ text: 'No alarms', bonus: 500 }],
+    objectives: [{ text: 'No alarms', bonus: 500, each: false }],
     slots,
     ...patch,
 });

@@ -22,10 +22,23 @@ export function money(amount: number, emoji: EmojiLookup): string {
     return eb ? `${eb} ${n}` : `${n}eb`;
 }
 
-/** "€$ 2,000", or a range when secondary objectives pay bonuses: "€$ 2,000 – 2,500". */
+/**
+ * "€$ 2,000", or a range when secondary objectives pay bonuses: "€$ 2,000 – 2,500". A + on
+ * the end means per-each bonuses can take it higher.
+ */
 export function payText(gig: GigView, emoji: EmojiLookup): string {
-    const { min, max } = payRange(gig);
-    return max > min ? `${money(min, emoji)} – ${max.toLocaleString('en-GB')}` : money(min, emoji);
+    const { min, max, open } = payRange(gig);
+    return (max > min ? `${money(min, emoji)} – ${max.toLocaleString('en-GB')}` : money(min, emoji)) + (open ? '+' : '');
+}
+
+/** A secondary objective's bonus: "+€$ 500", or "+€$ 50 each" when it's paid per time. */
+const bonusText = (o: GigView['objectives'][number], emoji: EmojiLookup) => (o.bonus ? ` · +${money(o.bonus, emoji)}${o.each ? ' each' : ''}` : '');
+
+/** The primary objective: one part with its pay on the line, or a list of parts and the pay under them. */
+function primaryText(gig: GigView, emoji: EmojiLookup, icon: string): string {
+    const parts = gig.primaryObjective;
+    if (parts.length === 1) return `${icon} ${parts[0]} · ${money(gig.pay, emoji)}`.trim();
+    return [...parts.map((p) => `${icon} ${p}`.trim()), `**Pays** ${money(gig.pay, emoji)}`].join('\n');
 }
 
 export const openSlots = (gig: GigView) => gig.slots.filter((s) => !s.runner).length;
@@ -72,9 +85,9 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         { name: 'Location', value: `${icon('location')} ${gig.location}`.trim(), inline: true },
         { name: 'Pay', value: payText(gig, emoji), inline: true },
         ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
-        ...(gig.primaryObjective ? [{ name: 'Primary objective', value: `${icon('objective', '-')} ${gig.primaryObjective} · ${money(gig.pay, emoji)}` }] : []),
+        ...(gig.primaryObjective.length ? [{ name: 'Primary objective', value: primaryText(gig, emoji, icon('objective', '-')) }] : []),
         ...(gig.objectives.length
-            ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`).join('\n') }]
+            ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${bonusText(o, emoji)}`).join('\n') }]
             : []),
         ...debriefFields(gig, emoji),
     ];
