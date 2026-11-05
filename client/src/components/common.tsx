@@ -1,5 +1,6 @@
 import type { GigStatus, Member } from '@shared/schemas';
-import { type ReactNode, useState } from 'react';
+import { Popover } from 'radix-ui';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,12 +51,79 @@ export function StatusBadge({ status }: { status: GigStatus }) {
     return <Badge variant={STATUS_BADGE[status]}>{status}</Badge>;
 }
 
-/** A line from the board's AI. */
+/**
+ * A line from the board's AI, typed out quickly when it appears. Plain text only; anything
+ * else just shows. The untyped rest is there but transparent, so nothing jumps around and
+ * screen readers get the whole line.
+ */
 export function Say({ children, className }: { children: ReactNode; className?: string }) {
+    const text = plainText(children);
+    const shown = useTyped(text ?? '');
+    const typing = text !== null && shown < text.length;
     return (
         <p className={cn('text-muted-foreground', className)}>
-            <span className="text-accent">// DEADLINE:</span> {children}
+            <span className="text-accent">// DEADLINE:</span>{' '}
+            {text === null ? (
+                children
+            ) : (
+                <>
+                    {text.slice(0, shown)}
+                    {typing && <span className="inline-block h-[1em] w-[0.5em] translate-y-[0.15em] bg-accent" aria-hidden />}
+                    <span className="text-transparent">{text.slice(shown)}</span>
+                </>
+            )}
         </p>
+    );
+}
+
+/** Children as one string, or null if there's more than text in there. */
+function plainText(children: ReactNode): string | null {
+    const parts = Array.isArray(children) ? children : [children];
+    return parts.every((p) => typeof p === 'string' || typeof p === 'number') ? parts.join('') : null;
+}
+
+/** How much of `text` to show. Types the whole thing in about a third of a second, or at once for people who turn motion off. */
+function useTyped(text: string): number {
+    const [shown, setShown] = useState(() => (prefersStill() ? text.length : 0));
+    useEffect(() => {
+        if (prefersStill()) return setShown(text.length);
+        setShown(0);
+        const perChar = Math.min(12, 350 / Math.max(text.length, 1));
+        const start = performance.now();
+        let frame = requestAnimationFrame(function step(now) {
+            const n = Math.min(text.length, Math.ceil((now - start) / perChar));
+            setShown(n);
+            if (n < text.length) frame = requestAnimationFrame(step);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [text]);
+    return shown;
+}
+
+const prefersStill = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** A cyan "?" that opens a short explanation from the board's AI, typed out like the rest. */
+export function Help({ children, label = 'What is this?' }: { children: string; label?: string }) {
+    return (
+        <Popover.Root>
+            <Popover.Trigger asChild>
+                <button
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    className="cut inline-grid size-5 shrink-0 cursor-pointer place-items-center bg-accent font-display text-xs leading-none font-bold text-accent-foreground outline-none [--cut:5px] hover:bg-accent/80 focus-visible:shadow-[inset_0_0_0_2px_var(--color-background)]"
+                >
+                    ?
+                </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+                <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={16} className="z-50 w-72 max-w-[calc(100vw-2rem)]">
+                    <div className="cut-frame p-3 text-xs [--cut:8px] [--frame:var(--color-accent)]">
+                        <Say>{children}</Say>
+                    </div>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
     );
 }
 

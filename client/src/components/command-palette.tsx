@@ -69,7 +69,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                             </Group>
                             <Group heading="Runners">
                                 {runners.map((r) => (
-                                    <Item key={r.id} value={`runner ${r.id} ${r.handle} ${r.role}`} tag={r.role.toUpperCase()} onSelect={() => go(`/runners/${r.id}`)}>
+                                    <Item key={r.id} value={`runner ${r.id} ${r.slug} ${r.handle} ${r.role}`} tag={r.role.toUpperCase()} onSelect={() => go(`/runners/${r.slug}`)}>
                                         {r.handle}
                                     </Item>
                                 ))}
@@ -78,14 +78,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                                 {fixers
                                     .filter((f) => !f.ownerId)
                                     .map((f) => (
-                                        <Item key={f.id} value={`fixer ${f.id} ${f.handle}`} tag="NPC" onSelect={() => go(`/runners/${f.id}`)}>
+                                        <Item key={f.id} value={`fixer ${f.id} ${f.slug} ${f.handle}`} tag="NPC" onSelect={() => go(`/fixers/${f.slug}`)}>
                                             {f.handle}
                                         </Item>
                                     ))}
                             </Group>
                             <Group heading="Crews">
                                 {crews.map((c) => (
-                                    <Item key={c.id} value={`crew ${c.id} ${c.name}`} tag="CREW" onSelect={() => go(`/crews/${c.id}`)}>
+                                    <Item key={c.id} value={`crew ${c.id} ${c.slug} ${c.name}`} tag="CREW" onSelect={() => go(`/crews/${c.slug}`)}>
                                         {c.name}
                                     </Item>
                                 ))}

@@ -29,11 +29,15 @@ People with none of these roles can't log in. Admins are people with the admin r
 
 A crew is a group of runners with ranks. A gig can hold slots for a crew, and only its runners can take them until an admin opens them to anyone. Deleting a crew opens its slots.
 
-- **Ranks** are just names, highest first. New crews get Founder, Lieutenant, Member and Prospect. The top rank (Founder unless renamed) runs the crew: edits it, sets ranks, invites, removes runners and keeps the allies list. Admins can do all of that too.
+- **Ranks** are just names, highest first. New crews get Founder and Member; founders can add more. The top rank (Founder unless renamed) runs the crew: edits it, sets ranks, invites, removes runners and keeps the allies list. Admins can do all of that too.
 - A crew always has at least one Founder. A Founder can't step down or leave on their own: another Founder or an admin has to do it. If the last Founder's runner is deleted, the highest ranked runner left takes over.
 - **Invites**: Founders invite a player's runner. The player gets a DM with Join and Decline, and the invite also shows on their **Me** page. New members start at the bottom rank. Admins can also add a runner straight in.
 - **Allies** are runners (or NPC fixers) the crew knows and trusts without them being members. Founders can invite an ally to join from the list.
 - Renaming a rank keeps its runners. Runners in a removed rank drop to the bottom one.
+
+## Typed IDs
+
+Runners (and so fixers) and crews get a typed ID when they're made, used in links: `/runners/vex`, `/fixers/rogue`, `/crews/static-wolves`. It's made from the name unless one is typed in, and can't be changed later. Letters, numbers, `_` and `-` only, with at least one letter. The numeric URLs (`/crews/3`) keep working.
 
 ## Sessions
 

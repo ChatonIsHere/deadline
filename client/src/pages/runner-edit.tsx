@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SlugField } from '@/components/slug-field';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
 import { cn, firstIssue } from '@/lib/utils';
@@ -54,7 +55,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
     const save = useAction(
         (input: RunnerInput) => (runner ? api<RunnerView>(`/api/runners/${runner.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),
-        (saved) => navigate(`/runners/${saved.id}`),
+        (saved) => navigate(`/runners/${saved.slug}`),
     );
 
     const toggleExtra = (role: string) =>
@@ -80,7 +81,15 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
             {me.isAdmin && (
                 <Card className="space-y-2">
-                    <CardTitle>Player</CardTitle>
+                    <CardTitle
+                        help={
+                            isNpc
+                                ? 'an NPC fixer has no player. they show on the Fixers tab and can be picked for gigs.'
+                                : "the runner shows on that player's Runners tab, and they can sign it up for gigs."
+                        }
+                    >
+                        Player
+                    </CardTitle>
                     <Select
                         id="player"
                         value={form.ownerId ?? ''}
@@ -92,11 +101,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                             ...(form.ownerId && !players.some((p) => p.id === form.ownerId) ? [{ value: form.ownerId, label: runner?.owner?.name ?? 'Unknown player' }] : []),
                         ]}
                     />
-                    <p className="text-xs text-muted-foreground">
-                        {isNpc
-                            ? 'An NPC fixer has no player. They show on the Fixers tab and can be picked for gigs.'
-                            : "The runner shows on that player's Runners tab, and they can sign it up for gigs."}
-                    </p>
                 </Card>
             )}
 
@@ -113,6 +117,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                         <Label htmlFor="handle">Handle</Label>
                         <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
                     </div>
+                    {!runner && <SlugField id="slug" name={form.handle} base={isFixer ? 'fixers' : 'runners'} value={form.slug} onChange={(slug) => set({ slug })} />}
                     <div>
                         <Label htmlFor="role">Role</Label>
                         <Select
@@ -148,10 +153,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
             {isFixer && (
                 <Card className="space-y-4">
-                    <CardTitle>Fixer profile</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                        Shown on the Fixers tab. A player's fixer only counts once an admin gives them the fixer role in Discord.
-                    </p>
+                    <CardTitle help="shown on the Fixers tab. a player's fixer only counts once an admin gives them the fixer role in Discord.">Fixer profile</CardTitle>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <Label htmlFor="office">Office location</Label>

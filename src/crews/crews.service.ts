@@ -1,7 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { config } from '../config';
 import { DB, Db } from '../db/db';
+import { freeSlug } from '../db/slugs';
+import { isNumericId } from '../shared/slug';
 import { crewAllies, crewInvites, crewMembers, crews, runners } from '../db/schema';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
@@ -17,12 +19,27 @@ import { type CrewInput, type CrewInvite, type CrewMember, type CrewView, DEFAUL
  * allies. Crew slots on gigs go to the crew's runners.
  */
 @Injectable()
-export class CrewsService {
+export class CrewsService implements OnModuleInit {
     constructor(
         @Inject(DB) private readonly db: Db,
         private readonly members: MembersService,
         private readonly gigs: GigsService,
     ) {}
+
+    /** Crews from before typed IDs get one made from their name. */
+    onModuleInit() {
+        for (const c of this.db.select().from(crews).where(isNull(crews.slug)).all()) {
+            this.db.update(crews).set({ slug: this.newSlug(c.name) }).where(eq(crews.id, c.id)).run();
+        }
+    }
+
+    /** A crew's numeric ID from a URL part: the ID itself or a typed one. */
+    resolve(ref: string): number {
+        if (isNumericId(ref)) return Number(ref);
+        const crew = this.db.query.crews.findFirst({ where: eq(crews.slug, ref.toLowerCase()) }).sync();
+        if (!crew) throw new NotFoundException('No such crew.');
+        return crew.id;
+    }
 
     list(): CrewView[] {
         return this.db.query.crews
@@ -43,9 +60,11 @@ export class CrewsService {
         this.checkName(input.name);
         const runner = this.runner(input.runnerId);
         if (!runner.ownerId || (!user.isAdmin && runner.ownerId !== user.id)) throw new BadRequestException('Found the crew with one of your own runners.');
+        if (input.slug && this.slugTaken(input.slug)) throw new ConflictException('That ID is taken.');
+        const slug = input.slug ?? this.newSlug(input.name);
 
         const id = this.db.transaction((tx) => {
-            const [crew] = tx.insert(crews).values({ name: input.name, tagline: input.tagline, ownerId: runner.ownerId!, ranks: DEFAULT_RANKS }).returning().all();
+            const [crew] = tx.insert(crews).values({ name: input.name, slug, tagline: input.tagline, ownerId: runner.ownerId!, ranks: DEFAULT_RANKS }).returning().all();
             tx.insert(crewMembers).values({ crewId: crew.id, runnerId: runner.id, rank: DEFAULT_RANKS[0] }).run();
             return crew.id;
         });
@@ -192,7 +211,7 @@ export class CrewsService {
             .findMany({ where: inArray(crewInvites.runnerId, [...byId.keys()]), with: { crew: true } })
             .sync()
             .map((i) => ({
-                crew: { id: i.crew.id, name: i.crew.name, tagline: i.crew.tagline },
+                crew: { id: i.crew.id, slug: i.crew.slug ?? String(i.crew.id), name: i.crew.name, tagline: i.crew.tagline },
                 runner: toCard(byId.get(i.runnerId)!),
                 invitedBy: this.members.member(i.invitedBy),
                 createdAt: i.createdAt.getTime(),
@@ -257,6 +276,14 @@ export class CrewsService {
         return runner;
     }
 
+    private slugTaken(slug: string) {
+        return !!this.db.query.crews.findFirst({ where: eq(crews.slug, slug) }).sync();
+    }
+
+    private newSlug(name: string) {
+        return freeSlug(name, 'crew', (s) => this.slugTaken(s));
+    }
+
     private checkName(name: string, id?: number) {
         const taken = this.db.query.crews.findFirst({ where: eq(crews.name, name) }).sync();
         if (taken && taken.id !== id) throw new ConflictException('That name is taken.');
@@ -272,6 +299,7 @@ export class CrewsService {
 
         return {
             id: crew.id,
+            slug: crew.slug ?? String(crew.id),
             name: crew.name,
             tagline: crew.tagline,
             ranks: crew.ranks,

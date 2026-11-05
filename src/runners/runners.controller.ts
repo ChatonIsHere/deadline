@@ -24,8 +24,10 @@ export class RunnersController {
         return this.runners.mine(user.id);
     }
 
+    /** By numeric or typed ID. */
     @Get('runners/:id')
-    get(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
+    get(@CurrentUser() user: Me, @Param('id') ref: string) {
+        const id = this.runners.resolve(ref);
         return this.runners.get(user, id);
     }
 

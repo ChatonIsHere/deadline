@@ -18,7 +18,8 @@ export function Crew() {
     const navigate = useNavigate();
     const { data: crew, isError } = useCrew(id);
 
-    const url = `/api/crews/${id}`;
+    // The URL may hold the typed ID; the API calls below use the numeric one
+    const url = `/api/crews/${crew?.id}`;
     const setRank = useAction(({ runnerId, rank }: { runnerId: number; rank: string }) => api(`${url}/members/${runnerId}`, 'PATCH', { rank }), 'Rank changed.');
     const removeMember = useAction((runnerId: number) => api(`${url}/members/${runnerId}`, 'DELETE'), 'Removed.');
     const removeAlly = useAction((runnerId: number) => api(`${url}/allies/${runnerId}`, 'DELETE'), 'Removed.');
@@ -93,8 +94,7 @@ export function Crew() {
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle>Allies</CardTitle>
-                    <p className="text-xs text-muted-foreground">Runners and fixers the crew knows and trusts, without them being in it.</p>
+                    <CardTitle help="runners and fixers the crew knows and trusts, without them being in it. founders can invite an ally to join.">Allies</CardTitle>
                     {!crew.allies.length && <Say>no allies on file.</Say>}
                     <ul className="space-y-1">
                         {crew.allies.map((a) => {
@@ -259,7 +259,7 @@ function EditCrew({ crew }: { crew: CrewView }) {
                     <Input id="tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={120} />
                 </div>
                 <div className="space-y-2">
-                    <Label>Ranks</Label>
+                    <Label help="the top rank runs the crew. new members join at the bottom rank. runners in a removed rank drop to the bottom.">Ranks</Label>
                     {ranks.map((r, i) => (
                         <div key={i} className="flex items-center gap-1">
                             <Input value={r.name} onChange={(e) => setRank(i, e.target.value)} maxLength={30} aria-label={`Rank ${i + 1}`} />
@@ -281,9 +281,6 @@ function EditCrew({ crew }: { crew: CrewView }) {
                     <Button type="button" variant="outline" size="sm" disabled={ranks.length >= 10} onClick={() => setRanks([...ranks, { name: '', was: null }])}>
                         <Plus className="size-4" /> Add rank
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                        The top rank runs the crew. New members join at the bottom rank. Runners in a removed rank drop to the bottom.
-                    </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={save.isPending || !name.trim() || ranks.some((r) => !r.name.trim())}>
                     Save

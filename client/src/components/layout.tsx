@@ -224,7 +224,7 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_|_$/g, '');
 
-/** The current path, with gig, runner and crew IDs swapped for their names once loaded. */
+/** The current path. Numeric IDs show as the runner's or crew's typed ID, or the gig's name, once loaded. */
 function usePath(): string {
     const { pathname } = useLocation();
     const parts = pathname.split('/').filter(Boolean);
@@ -232,11 +232,11 @@ function usePath(): string {
     const numeric = !!id && /^\d+$/.test(id);
     // Same queries as the pages, so these come from the cache
     const gig = useGig(kind === 'gigs' && numeric ? id : undefined).data;
-    const runner = useRunner(kind === 'runners' && numeric ? id : undefined).data;
+    const runner = useRunner((kind === 'runners' || kind === 'fixers') && numeric ? id : undefined).data;
     const crew = useCrew(kind === 'crews' && numeric ? id : undefined).data;
-    const name = gig?.name ?? runner?.handle ?? crew?.name;
+    const name = gig ? slug(gig.name) : (runner?.slug ?? crew?.slug);
     if (!parts.length) return 'board';
-    if (numeric && name) parts[1] = slug(name);
+    if (numeric && name) parts[1] = name;
     return parts.join('/');
 }
 

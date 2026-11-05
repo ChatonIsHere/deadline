@@ -35,7 +35,7 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
     );
     // Deleted runners (id 0) have no profile
     return runner.id ? (
-        <Link to={`/runners/${runner.id}`} className="inline-flex items-center gap-2 align-middle hover:text-primary">
+        <Link to={`/runners/${runner.slug || runner.id}`} className="inline-flex items-center gap-2 align-middle hover:text-primary">
             {inner}
         </Link>
     ) : (

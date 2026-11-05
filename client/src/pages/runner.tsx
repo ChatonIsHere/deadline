@@ -14,7 +14,7 @@ export function RunnerPage() {
     const me = useUser();
     const navigate = useNavigate();
     const { data: runner, isError } = useRunner(id);
-    const remove = useAction(() => api(`/api/runners/${id}`, 'DELETE'), () => navigate('/runners'));
+    const remove = useAction(() => api(`/api/runners/${runner!.id}`, 'DELETE'), () => navigate('/runners'));
 
     if (isError) return <Say>no such runner.</Say>;
     if (!runner) return <Say>pulling records...</Say>;
@@ -43,7 +43,7 @@ export function RunnerPage() {
                             {runner.crews.map((c, i) => (
                                 <span key={c.id}>
                                     {i > 0 && ', '}
-                                    <Link to={`/crews/${c.id}`} className="text-accent hover:underline">
+                                    <Link to={`/crews/${c.slug}`} className="text-accent hover:underline">
                                         {c.name}
                                     </Link>
                                 </span>
@@ -54,7 +54,7 @@ export function RunnerPage() {
                 {canManage && (
                     <div className="flex gap-2">
                         <Button asChild variant="outline" size="sm">
-                            <Link to={`/runners/${runner.id}/edit`}>Edit</Link>
+                            <Link to={`/runners/${runner.slug}/edit`}>Edit</Link>
                         </Button>
                         <ConfirmButton
                             size="sm"

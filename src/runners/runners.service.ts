@@ -1,7 +1,9 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, avg, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { and, avg, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { CrewsService } from '../crews/crews.service';
 import { DB, Db } from '../db/db';
+import { freeSlug } from '../db/slugs';
+import { isNumericId } from '../shared/slug';
 import { crewMembers, crews, fixerRatings, gigReserves, gigs, gigSlots, runners } from '../db/schema';
 import { MembersService } from '../discord/members.service';
 import { GigsService, toCard } from '../gigs/gigs.service';
@@ -14,7 +16,7 @@ type Runner = typeof runners.$inferSelect;
 
 /** Players' characters, and the fixers among them (plus NPC fixers that admins add). */
 @Injectable()
-export class RunnersService {
+export class RunnersService implements OnModuleInit {
     constructor(
         @Inject(DB) private readonly db: Db,
         private readonly members: MembersService,
@@ -23,6 +25,21 @@ export class RunnersService {
         private readonly gigs: GigsService,
         private readonly crews: CrewsService,
     ) {}
+
+    /** Runners from before typed IDs get one made from their handle. */
+    onModuleInit() {
+        for (const r of this.db.select().from(runners).where(isNull(runners.slug)).all()) {
+            this.db.update(runners).set({ slug: this.newSlug(r.handle) }).where(eq(runners.id, r.id)).run();
+        }
+    }
+
+    /** A runner's numeric ID from a URL part: the ID itself or a typed one. */
+    resolve(ref: string): number {
+        if (isNumericId(ref)) return Number(ref);
+        const r = this.db.query.runners.findFirst({ where: eq(runners.slug, ref.toLowerCase()) }).sync();
+        if (!r) throw new NotFoundException('No such runner.');
+        return r.id;
+    }
 
     /** Every player's runners. NPC fixers only show on the Fixers tab. */
     list(): RunnerSummary[] {
@@ -79,7 +96,7 @@ export class RunnersService {
             .map((g) => g.id);
         const ran = gigIds.length ? this.db.query.gigs.findMany({ where: inArray(gigs.id, gigIds) }).sync() : [];
         const fixed = this.db.query.gigs.findMany({ where: eq(gigs.fixerRunnerId, id) }).sync();
-        const memberOf = this.db.select({ id: crews.id, name: crews.name }).from(crewMembers).innerJoin(crews, eq(crews.id, crewMembers.crewId)).where(eq(crewMembers.runnerId, id)).all();
+        const memberOf = this.db.select({ id: crews.id, slug: sql<string>`coalesce(${crews.slug}, ${crews.id})`, name: crews.name }).from(crewMembers).innerJoin(crews, eq(crews.id, crewMembers.crewId)).where(eq(crewMembers.runnerId, id)).all();
         const newest = (a: typeof gigs.$inferSelect, b: typeof gigs.$inferSelect) => b.createdAt.getTime() - a.createdAt.getTime();
 
         return {
@@ -101,13 +118,15 @@ export class RunnersService {
      * them for any player, or NPC fixers with no player.
      */
     async create(user: Me, input: RunnerInput): Promise<RunnerView> {
-        const { ownerId: requested, ...fields } = input;
+        const { ownerId: requested, slug: wanted, ...fields } = input;
         const ownerId = requested === undefined ? user.id : requested;
         await this.checkOwner(user, ownerId, input);
         this.check(input);
+        if (wanted && this.slugTaken(wanted)) throw new ConflictException('That ID is taken.');
+        const slug = wanted ?? this.newSlug(input.handle);
         const [row] = this.db
             .insert(runners)
-            .values({ ...fields, ownerId })
+            .values({ ...fields, ownerId, slug })
             .returning({ id: runners.id })
             .all();
         return this.get(user, row.id);
@@ -117,7 +136,8 @@ export class RunnersService {
     async update(user: Me, id: number, input: RunnerInput): Promise<RunnerView> {
         const r = this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
-        const { ownerId: requested, ...fields } = input;
+        // The typed ID is set when the runner is made and stays
+        const { ownerId: requested, slug: _slug, ...fields } = input;
         const ownerId = requested === undefined ? r.ownerId : requested;
         if (ownerId !== r.ownerId) {
             await this.checkOwner(user, ownerId, input);
@@ -241,6 +261,14 @@ export class RunnersService {
             .where(and(eq(gigs.fixerRunnerId, id), inArray(gigs.status, ['open', 'closed'])))
             .all();
         return [...new Set([...asRunner, ...asFixer].map((g) => g.id))];
+    }
+
+    private slugTaken(slug: string) {
+        return !!this.db.query.runners.findFirst({ where: eq(runners.slug, slug) }).sync();
+    }
+
+    private newSlug(handle: string) {
+        return freeSlug(handle, 'runner', (s) => this.slugTaken(s));
     }
 
     private row(id: number): Runner {

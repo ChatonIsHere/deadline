@@ -70,8 +70,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
             </Card>
 
             <Card className="space-y-4">
-                <CardTitle>Crew rewards</CardTitle>
-                <p className="text-xs text-muted-foreground">Everyone on the gig gets these. All optional.</p>
+                <CardTitle help="everyone on the gig gets these. all optional.">Crew rewards</CardTitle>
                 <div className="grid grid-cols-3 gap-3">
                     <Amount id="eb" label="Pay" icon value={crew.eb} onChange={(eb) => setCrew({ ...crew, eb })} />
                     <Amount id="ip" label="IP" value={crew.ip} onChange={(ip) => setCrew({ ...crew, ip })} />

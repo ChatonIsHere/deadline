@@ -30,6 +30,8 @@ type Runner = typeof runners.$inferSelect;
 
 export const toCard = (r: Runner): RunnerCard => ({
     id: r.id,
+    // Old rows get one on startup (RunnersService); the numeric ID works in URLs too
+    slug: r.slug ?? String(r.id),
     handle: r.handle,
     role: r.role,
     extraRoles: r.extraRoles,
@@ -694,7 +696,7 @@ export class GigsService {
 }
 
 /** A sign-up whose runner was deleted. */
-const unknownRunner = (userId: string): RunnerCard => ({ id: 0, handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId });
+const unknownRunner = (userId: string): RunnerCard => ({ id: 0, slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId });
 
 type AfterPost = (view: GigView, threadId: string) => Promise<void>;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];

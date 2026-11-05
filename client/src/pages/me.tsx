@@ -29,7 +29,7 @@ export function MePage() {
             <CrewInvites />
 
             <Card className="space-y-3">
-                <CardTitle>Session reminders</CardTitle>
+                <CardTitle help="requests to confirm a session time still come through, since your slot depends on them.">Session reminders</CardTitle>
                 <p>DMs a few hours before a session you've confirmed, and 30 minutes before it starts.</p>
                 {prefs ? (
                     <Button variant={prefs.reminders ? 'outline' : 'default'} disabled={save.isPending} onClick={() => save.mutate({ ...prefs, reminders: !prefs.reminders })}>
@@ -38,7 +38,6 @@ export function MePage() {
                 ) : (
                     <Say>loading...</Say>
                 )}
-                <p className="text-xs text-muted-foreground">Requests to confirm a session time still come through, since your slot depends on them.</p>
             </Card>
 
             <Button variant="outline" className="w-full" onClick={logout}>
@@ -64,7 +63,7 @@ function CrewInvites() {
                     return (
                         <li key={`${i.crew.id}-${i.runner.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-2">
                             <span>
-                                <Link to={`/crews/${i.crew.id}`} className="text-primary hover:underline">
+                                <Link to={`/crews/${i.crew.slug}`} className="text-primary hover:underline">
                                     {i.crew.name}
                                 </Link>{' '}
                                 wants <RunnerChip runner={i.runner} />

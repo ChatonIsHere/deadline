@@ -12,12 +12,12 @@ export const roleIcon = (emoji: EmojiLookup, role: string) => emoji(`role_${role
 export const runnerLine = (emoji: EmojiLookup, r: RunnerCard) => `${roleIcon(emoji, r.role)} **${r.handle}** · ${r.role}`.trim();
 
 /** The DM a runner's player gets when a crew invites them. */
-export function inviteMessage(crew: { id: number; name: string; tagline: string }, runner: RunnerCard, from: string, boardUrl: string) {
-    const embed = { color: COLOURS.open, title: crew.name, url: `${boardUrl}/crews/${crew.id}`, description: crew.tagline || undefined };
+export function inviteMessage(crew: { id: number; slug: string; name: string; tagline: string }, runner: RunnerCard, from: string, boardUrl: string) {
+    const embed = { color: COLOURS.open, title: crew.name, url: `${boardUrl}/crews/${crew.slug}`, description: crew.tagline || undefined };
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId(`crew/accept/${crew.id}/${runner.id}`).setLabel('Join').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`crew/decline/${crew.id}/${runner.id}`).setLabel('Decline').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setLabel('See the crew').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/crews/${crew.id}`),
+        new ButtonBuilder().setLabel('See the crew').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/crews/${crew.slug}`),
     );
     return { content: voice.crewInvite(crew.name, runner.handle, from), embeds: [embed], components: [buttons] };
 }
@@ -32,7 +32,7 @@ export function crewCard(crew: CrewView, emoji: EmojiLookup, boardUrl: string): 
     const head: APIEmbed = {
         color: COLOURS.closed,
         title: crew.name,
-        url: `${boardUrl}/crews/${crew.id}`,
+        url: `${boardUrl}/crews/${crew.slug}`,
         description: [crew.tagline, `${emoji('crew')} ${crew.members.length} runner${crew.members.length === 1 ? '' : 's'}`.trim()].filter(Boolean).join('\n'),
     };
     return packEmbeds(head, fields, { color: COLOURS.closed }).map((embeds) => ({ embeds }));

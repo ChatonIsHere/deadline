@@ -193,7 +193,7 @@ export class Commands {
                 contact: null,
                 bio: null,
             });
-            await interaction.reply({ content: voice.runnerMade(runner.handle, `${config.PUBLIC_URL}/runners/${runner.id}/edit`), flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: voice.runnerMade(runner.handle, `${config.PUBLIC_URL}/runners/${runner.slug}/edit`), flags: MessageFlags.Ephemeral });
         } catch (err) {
             // Our own errors (bad role, taken name) say why; anything else stays vague
             await this.oops(interaction, err instanceof HttpException ? err.message : voice.broken);

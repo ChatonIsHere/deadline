@@ -38,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="runners/:id" element={<RunnerPage />} />
                         <Route path="runners/:id/edit" element={<RunnerEdit />} />
                         <Route path="fixers" element={<FixersPage />} />
+                        <Route path="fixers/:id" element={<RunnerPage />} />
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/:id" element={<Crew />} />
                         <Route path="settings/library" element={<LibraryPage />} />

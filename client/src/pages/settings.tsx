@@ -116,7 +116,7 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
             <Card className="space-y-4">
                 <CardTitle>Sessions</CardTitle>
                 <div>
-                    <Label htmlFor="reminder-hours">Day-of reminder (hours before)</Label>
+                    <Label htmlFor="reminder-hours" help="confirmed runners also get one 30 minutes before. they can turn reminders off.">Day-of reminder (hours before)</Label>
                     <Input
                         id="reminder-hours"
                         type="number"
@@ -125,10 +125,9 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                         value={form.reminderHours}
                         onChange={(e) => set({ reminderHours: Number(e.target.value) })}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">Confirmed runners also get one 30 minutes before. They can turn reminders off.</p>
                 </div>
                 <div>
-                    <Label htmlFor="confirm-hours">Time to confirm (hours)</Label>
+                    <Label htmlFor="confirm-hours" help="counted from when they're asked. ends an hour before the session if that's sooner. one nudge with 12 hours left, then their slot goes to the reserves.">Time to confirm (hours)</Label>
                     <Input
                         id="confirm-hours"
                         type="number"
@@ -137,9 +136,6 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                         value={form.confirmHours}
                         onChange={(e) => set({ confirmHours: Number(e.target.value) })}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        After being asked. Ends an hour before the session if that's sooner. One nudge with 12 hours left, then their slot goes to the reserves.
-                    </p>
                 </div>
             </Card>
 
@@ -163,7 +159,7 @@ function RoleList({ roles, onChange }: { roles: string[]; onChange: (roles: stri
 
     return (
         <Card className="space-y-3">
-            <CardTitle>Runner roles</CardTitle>
+            <CardTitle help="Fixer can't be removed: it's what puts a runner on the Fixers tab. save config to keep changes.">Runner roles</CardTitle>
             <div className="flex flex-wrap gap-1.5">
                 {roles.map((r) => (
                     <span key={r} className="cut inline-flex items-center gap-1 bg-muted py-1 pr-1 pl-2 font-display text-xs tracking-wider uppercase [--cut:5px]">
@@ -197,7 +193,6 @@ function RoleList({ roles, onChange }: { roles: string[]; onChange: (roles: stri
                     Add
                 </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Fixer can't be removed: it's what puts a runner on the Fixers tab. Save config to keep changes.</p>
         </Card>
     );
 }
@@ -219,10 +214,9 @@ function BotProfileCard() {
         <Card className="mx-auto mt-5 max-w-2xl space-y-4">
             <CardTitle>Bot profile</CardTitle>
             <div>
-                <Label>Banner</Label>
+                <Label help="pick a library picture. it gets cropped to a banner with the board's frame. upload new ones under Library.">Banner</Label>
                 {profile?.bannerUrl && !bannerImageId && <img src={profile.bannerUrl} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
                 {bannerImageId && <img src={imageUrl(bannerImageId)} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
-                <p className="mb-2 text-xs text-muted-foreground">Pick a library picture. It gets cropped to a banner with the board's frame. Upload new ones under Library.</p>
                 <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-6">
                     {pictures.map((id) => (
                         <button
@@ -237,9 +231,8 @@ function BotProfileCard() {
                 </div>
             </div>
             <div>
-                <Label htmlFor="about">About me</Label>
+                <Label htmlFor="about" help="shown on the bot's Discord profile.">About me</Label>
                 <Input id="about" value={about ?? profile?.about ?? ''} onChange={(e) => setAbout(e.target.value)} maxLength={400} />
-                <p className="mt-1 text-xs text-muted-foreground">Shown on the bot's Discord profile.</p>
             </div>
             <Button type="button" className="w-full" disabled={save.isPending || !profile} onClick={() => save.mutate()}>
                 {save.isPending ? 'Updating' : 'Update bot profile'}

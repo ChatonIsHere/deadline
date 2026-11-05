@@ -66,7 +66,7 @@ describe('CrewsService', () => {
         assert.throws(() => crews.accept('c', crew.id, ids.b), /Forbidden/);
 
         crews.accept('b', crew.id, ids.b);
-        assert.deepEqual(ranks(crew.id), [['a', 'Founder'], ['b', 'Prospect']]);
+        assert.deepEqual(ranks(crew.id), [['a', 'Founder'], ['b', 'Member']]);
         assert.equal(crews.get(crew.id).invites.length, 0);
         assert.throws(() => crews.accept('b', crew.id, ids.b), /invite is gone/);
     });
@@ -89,8 +89,8 @@ describe('CrewsService', () => {
 
         crews.setRank(a, crew.id, ids.b, 'Founder');
         // Now b runs the crew too, and can step a down
-        crews.setRank(b, crew.id, ids.a, 'Lieutenant');
-        assert.deepEqual(ranks(crew.id), [['b', 'Founder'], ['a', 'Lieutenant']]);
+        crews.setRank(b, crew.id, ids.a, 'Member');
+        assert.deepEqual(ranks(crew.id), [['b', 'Founder'], ['a', 'Member']]);
         assert.throws(() => crews.setRank(a, crew.id, ids.b, 'Member'), /Forbidden/);
     });
 
@@ -98,17 +98,27 @@ describe('CrewsService', () => {
         const crew = make();
         crews.addMember(admin, crew.id, ids.b);
         crews.addMember(admin, crew.id, ids.c);
+        // Add a rank between the two defaults and put c in it
+        crews.update(a, crew.id, {
+            name: 'Moxes',
+            tagline: '',
+            ranks: [
+                { name: 'Founder', was: 'Founder' },
+                { name: 'Lieutenant', was: null },
+                { name: 'Member', was: 'Member' },
+            ],
+        });
         crews.setRank(a, crew.id, ids.c, 'Lieutenant');
+        // Rename two, remove Lieutenant
         crews.update(a, crew.id, {
             name: 'Moxes',
             tagline: '',
             ranks: [
                 { name: 'Boss', was: 'Founder' },
-                { name: 'Muscle', was: 'Member' },
-                { name: 'Kid', was: 'Prospect' },
+                { name: 'Kid', was: 'Member' },
             ],
         });
-        assert.deepEqual(crews.get(crew.id).ranks, ['Boss', 'Muscle', 'Kid']);
+        assert.deepEqual(crews.get(crew.id).ranks, ['Boss', 'Kid']);
         assert.deepEqual(ranks(crew.id), [['a', 'Boss'], ['b', 'Kid'], ['c', 'Kid']]);
         assert.throws(
             () => crews.update(a, crew.id, { name: 'Moxes', tagline: '', ranks: [{ name: 'Kid', was: 'Kid' }, { name: 'Boss', was: 'Boss' }] }),
@@ -132,11 +142,24 @@ describe('CrewsService', () => {
         const crew = make();
         crews.addMember(admin, crew.id, ids.b);
         crews.addMember(admin, crew.id, ids.c);
-        crews.setRank(a, crew.id, ids.c, 'Lieutenant');
-        // What RunnersService.delete does
+        // What RunnersService.delete does. Same rank, so the first by handle takes over.
         const affected = crews.crewsOf(ids.a);
         db.delete(runners).where(eq(runners.id, ids.a)).run();
         crews.keepFounders(affected);
-        assert.deepEqual(ranks(crew.id), [['c', 'Founder'], ['b', 'Prospect']]);
+        assert.deepEqual(ranks(crew.id), [['b', 'Founder'], ['c', 'Member']]);
+    });
+
+    it('gives crews a typed ID, made from the name unless one is picked', () => {
+        const crew = make();
+        assert.equal(crew.slug, 'moxes');
+        assert.equal(crews.resolve('moxes'), crew.id);
+        assert.equal(crews.resolve('MOXES'), crew.id);
+        assert.equal(crews.resolve(String(crew.id)), crew.id);
+        assert.throws(() => crews.resolve('nobody'), /No such crew/);
+
+        // Taken names get a number, reserved words a prefix, picked ones are checked
+        assert.equal(crews.create(b, { name: 'Moxes!', tagline: '', runnerId: ids.b }).slug, 'moxes-2');
+        assert.equal(crews.create(c, { name: 'New', tagline: '', runnerId: ids.c }).slug, 'crew-new');
+        assert.throws(() => crews.create(admin, { name: 'Other', slug: 'moxes', tagline: '', runnerId: ids.a }), /ID is taken/);
     });
 });

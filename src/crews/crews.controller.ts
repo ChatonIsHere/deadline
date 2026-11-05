@@ -22,9 +22,10 @@ export class CrewsController {
         return this.crews.invitesFor(user.id);
     }
 
+    /** By numeric or typed ID. */
     @Get(':id')
-    get(@Param('id', ParseIntPipe) id: number) {
-        return this.crews.get(id);
+    get(@Param('id') ref: string) {
+        return this.crews.get(this.crews.resolve(ref));
     }
 
     @Post()

@@ -67,11 +67,11 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
     const embed = new EmbedBuilder()
         .setColor(COLOURS.open)
         .setTitle(runner.handle)
-        .setURL(`${boardUrl}/runners/${runner.id}`)
+        .setURL(`${boardUrl}/runners/${runner.slug}`)
         .setDescription(runner.isFixer && runner.bio ? cut(runner.bio, 400) : null)
         .addFields(fields)
         .setThumbnail(imageUrl);
-    return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', `${boardUrl}/runners/${runner.id}`))] };
+    return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', `${boardUrl}/runners/${runner.slug}`))] };
 }
 
 /** /mygigs: where each of the player's runners stands. */

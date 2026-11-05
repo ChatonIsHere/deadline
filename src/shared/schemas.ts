@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RESERVED_SLUGS, SLUG, SLUG_HINT } from './slug';
 
 // Shared by the server (request validation) and the client (forms).
 
@@ -19,7 +20,7 @@ export const CORE_ROLES = ['Rockerboy', 'Solo', 'Netrunner', 'Tech', 'Medtech', 
 export const FIXER_ROLE = 'Fixer';
 
 /** A crew's ranks, highest first. Whoever holds the first (Founder unless renamed) runs the crew. */
-export const DEFAULT_RANKS = ['Founder', 'Lieutenant', 'Member', 'Prospect'];
+export const DEFAULT_RANKS = ['Founder', 'Member'];
 
 /** Statuses an admin can move a posted gig to. Completing has its own form (completeInput). */
 export const SET_STATUSES = ['open', 'closed', 'cancelled'] as const;
@@ -36,6 +37,14 @@ const optionalText = (max: number) =>
         .nullable()
         .transform((s) => s || null);
 const optionalAmount = z.number().int().min(0).nullable();
+/** A typed ID (see slug.ts). Left out, one is made from the name. */
+const slug = z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(SLUG, SLUG_HINT)
+    .refine((s) => !RESERVED_SLUGS.includes(s), 'That word is used by the site. Pick another.')
+    .optional();
 
 export const gigInput = z.object({
     name: text(100),
@@ -86,6 +95,8 @@ export const runnerRefInput = z.object({ runnerId: z.number().int() });
 
 export const runnerInput = z.object({
     handle: text(40),
+    /** Only used when the runner is made. */
+    slug,
     role: text(30),
     extraRoles: z.array(text(30)).max(9),
     imageId: z.number().int().nullable(),
@@ -105,6 +116,7 @@ export type RunnerInput = z.infer<typeof runnerInput>;
 
 export const newCrewInput = z.object({
     name: text(50),
+    slug,
     tagline: z.string().trim().max(120),
     /** The runner founding it. Your own, or anyone's for admins. */
     runnerId: z.number().int(),
@@ -201,6 +213,8 @@ export interface Me extends Member {
 /** A runner as shown in lists and slots. */
 export interface RunnerCard {
     id: number;
+    /** Typed ID for URLs. */
+    slug: string;
     handle: string;
     role: string;
     extraRoles: string[];
@@ -242,7 +256,7 @@ export interface RunnerView extends RunnerSummary {
     specialties: string | null;
     contact: string | null;
     bio: string | null;
-    crews: { id: number; name: string }[];
+    crews: { id: number; slug: string; name: string }[];
     /** Gigs this runner went on (or is signed up for). */
     gigs: GigLink[];
     /** Gigs this runner was the fixer for. */
@@ -338,6 +352,8 @@ export interface CrewMember extends RunnerCard {
 
 export interface CrewView {
     id: number;
+    /** Typed ID for URLs. */
+    slug: string;
     name: string;
     tagline: string;
     /** Highest first. The first is the founder rank. */
@@ -352,7 +368,7 @@ export interface CrewView {
 
 /** A crew asking one of your runners to join. */
 export interface CrewInvite {
-    crew: { id: number; name: string; tagline: string };
+    crew: { id: number; slug: string; name: string; tagline: string };
     runner: RunnerCard;
     invitedBy: Member;
     createdAt: number;

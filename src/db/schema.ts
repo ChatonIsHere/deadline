@@ -1,6 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { CORE_ROLES, DEFAULT_RANKS, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
+import { CORE_ROLES, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
 
 const createdAt = () =>
     integer({ mode: 'timestamp_ms' })
@@ -39,11 +39,15 @@ export const sessions = sqliteTable('sessions', {
 export const crews = sqliteTable('crews', {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull().unique(),
+    // Typed ID for URLs (/crews/static-wolves). Set when the crew is made. See shared/slug.ts.
+    slug: text().unique(),
     tagline: text().notNull().default(''),
     // The player who made it. Kept for the record; the top rank runs the crew.
     ownerId: text().notNull(),
     // Rank names, highest first. The first is the founder rank and is never removed.
-    ranks: text({ mode: 'json' }).$type<string[]>().notNull().default(DEFAULT_RANKS),
+    // The column default is from the first version. New crews get DEFAULT_RANKS from CrewsService.
+    // Don't change it here: SQLite can only change a default by rebuilding the table, which would empty crew_members.
+    ranks: text({ mode: 'json' }).$type<string[]>().notNull().default(['Founder', 'Lieutenant', 'Member', 'Prospect']),
     createdAt: createdAt(),
 });
 
@@ -102,6 +106,8 @@ export const runners = sqliteTable('runners', {
     // The player. Empty for NPC fixers.
     ownerId: text(),
     handle: text().notNull(),
+    // Typed ID for URLs (/runners/vex). Set when the runner is made. See shared/slug.ts.
+    slug: text().unique(),
     role: text().notNull(),
     extraRoles: text({ mode: 'json' }).$type<string[]>().notNull().default([]),
     imageId: integer().references(() => images.id),

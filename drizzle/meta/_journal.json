@@ -64,6 +64,13 @@
       "when": 1793897920451,
       "tag": "0008_rebuild_gig_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793901896437,
+      "tag": "0009_slugs",
+      "breakpoints": true
     }
   ]
 }

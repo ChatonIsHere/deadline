@@ -65,7 +65,7 @@ export function FixersPage() {
             ) : fixers?.length ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {fixers.map((f) => (
-                        <LinkCard key={f.id} to={`/runners/${f.id}`} className="flex gap-4">
+                        <LinkCard key={f.id} to={`/fixers/${f.slug}`} className="flex gap-4">
                             <RunnerAvatar runner={f} className="size-20 text-2xl [--cut:8px]" />
                             <div className="min-w-0 space-y-1">
                                 <h3 className="truncate text-lg">{f.handle}</h3>
@@ -92,7 +92,7 @@ function RunnerGrid({ runners, loading, empty, showPlayer }: { runners: RunnerSu
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {runners.map((r) => (
-                <LinkCard key={r.id} to={`/runners/${r.id}`} className="flex items-center gap-4">
+                <LinkCard key={r.id} to={`/runners/${r.slug}`} className="flex items-center gap-4">
                     <RunnerAvatar runner={r} className="size-16 text-2xl [--cut:8px]" />
                     <div className="min-w-0 space-y-1.5">
                         <h3 className="truncate text-lg">{r.handle}</h3>
