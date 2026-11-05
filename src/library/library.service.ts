@@ -7,8 +7,8 @@ import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { gigs, images, regions, runners } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
-import { framedFile, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
-import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
+import { forumFile, framedFile, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
+import { FORUM, frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
 import { NIGHT_CITY } from './night-city';
 
 const POOL_DIR = join(__dirname, '..', '..', 'assets', 'pool');
@@ -51,6 +51,10 @@ export class LibraryService implements OnModuleInit {
             ] as const) {
                 if (existsSync(join(this.dir, file(id)))) continue;
                 writeFileSync(join(this.dir, file(id)), await frame(plain, kind, id, padded));
+                built++;
+            }
+            if (kind === 'gig' && !existsSync(join(this.dir, forumFile(id)))) {
+                writeFileSync(join(this.dir, forumFile(id)), await forumFrame(plain, id));
                 built++;
             }
             for (const [file, data] of await previews(readFileSync(join(this.dir, webFile(id))), kind, (f) => !existsSync(join(this.dir, f(id))))) {
@@ -100,6 +104,7 @@ export class LibraryService implements OnModuleInit {
             .all();
         writeFileSync(join(this.dir, plainFile(row.id)), plain);
         writeFileSync(join(this.dir, framedFile(row.id)), await frame(plain, kind, row.id, true));
+        if (kind === 'gig') writeFileSync(join(this.dir, forumFile(row.id)), await forumFrame(plain, row.id));
         const web = await frame(plain, kind, row.id, false);
         writeFileSync(join(this.dir, webFile(row.id)), web);
         for (const [file, data] of await previews(web, kind)) writeFileSync(join(this.dir, file(row.id)), data);
@@ -126,7 +131,7 @@ export class LibraryService implements OnModuleInit {
             return;
         }
         this.db.delete(images).where(eq(images.id, id)).run();
-        for (const file of [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)]) rmSync(join(this.dir, file), { force: true });
+        for (const file of [plainFile(id), framedFile(id), forumFile(id), webFile(id), thumbFile(id), mediumFile(id)]) rmSync(join(this.dir, file), { force: true });
     }
 
     exists(id: number): boolean {
@@ -146,9 +151,10 @@ export class LibraryService implements OnModuleInit {
         return null;
     }
 
-    /** Public URL of an image with its frame, for Discord. */
+    /** Public URL of an image with its frame, for Discord. Gig pictures use the forum preview shape. */
     url(id: number): string {
-        return `${config.PUBLIC_URL}/images/${framedFile(id)}`;
+        const image = this.db.select({ kind: images.kind }).from(images).where(eq(images.id, id)).get();
+        return `${config.PUBLIC_URL}/images/${image?.kind === 'gig' ? forumFile(id) : framedFile(id)}`;
     }
 
     // Regions
@@ -216,6 +222,21 @@ async function previews(framed: Buffer, kind: ImageKind, wanted: (file: (id: num
         if (wanted(file)) out.push([file, await sharp(framed).resize(size.width, size.height).webp(WEBP).toBuffer()]);
     }
     return out;
+}
+
+/** A gig picture for Discord: the middle of the plain one at the forum preview's shape, framed with a margin. */
+async function forumFrame(plain: Buffer, id: number): Promise<Buffer> {
+    const { width, height } = FORUM;
+    const { overlay, mask } = frameSvg(width, height, { variant: variantFor(id), padded: true });
+    return sharp(plain)
+        .resize(width, height, { fit: 'cover' })
+        .ensureAlpha()
+        .composite([
+            { input: Buffer.from(mask), blend: 'dest-in' },
+            { input: Buffer.from(overlay) },
+        ])
+        .webp(WEBP)
+        .toBuffer();
 }
 
 /**

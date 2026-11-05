@@ -104,7 +104,8 @@ export function Layout() {
                 </Button>
             )}
 
-            <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-primary/40 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+            {/* Solid and on its own layer: a blurred fixed bar lags and jumps while phone browsers slide their toolbars */}
+            <nav className="fixed inset-x-0 bottom-0 z-20 transform-gpu border-t border-primary/40 bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
@@ -201,7 +202,7 @@ function Readout() {
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
-        <div className="sticky top-0 z-20 flex h-12 w-full items-center gap-2 border-b border-primary/40 bg-background/95 px-4 text-sm backdrop-blur md:px-8">
+        <div className="sticky top-0 z-20 flex h-12 w-full transform-gpu items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:px-8">
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
                 <img src="/logo.svg" alt="" className="size-5 md:hidden" />
                 <span className="text-primary">&gt;</span>

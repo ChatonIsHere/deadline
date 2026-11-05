@@ -5,6 +5,13 @@ export const SIZES = {
 } as const;
 export type ImageKind = keyof typeof SIZES;
 
+/**
+ * Discord's forum gallery crops previews to about 1.485:1 (measured: 802x540 on mobile; desktop
+ * sits between about 1.42 and 1.54). Gig pictures for Discord get cut to this shape from the
+ * plain 1280x720 one, so nothing is upscaled. The frame's margin covers the desktop range.
+ */
+export const FORUM = { width: 1070, height: 720 } as const;
+
 /** Smaller copies of each plain picture, so lists and pickers don't load full-size files. */
 export const PREVIEWS = {
     gig: { thumb: { width: 320, height: 180 }, medium: { width: 640, height: 360 } },
