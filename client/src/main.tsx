@@ -17,7 +17,7 @@ import { MePage } from '@/pages/me';
 import { RunnerPage } from '@/pages/runner';
 import { RunnerEdit } from '@/pages/runner-edit';
 import { FixersPage, RunnersPage } from '@/pages/runners';
-import { SettingsPage } from '@/pages/settings';
+import { BotSettings, RoleSettings, SchedulingSettings, SettingsPage } from '@/pages/settings';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
 
@@ -48,6 +48,9 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="library" element={<Navigate to="/settings/library" replace />} />
                         <Route path="me" element={<MePage />} />
                         <Route path="settings" element={<SettingsPage />} />
+                        <Route path="settings/scheduling" element={<SchedulingSettings />} />
+                        <Route path="settings/roles" element={<RoleSettings />} />
+                        <Route path="settings/bot" element={<BotSettings />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

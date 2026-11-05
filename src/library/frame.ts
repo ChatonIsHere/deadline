@@ -5,44 +5,94 @@ export const SIZES = {
 } as const;
 export type ImageKind = keyof typeof SIZES;
 
+/** Smaller copies of each plain picture, so lists and pickers don't load full-size files. */
+export const PREVIEWS = {
+    gig: { thumb: { width: 320, height: 180 }, medium: { width: 640, height: 360 } },
+    avatar: { thumb: { width: 96, height: 96 }, medium: { width: 256, height: 256 } },
+} as const;
+
 const BG = '#0a0a12';
-const YELLOW = '#f3e600';
-const CYAN = '#00e5ff';
-const PINK = '#ff2a6d';
+const Y = '#f3e600';
+const C = '#00e5ff';
+const P = '#ff2a6d';
 
 /**
- * The border drawn over every picture, as SVG: cut corners like the web UI, neon edges,
- * corner brackets and a few barcode ticks. Sized off the 1280x720 gig frame, so it scales
- * down for avatars. No text, so no fonts needed.
+ * One look for the frame. Every variant has the same parts: a thin inner edge, two big
+ * brackets (top right, bottom left), two small corner marks, a side tick and a barcode.
+ * They differ in which colour goes where and how long the brackets are.
  */
-export function frameSvg(W: number, H: number): string {
+interface Variant {
+    edge: string;
+    /** Top right and bottom left brackets. */
+    major: [string, string];
+    minor: string;
+    tick: string;
+    /** Barcode colour, or null for none. */
+    bars: string | null;
+    /** Bracket length along the long side, at 1280x720. */
+    reach: number;
+    /** Barcode in the bottom right, or along the top left. */
+    barsTop?: boolean;
+}
+
+export const VARIANTS: Variant[] = [
+    { edge: Y, major: [Y, Y], minor: C, tick: P, bars: P, reach: 220 },
+    { edge: C, major: [C, C], minor: Y, tick: Y, bars: Y, reach: 260 },
+    { edge: P, major: [P, P], minor: C, tick: C, bars: C, reach: 180, barsTop: true },
+    { edge: Y, major: [Y, C], minor: P, tick: C, bars: C, reach: 300 },
+    { edge: C, major: [P, Y], minor: C, tick: Y, bars: P, reach: 140, barsTop: true },
+    { edge: Y, major: [C, C], minor: Y, tick: P, bars: null, reach: 360 },
+];
+
+/** Which variant a picture gets. Fixed per picture, so rebuilding keeps its look. */
+export const variantFor = (imageId: number): Variant => VARIANTS[imageId % VARIANTS.length];
+
+/**
+ * The frame drawn over a picture, as SVG, sized off the 1280x720 gig frame so it scales
+ * down for avatars. No text, so no fonts needed.
+ *
+ * `mask` is the shape the picture is cut to: outside it is transparent, so the frame sits
+ * on whatever Discord theme it's shown on. The margin is wide enough to survive the crop
+ * in Discord's gallery preview. `solid` fills the margin instead (for the bot banner).
+ */
+export function frameSvg(W: number, H: number, v: Variant = VARIANTS[0], solid = false): { overlay: string; mask: string } {
     const s = Math.min(W, H) / 720;
-    const n = (v: number) => Math.round(v * s);
-    const P = n(28); // dark margin. Wide enough to survive the crop in Discord's gallery preview.
-    const C = n(72); // corner cut
+    const n = (x: number) => Math.round(x * s);
+    const M = n(28); // margin
+    const K = n(72); // corner cut
+    const reach = n(v.reach);
 
-    const inner = `M${P} ${P}H${W - P - C}L${W - P} ${P + C}V${H - P}H${P + C}L${P} ${H - P - C}Z`;
-    let x = W - P - n(320);
-    const bars = [6, 14, 4, 10, 4, 22, 8, 4, 12, 6, 4, 16]
-        .map((w) => {
-            const bar = `<rect x="${x}" y="${H - P - n(30)}" width="${n(w)}" height="${n(12)}" fill="${PINK}"/>`;
+    const inner = `M${M} ${M}H${W - M - K}L${W - M} ${M + K}V${H - M}H${M + K}L${M} ${H - M - K}Z`;
+
+    // Barcode, bottom right or along the top
+    let bars = '';
+    if (v.bars) {
+        let x = v.barsTop ? M + K + n(40) : W - M - n(320);
+        const y = v.barsTop ? M + n(18) : H - M - n(30);
+        for (const w of [6, 14, 4, 10, 4, 22, 8, 4, 12, 6, 4, 16]) {
+            bars += `<rect x="${x}" y="${y}" width="${n(w)}" height="${n(12)}" fill="${v.bars}"/>`;
             x += n(w + 5);
-            return bar;
-        })
-        .join('');
+        }
+    }
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-<defs><pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" opacity="0.22"/></pattern>
-<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0.6" stop-color="${BG}" stop-opacity="0"/><stop offset="1" stop-color="${BG}" stop-opacity="0.55"/></linearGradient></defs>
-<rect width="${W}" height="${H}" fill="url(#scan)"/>
-<rect width="${W}" height="${H}" fill="url(#fade)"/>
-<path fill="${BG}" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z ${inner}"/>
-<path fill="none" stroke="${YELLOW}" stroke-width="${Math.max(1, n(2))}" stroke-opacity="0.7" d="${inner}"/>
-<path fill="none" stroke="${YELLOW}" stroke-width="${n(8)}" d="M${W - P - C - n(220)} ${P + n(2)}H${W - P - C}L${W - P - n(2)} ${P + C}V${P + C + n(140)}"/>
-<path fill="none" stroke="${YELLOW}" stroke-width="${n(8)}" d="M${P + C + n(220)} ${H - P - n(2)}H${P + C}L${P + n(2)} ${H - P - C}V${H - P - C - n(140)}"/>
-<path fill="none" stroke="${CYAN}" stroke-width="${n(5)}" d="M${P + n(22)} ${P + n(90)}V${P + n(22)}H${P + n(90)}"/>
-<path fill="none" stroke="${CYAN}" stroke-width="${n(5)}" d="M${W - P - n(22)} ${H - P - n(90)}V${H - P - n(22)}H${W - P - n(90)}"/>
-<rect x="${P + n(22)}" y="${P + n(104)}" width="${n(5)}" height="${n(40)}" fill="${PINK}"/>
+    const overlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+<defs>
+<pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" opacity="0.22"/></pattern>
+<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0.6" stop-color="${BG}" stop-opacity="0"/><stop offset="1" stop-color="${BG}" stop-opacity="0.55"/></linearGradient>
+<clipPath id="in"><path d="${inner}"/></clipPath>
+</defs>
+<g clip-path="url(#in)"><rect width="${W}" height="${H}" fill="url(#scan)"/><rect width="${W}" height="${H}" fill="url(#fade)"/></g>
+${solid ? `<path fill="${BG}" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z ${inner}"/>` : ''}
+<path fill="none" stroke="${v.edge}" stroke-width="${Math.max(1, n(2))}" stroke-opacity="0.7" d="${inner}"/>
+<path fill="none" stroke="${v.major[0]}" stroke-width="${n(8)}" d="M${W - M - K - reach} ${M + n(2)}H${W - M - K}L${W - M - n(2)} ${M + K}V${M + K + Math.round(reach * 0.64)}"/>
+<path fill="none" stroke="${v.major[1]}" stroke-width="${n(8)}" d="M${M + K + reach} ${H - M - n(2)}H${M + K}L${M + n(2)} ${H - M - K}V${H - M - K - Math.round(reach * 0.64)}"/>
+<path fill="none" stroke="${v.minor}" stroke-width="${n(5)}" d="M${M + n(22)} ${M + n(90)}V${M + n(22)}H${M + n(90)}"/>
+<path fill="none" stroke="${v.minor}" stroke-width="${n(5)}" d="M${W - M - n(22)} ${H - M - n(90)}V${H - M - n(22)}H${W - M - n(90)}"/>
+<rect x="${M + n(22)}" y="${M + n(104)}" width="${n(5)}" height="${n(40)}" fill="${v.tick}"/>
 ${bars}
 </svg>`;
+
+    // The picture shows inside the cut shape, plus half the edge line so it isn't left floating
+    const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><path fill="#fff" stroke="#fff" stroke-width="${Math.max(1, n(8))}" d="${inner}"/></svg>`;
+    return { overlay, mask };
 }

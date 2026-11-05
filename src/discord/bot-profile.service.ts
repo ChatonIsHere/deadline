@@ -50,7 +50,8 @@ export class BotProfileService {
             const plain = readFileSync(join(this.library.dir, plainFile(input.bannerImageId)));
             const banner = await sharp(plain)
                 .resize(BANNER.width, BANNER.height, { fit: 'cover' })
-                .composite([{ input: Buffer.from(frameSvg(BANNER.width, BANNER.height)) }])
+                // Banners get a solid margin: Discord shows them on a coloured strip anyway
+                .composite([{ input: Buffer.from(frameSvg(BANNER.width, BANNER.height, undefined, true).overlay) }])
                 .png()
                 .toBuffer();
             await this.client.user!.setBanner(banner);

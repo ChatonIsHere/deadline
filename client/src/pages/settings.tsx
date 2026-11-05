@@ -1,39 +1,65 @@
 import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import { Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select, type SelectOption } from '@/components/ui/select';
-import { api, imageUrl, plainImageUrl, useAction, useLibrary, useSettings, useUser } from '@/lib/api';
+import { api, imageUrl, thumbUrl, useAction, useLibrary, useSettings, useUser } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+// Settings, one tab per page: Discord, Scheduling, Runner roles, Bot (and Library, in library.tsx).
+// Each tab edits its part of the config and saves the whole thing.
+
 const ROLES: { key: 'adminRoleId' | 'fixerRoleId' | 'edgerunnerRoleId'; label: string; hint: string }[] = [
-    { key: 'adminRoleId', label: 'Admin', hint: 'Approves and manages gigs and crews. People with Manage Server count too.' },
-    { key: 'fixerRoleId', label: 'Fixer', hint: 'Submits gigs from their fixer characters for approval.' },
-    { key: 'edgerunnerRoleId', label: 'Edgerunner', hint: 'Takes gigs and runs crews. @everyone works.' },
+    { key: 'adminRoleId', label: 'Admin', hint: 'approves and manages gigs and crews. people with Manage Server count too.' },
+    { key: 'fixerRoleId', label: 'Fixer', hint: 'submits gigs from their fixer characters for approval.' },
+    { key: 'edgerunnerRoleId', label: 'Edgerunner', hint: 'takes gigs and founds crews. @everyone works.' },
 ];
 
-export function SettingsPage() {
+/** Admins only. Shows the tabs, then the page once the config has loaded. */
+function Shell({ children }: { children: (view: SettingsView, isOwner: boolean) => ReactNode }) {
     const me = useUser();
     const { data } = useSettings(me.isAdmin);
     if (!me.isAdmin) return <Say>admins only.</Say>;
-    if (!data) return <Say>loading config...</Say>;
     return (
         <>
             <SettingsTabs />
-            <SettingsForm view={data} isOwner={me.isOwner} />
-            <BotProfileCard />
+            <div className="mx-auto max-w-2xl">{data ? children(data, me.isOwner) : <Say>loading config...</Say>}</div>
         </>
     );
 }
 
-function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }) {
+/** The config being edited on a tab. Saving sends all of it, so other tabs' values go back unchanged. */
+function useConfig(view: SettingsView) {
     const [form, setForm] = useState(view.settings);
     const set = (patch: Partial<Settings>) => setForm((f) => ({ ...f, ...patch }));
+    const save = useAction(() => api('/api/settings', 'PUT', form), 'Config saved.');
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        save.mutate();
+    };
+    return { form, set, save, submit };
+}
+
+function SaveButton({ pending }: { pending: boolean }) {
+    return (
+        <Button type="submit" className="w-full" disabled={pending}>
+            Save config
+        </Button>
+    );
+}
+
+/** Discord: the server, its gig forum and which roles do what. */
+export function SettingsPage() {
+    return <Shell>{(view, isOwner) => <DiscordForm view={view} isOwner={isOwner} />}</Shell>;
+}
+
+function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }) {
+    const { form, set, save, submit } = useConfig(view);
 
     // Forums and roles come with the saved server. Picking another one loads its own.
     const sameGuild = form.guildId === view.settings.guildId;
@@ -44,17 +70,12 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
     });
     const options = sameGuild ? view.options : other.data;
 
-    const save = useAction(() => api('/api/settings', 'PUT', form), 'Config saved.');
-    const submit = (e: FormEvent) => {
-        e.preventDefault();
-        save.mutate();
-    };
-
     return (
-        <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
-
+        <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-3">
-                <CardTitle>Server</CardTitle>
+                <CardTitle help={isOwner ? 'the Discord server the board runs on. changing it orphans existing gig posts.' : 'the Discord server the board runs on. only the bot owner can change it.'}>
+                    Server
+                </CardTitle>
                 {view.guilds.length ? (
                     <Select
                         value={form.guildId ?? ''}
@@ -66,12 +87,9 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                 ) : (
                     <Say>the bot isn't in any server yet.</Say>
                 )}
-                <p className="text-xs text-muted-foreground">
-                    {isOwner ? 'Changing this orphans existing gig posts. ' : 'Only the bot owner can change this. '}
-                    <a href={view.inviteUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                        Invite the bot to a server
-                    </a>
-                </p>
+                <a href={view.inviteUrl} target="_blank" rel="noreferrer" className="inline-block text-xs text-accent hover:underline">
+                    Invite the bot to a server
+                </a>
             </Card>
 
             {form.guildId && !options && <Say>scanning server...</Say>}
@@ -79,125 +97,134 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
             {options && (
                 <>
                     <Card className="space-y-3">
-                        <CardTitle>Gig forum</CardTitle>
-                        <Select
-                            value={form.forumId ?? ''}
-                            placeholder="Pick a forum"
-                            options={toOptions(options.forums)}
-                            onChange={(forumId) => set({ forumId: forumId || null })}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {options.forums.length
-                                ? 'Approved gigs get posted here. Live gigs move over on their next update if you change it.'
-                                : "No forums the bot can see. Make one, or check the bot's permissions."}
-                        </p>
+                        <CardTitle help="approved gigs get posted here. live gigs move over on their next update if you change it.">Gig forum</CardTitle>
+                        <Select value={form.forumId ?? ''} placeholder="Pick a forum" options={toOptions(options.forums)} onChange={(forumId) => set({ forumId: forumId || null })} />
+                        {!options.forums.length && <Say>no forums the bot can see. make one, or check the bot's permissions.</Say>}
                     </Card>
 
                     <Card className="space-y-4">
-                        <CardTitle help="Discord roles that decide who can do what. admins run everything, fixers post gigs for approval, edgerunners take gigs and found crews.">Roles</CardTitle>
+                        <CardTitle help="Discord roles that decide who can do what on the board.">Roles</CardTitle>
                         {ROLES.map((r) => (
                             <div key={r.key}>
-                                <Label htmlFor={r.key}>{r.label}</Label>
+                                <Label htmlFor={r.key} help={r.hint}>
+                                    {r.label}
+                                </Label>
                                 <Select
                                     id={r.key}
                                     value={form[r.key] ?? ''}
                                     options={[{ value: '', label: 'Nobody' }, ...toOptions(options.roles)]}
                                     onChange={(roleId) => set({ [r.key]: roleId || null })}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">{r.hint}</p>
                             </div>
                         ))}
                     </Card>
                 </>
             )}
 
-            <RoleList roles={form.runnerRoles} onChange={(runnerRoles) => set({ runnerRoles })} />
+            <SaveButton pending={save.isPending} />
+        </form>
+    );
+}
 
+/** Scheduling: reminders and how long runners get to confirm a session. */
+export function SchedulingSettings() {
+    return <Shell>{(view) => <SchedulingForm view={view} />}</Shell>;
+}
+
+function SchedulingForm({ view }: { view: SettingsView }) {
+    const { form, set, save, submit } = useConfig(view);
+    return (
+        <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-4">
-                <CardTitle>Sessions</CardTitle>
+                <CardTitle help="once an admin sets a gig's session time, everyone on it is asked by DM to confirm.">Gig scheduling</CardTitle>
                 <div>
-                    <Label htmlFor="reminder-hours" help="confirmed runners also get one 30 minutes before. they can turn reminders off.">Day-of reminder (hours before)</Label>
-                    <Input
-                        id="reminder-hours"
-                        type="number"
-                        min={1}
-                        max={72}
-                        value={form.reminderHours}
-                        onChange={(e) => set({ reminderHours: Number(e.target.value) })}
-                    />
+                    <Label htmlFor="reminder-hours" help="confirmed runners also get one 30 minutes before. they can turn reminders off.">
+                        Day-of reminder (hours before)
+                    </Label>
+                    <Input id="reminder-hours" type="number" min={1} max={72} value={form.reminderHours} onChange={(e) => set({ reminderHours: Number(e.target.value) })} />
                 </div>
                 <div>
-                    <Label htmlFor="confirm-hours" help="counted from when they're asked. ends an hour before the session if that's sooner. one nudge with 12 hours left, then their slot goes to the reserves.">Time to confirm (hours)</Label>
-                    <Input
-                        id="confirm-hours"
-                        type="number"
-                        min={1}
-                        max={168}
-                        value={form.confirmHours}
-                        onChange={(e) => set({ confirmHours: Number(e.target.value) })}
-                    />
+                    <Label
+                        htmlFor="confirm-hours"
+                        help="counted from when they're asked. ends an hour before the session if that's sooner. one nudge with 12 hours left, then their slot goes to the reserves."
+                    >
+                        Time to confirm (hours)
+                    </Label>
+                    <Input id="confirm-hours" type="number" min={1} max={168} value={form.confirmHours} onChange={(e) => set({ confirmHours: Number(e.target.value) })} />
                 </div>
             </Card>
+            <SaveButton pending={save.isPending} />
+        </form>
+    );
+}
 
-            <Button type="submit" className="w-full" disabled={save.isPending}>
-                Save config
-            </Button>
+/** Runner roles: the list players pick their runners' roles from. */
+export function RoleSettings() {
+    return <Shell>{(view) => <RolesForm view={view} />}</Shell>;
+}
+
+function RolesForm({ view }: { view: SettingsView }) {
+    const { form, set, save, submit } = useConfig(view);
+    const [adding, setAdding] = useState('');
+    const roles = form.runnerRoles;
+    const add = () => {
+        const role = adding.trim();
+        if (role && !roles.some((r) => r.toLowerCase() === role.toLowerCase())) set({ runnerRoles: [...roles, role] });
+        setAdding('');
+    };
+
+    return (
+        <form onSubmit={submit} className="space-y-5">
+            <Card className="space-y-3">
+                <CardTitle help="the roles players can give their runners. taking one off doesn't change runners who already have it. Fixer stays: it's what puts a runner on the Fixers tab.">
+                    Runner roles
+                </CardTitle>
+                <div className="flex flex-wrap gap-1.5">
+                    {roles.map((r) => (
+                        <span key={r} className="cut inline-flex items-center gap-1 bg-muted py-1 pr-1 pl-2 font-display text-xs tracking-wider uppercase [--cut:5px]">
+                            {r}
+                            <button
+                                type="button"
+                                aria-label={`Remove ${r}`}
+                                disabled={r === FIXER_ROLE}
+                                onClick={() => set({ runnerRoles: roles.filter((x) => x !== r) })}
+                                className="cursor-pointer px-1 text-muted-foreground hover:text-destructive disabled:hidden"
+                            >
+                                ×
+                            </button>
+                        </span>
+                    ))}
+                </div>
+                <div className="flex gap-2">
+                    <Input
+                        value={adding}
+                        onChange={(e) => setAdding(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                add();
+                            }
+                        }}
+                        placeholder="Add a role"
+                        maxLength={30}
+                    />
+                    <Button type="button" variant="outline" className="mt-0.5" disabled={!adding.trim()} onClick={add}>
+                        Add
+                    </Button>
+                </div>
+            </Card>
+            <SaveButton pending={save.isPending} />
         </form>
     );
 }
 
 const toOptions = (list: Option[]): SelectOption[] => list.map((o) => ({ value: o.id, label: o.name, color: o.color }));
 
-/** The roles runners can pick. Taking one off doesn't change runners who already have it. */
-function RoleList({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
-    const [adding, setAdding] = useState('');
-    const add = () => {
-        const role = adding.trim();
-        if (role && !roles.some((r) => r.toLowerCase() === role.toLowerCase())) onChange([...roles, role]);
-        setAdding('');
-    };
-
-    return (
-        <Card className="space-y-3">
-            <CardTitle help="Fixer can't be removed: it's what puts a runner on the Fixers tab. save config to keep changes.">Runner roles</CardTitle>
-            <div className="flex flex-wrap gap-1.5">
-                {roles.map((r) => (
-                    <span key={r} className="cut inline-flex items-center gap-1 bg-muted py-1 pr-1 pl-2 font-display text-xs tracking-wider uppercase [--cut:5px]">
-                        {r}
-                        <button
-                            type="button"
-                            title={`Remove ${r}`}
-                            disabled={r === FIXER_ROLE}
-                            onClick={() => onChange(roles.filter((x) => x !== r))}
-                            className="cursor-pointer px-1 text-muted-foreground hover:text-destructive disabled:hidden"
-                        >
-                            ×
-                        </button>
-                    </span>
-                ))}
-            </div>
-            <div className="flex gap-2">
-                <Input
-                    value={adding}
-                    onChange={(e) => setAdding(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            add();
-                        }
-                    }}
-                    placeholder="Add a role"
-                    maxLength={30}
-                />
-                <Button type="button" variant="outline" className="mt-0.5" disabled={!adding.trim()} onClick={add}>
-                    Add
-                </Button>
-            </div>
-        </Card>
-    );
+/** Bot: its Discord banner (a library picture, framed) and About me. Saved straight to Discord. */
+export function BotSettings() {
+    return <Shell>{() => <BotProfileCard />}</Shell>;
 }
 
-/** The bot's Discord banner (a library picture, framed) and About me. Saved straight to Discord. */
 function BotProfileCard() {
     const { data: profile } = useQuery({ queryKey: ['bot-profile'], queryFn: () => api<BotProfile>('/api/settings/bot-profile') });
     const library = useLibrary().data;
@@ -211,8 +238,8 @@ function BotProfileCard() {
     const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
 
     return (
-        <Card className="mx-auto mt-5 max-w-2xl space-y-4">
-            <CardTitle>Bot profile</CardTitle>
+        <Card className="space-y-4">
+            <CardTitle help="the bot's own Discord profile. its status shows how many gigs are open.">Bot profile</CardTitle>
             <div>
                 <Label help="pick a library picture. it gets cropped to a banner with the board's frame. upload new ones under Library.">Banner</Label>
                 {profile?.bannerUrl && !bannerImageId && <img src={profile.bannerUrl} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
@@ -225,13 +252,15 @@ function BotProfileCard() {
                             onClick={() => setBannerImageId(id)}
                             className={cn('cursor-pointer outline-2 outline-offset-1', bannerImageId === id ? 'outline-primary' : 'outline-transparent')}
                         >
-                            <img src={plainImageUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
+                            <img src={thumbUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
                         </button>
                     ))}
                 </div>
             </div>
             <div>
-                <Label htmlFor="about" help="shown on the bot's Discord profile.">About me</Label>
+                <Label htmlFor="about" help="shown on the bot's Discord profile.">
+                    About me
+                </Label>
                 <Input id="about" value={about ?? profile?.about ?? ''} onChange={(e) => setAbout(e.target.value)} maxLength={400} />
             </div>
             <Button type="button" className="w-full" disabled={save.isPending || !profile} onClick={() => save.mutate()}>

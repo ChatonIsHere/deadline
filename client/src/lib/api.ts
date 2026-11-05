@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { framedFile, plainFile } from '@shared/images';
+import { framedFile, mediumFile, plainFile, thumbFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -69,6 +69,9 @@ export async function uploadImage(file: File, opts: UploadOptions = {}): Promise
 /** A picture with its frame, or without (for small sizes, where the frame would be lost). */
 export const imageUrl = (id: number) => `/images/${framedFile(id)}`;
 export const plainImageUrl = (id: number) => `/images/${plainFile(id)}`;
+/** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
+export const thumbUrl = (id: number) => `/images/${thumbFile(id)}`;
+export const mediumUrl = (id: number) => `/images/${mediumFile(id)}`;
 
 /** A change that refreshes everything when it lands and shows errors as toasts. */
 export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, done?: string | ((result: R) => void)) {

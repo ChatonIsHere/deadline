@@ -2,7 +2,10 @@ import { NavLink } from 'react-router';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-    { to: '/settings', label: 'Config' },
+    { to: '/settings', label: 'Discord' },
+    { to: '/settings/scheduling', label: 'Scheduling' },
+    { to: '/settings/roles', label: 'Runner roles' },
+    { to: '/settings/bot', label: 'Bot' },
     { to: '/settings/library', label: 'Library' },
 ];
 
@@ -11,7 +14,7 @@ export function SettingsTabs() {
     return (
         <div className="mb-5">
             <h1 className="mb-3 text-3xl text-primary">Settings</h1>
-            <nav className="flex gap-1 border-b border-border">
+            <nav className="flex gap-1 overflow-x-auto border-b border-border">
                 {TABS.map((t) => (
                     <NavLink
                         key={t.to}
@@ -19,7 +22,7 @@ export function SettingsTabs() {
                         end
                         className={({ isActive }) =>
                             cn(
-                                '-mb-px border-b-2 px-3 py-2 font-display text-sm tracking-wider uppercase hover:text-foreground',
+                                '-mb-px shrink-0 border-b-2 px-3 py-2 font-display text-sm tracking-wider uppercase hover:text-foreground',
                                 isActive ? 'border-primary text-primary' : 'border-transparent text-muted-foreground',
                             )
                         }

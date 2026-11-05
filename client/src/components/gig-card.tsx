@@ -1,7 +1,7 @@
 import type { GigView } from '@shared/schemas';
 import { Icon, LinkCard, Money, StatusBadge } from '@/components/common';
 import { formatSession } from '@/components/session';
-import { plainImageUrl } from '@/lib/api';
+import { mediumUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export function GigCard({ gig }: { gig: GigView }) {
@@ -10,7 +10,7 @@ export function GigCard({ gig }: { gig: GigView }) {
         <LinkCard to={`/gigs/${gig.id}`}>
             {gig.imageId && (
                 <img
-                    src={plainImageUrl(gig.imageId)}
+                    src={mediumUrl(gig.imageId)}
                     alt=""
                     loading="lazy"
                     className="-mx-[15px] -mt-[15px] mb-3 aspect-video w-[calc(100%+30px)] max-w-none object-cover [clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)]"

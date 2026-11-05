@@ -7,8 +7,8 @@ import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { gigs, images, regions, runners } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
-import { FRAME_VERSION, framedFile, plainFile } from '../shared/images';
-import { frameSvg, type ImageKind, SIZES } from './frame';
+import { framedFile, mediumFile, plainFile, thumbFile } from '../shared/images';
+import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
 import { NIGHT_CITY } from './night-city';
 
 const POOL_DIR = join(__dirname, '..', '..', 'assets', 'pool');
@@ -32,20 +32,30 @@ export class LibraryService implements OnModuleInit {
         if (!this.db.query.regions.findFirst().sync()) this.seedRegions();
         if (!this.db.query.images.findFirst().sync()) await this.importFolder(POOL_DIR, null);
         await this.importDrops();
-        await this.reframe();
+        await this.fillIn();
     }
 
-    /** Builds framed copies missing for the current FRAME_VERSION. Older framed files stay: finished posts link to them. */
-    private async reframe() {
-        let framed = 0;
+    /**
+     * Builds any missing framed copies (for the current FRAME_VERSION) and previews. Older
+     * framed files stay: finished posts link to them.
+     */
+    private async fillIn() {
+        let built = 0;
         for (const { id, kind } of this.db.select({ id: images.id, kind: images.kind }).from(images).all()) {
-            const plain = join(this.dir, plainFile(id));
-            const target = join(this.dir, framedFile(id));
-            if (existsSync(target) || !existsSync(plain)) continue;
-            writeFileSync(target, await frame(readFileSync(plain), kind));
-            framed++;
+            const plainPath = join(this.dir, plainFile(id));
+            if (!existsSync(plainPath)) continue;
+            const plain = readFileSync(plainPath);
+            const framedPath = join(this.dir, framedFile(id));
+            if (!existsSync(framedPath)) {
+                writeFileSync(framedPath, await frame(plain, kind, id));
+                built++;
+            }
+            for (const [file, data] of await previews(plain, kind, (f) => !existsSync(join(this.dir, f(id))))) {
+                writeFileSync(join(this.dir, file(id)), data);
+                built++;
+            }
         }
-        if (framed) this.logger.log(`Built ${framed} framed picture(s) for frame v${FRAME_VERSION}`);
+        if (built) this.logger.log(`Built ${built} framed or preview file(s)`);
     }
 
     list(): LibraryView {
@@ -73,7 +83,6 @@ export class LibraryService implements OnModuleInit {
         } catch {
             throw new BadRequestException("That file isn't an image I can read.");
         }
-        const framed = await frame(plain, kind);
 
         const [row] = this.db
             .insert(images)
@@ -81,7 +90,8 @@ export class LibraryService implements OnModuleInit {
             .returning({ id: images.id })
             .all();
         writeFileSync(join(this.dir, plainFile(row.id)), plain);
-        writeFileSync(join(this.dir, framedFile(row.id)), framed);
+        writeFileSync(join(this.dir, framedFile(row.id)), await frame(plain, kind, row.id));
+        for (const [file, data] of await previews(plain, kind)) writeFileSync(join(this.dir, file(row.id)), data);
         return row.id;
     }
 
@@ -105,7 +115,7 @@ export class LibraryService implements OnModuleInit {
             return;
         }
         this.db.delete(images).where(eq(images.id, id)).run();
-        for (const file of [plainFile(id), framedFile(id)]) rmSync(join(this.dir, file), { force: true });
+        for (const file of [plainFile(id), framedFile(id), thumbFile(id), mediumFile(id)]) rmSync(join(this.dir, file), { force: true });
     }
 
     exists(id: number): boolean {
@@ -185,11 +195,28 @@ export class LibraryService implements OnModuleInit {
     }
 }
 
-/** Draws the frame over a plain 1280x720 image. */
-function frame(plain: Buffer, kind: ImageKind): Promise<Buffer> {
+/** The thumb and medium copies of a plain picture, as [file name, data]. `wanted` skips ones that already exist. */
+async function previews(plain: Buffer, kind: ImageKind, wanted: (file: (id: number) => string) => boolean = () => true) {
+    const out: [(id: number) => string, Buffer][] = [];
+    for (const [file, size] of [
+        [thumbFile, PREVIEWS[kind].thumb],
+        [mediumFile, PREVIEWS[kind].medium],
+    ] as const) {
+        if (wanted(file)) out.push([file, await sharp(plain).resize(size.width, size.height, { fit: 'cover' }).webp(WEBP).toBuffer()]);
+    }
+    return out;
+}
+
+/** Cuts a plain picture to the frame's shape (outside it is transparent) and draws the picture's frame variant over it. */
+function frame(plain: Buffer, kind: ImageKind, id: number): Promise<Buffer> {
     const { width, height } = SIZES[kind];
+    const { overlay, mask } = frameSvg(width, height, variantFor(id));
     return sharp(plain)
-        .composite([{ input: Buffer.from(frameSvg(width, height)) }])
+        .ensureAlpha()
+        .composite([
+            { input: Buffer.from(mask), blend: 'dest-in' },
+            { input: Buffer.from(overlay) },
+        ])
         .webp(WEBP)
         .toBuffer();
 }

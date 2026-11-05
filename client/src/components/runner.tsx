@@ -3,7 +3,7 @@ import { Star } from 'lucide-react';
 import { Link } from 'react-router';
 import { Icon } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
-import { imageUrl, plainImageUrl } from '@/lib/api';
+import { imageUrl, thumbUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 /**
@@ -21,7 +21,7 @@ export function RunnerAvatar({ runner, framed, className }: { runner: Pick<Runne
     return framed ? (
         <img src={imageUrl(runner.imageId)} alt="" className={cn('aspect-square shrink-0', className)} />
     ) : (
-        <img src={plainImageUrl(runner.imageId)} alt="" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
+        <img src={thumbUrl(runner.imageId)} alt="" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
     );
 }
 

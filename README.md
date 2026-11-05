@@ -64,13 +64,13 @@ Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb,
    - `http://localhost:3003/auth/callback`
    - `https://deadline.doxbox.org/auth/callback`
 4. Start Deadline and sign in as the app's owner. Until a server is set up, only the owner (or the owning team) can sign in.
-5. On **Settings**, use the invite link to add the bot to a server, then pick the server, the gig forum and the admin, fixer and edgerunner roles.
+5. On **Settings > Discord**, use the invite link to add the bot to a server, then pick the server, the gig forum and the admin, fixer and edgerunner roles.
 
 The bot needs these in the forum: View Channel, Create Posts, Send Messages in Posts, Read Message History, Manage Posts and Embed Links. It also needs Manage Channels to add its tags (Open, Full, Closed, Completed, Cancelled), switch the forum to gallery view and set the archive time. The invite link asks for all of these. Players get DMs, so they need DMs from server members turned on.
 
 Any other forum tags work as gig types. If a gig's type matches a tag, the post gets that tag.
 
-**Bot profile:** Settings has a card for the bot's Discord banner (a library picture with the board's frame) and About me. Its status shows how many gigs are open.
+**Bot profile:** **Settings > Bot** sets the bot's Discord banner (a library picture with the board's frame) and About me. Its status shows how many gigs are open.
 
 ## Getting started
 
@@ -91,7 +91,7 @@ npm run start:dev      # http://localhost:3003
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_CLIENT_SECRET` | OAuth secret. The client ID is the bot's application ID |
 
-Server, forum and roles live in the database and are set on the Settings page.
+Server, forum and roles live in the database and are set on **Settings > Discord**.
 
 ## Commands
 
@@ -118,7 +118,7 @@ Server, forum and roles live in the database and are set on the Settings page.
 
 ## Pictures
 
-Every gig has a picture, framed in the board's colours. Pictures are stored as WebP. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
+Every gig has a picture, framed in the board's colours. There are six frame variants (`src/library/frame.ts`), the same shape with the colours and lengths moved around; each picture always gets the same one. Outside the frame's cut edge the picture is transparent, so it sits on any Discord theme. Pictures are stored as WebP, with a small thumb (pickers, grids, avatars) and a medium copy (gig cards) next to each, built on upload and on startup for older ones. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
 
 Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 

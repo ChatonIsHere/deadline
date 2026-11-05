@@ -10,7 +10,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { UploadButton } from '@/components/upload-button';
-import { api, imageUrl, useAction, useLibrary, useUser } from '@/lib/api';
+import { api, thumbUrl, useAction, useLibrary, useUser } from '@/lib/api';
 
 export function LibraryPage() {
     const me = useUser();
@@ -82,7 +82,7 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                     {ids.map((id) => (
                         <div key={id} className="group relative">
-                            <img src={imageUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
+                            <img src={thumbUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
                             {/* Always shown on touch screens, on hover elsewhere */}
                             <ConfirmButton
                                 size="icon"
