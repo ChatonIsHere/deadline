@@ -53,11 +53,12 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         const state = gig.sessionAt && s.state !== 'confirmed' ? ` · *${s.state}*` : '';
         return `${icon('slot_filled', '▣')} **${s.runner.handle}**${state}`;
     };
-    const slotLines = groupSlots(gig.slots).map((group) => {
-        const title = group.crew ? `**${group.crew.name}**` : '**Any edgerunner**';
-        return [title, ...group.slots.map(runnerLine)].join('\n');
-    });
-    const taken = gig.slots.length - openSlots(gig);
+    // One field per crew (and one for anyone), side by side, with how many of its slots are taken
+    const slotFields: APIEmbedField[] = groupSlots(gig.slots).map((group) => ({
+        name: `${group.crew ? group.crew.name : 'Any edgerunner'} · ${group.slots.filter((x) => x.runner).length}/${group.slots.length}`,
+        value: group.slots.map(runnerLine).join('\n'),
+        inline: true,
+    }));
     const active = gig.status === 'open' || gig.status === 'closed';
 
     const fields: APIEmbedField[] = [
@@ -69,7 +70,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`).join('\n') }]
             : []),
         { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
-        { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
+        ...slotFields,
         ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n') }] : []),
         ...debriefFields(gig, emoji),
     ];
