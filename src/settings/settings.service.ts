@@ -56,7 +56,8 @@ export class SettingsService {
 
     inviteUrl(): string {
         const p = PermissionFlagsBits;
-        const permissions = [p.ViewChannel, p.SendMessages, p.SendMessagesInThreads, p.CreatePublicThreads, p.ManageThreads, p.EmbedLinks, p.ManageChannels];
+        // Read Message History is needed to edit a post's first message
+        const permissions = [p.ViewChannel, p.SendMessages, p.SendMessagesInThreads, p.ReadMessageHistory, p.ManageThreads, p.EmbedLinks, p.ManageChannels];
         const params = new URLSearchParams({
             client_id: this.client.application?.id ?? '',
             scope: 'bot applications.commands',

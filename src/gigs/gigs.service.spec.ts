@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
 import { CrewsService } from '../crews/crews.service';
 import { type Db, openDb } from '../db/db';
-import { runners } from '../db/schema';
+import { gigs as gigsTable, runners } from '../db/schema';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
 import type { LibraryService } from '../library/library.service';
@@ -31,6 +31,7 @@ const people = [admin, fixer, person('a'), person('b'), person('c')];
 const members = {
     me: async (id: string) => people.find((p) => p.id === id) ?? null,
     member: (id: string) => ({ id, name: id, avatar: null }),
+    isEdgerunner: (id: string) => !!people.find((p) => p.id === id)?.isEdgerunner,
     // The "fixer" player has the Discord fixer role; NPCs (no player) always count
     isFixerRunner: (r: { role: string; extraRoles: string[]; ownerId: string | null }) =>
         (r.role === 'Fixer' || r.extraRoles.includes('Fixer')) && (!r.ownerId || r.ownerId === 'fixer'),
@@ -338,6 +339,49 @@ describe('GigsService', () => {
             assert.deepEqual(dropped, ['a']);
             assert.deepEqual(states(gig.id), [['b', 'awaiting']]);
             assert.deepEqual(asked, ['b']);
+        });
+    });
+
+    describe('after the session', () => {
+        it("doesn't pull a reserve in when an admin removes a no-show", async () => {
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            await gigs.join('a', gig.id);
+            await gigs.join('b', gig.id);
+            gigs.setSession(admin, gig.id, Date.now() + H);
+            db.update(gigsTable).set({ sessionAt: new Date(Date.now() - H) }).run(); // the session has happened
+            const slotId = gigs.get(admin, gig.id).slots[0].id;
+            gigs.kick(admin, gig.id, slotId);
+            assert.deepEqual(states(gig.id), [[null, 'interested']]);
+        });
+
+        it('clears the reserves when the gig is completed', async () => {
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            await gigs.join('a', gig.id);
+            await gigs.join('b', gig.id);
+            debrief.complete(admin, gig.id, { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] });
+            assert.equal(gigs.get(admin, gig.id).reserves.length, 0);
+        });
+
+        it("won't let a fixer's player rate their own fixer", async () => {
+            people.push(person('both', { isFixer: true }));
+            addRunner('both', 'Fixer Two', 'Fixer');
+            addRunner('both', 'Solo Two');
+            // The test members stub only counts "fixer"'s characters, so link the gig by hand
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }], { fixerName: 'Fixer Two' }));
+            db.update(gigsTable).set({ fixerRunnerId: ids['Fixer Two'], fixerId: 'both' }).run();
+            await gigs.join('both', gig.id, ids['Solo Two']);
+            debrief.complete(admin, gig.id, { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] });
+            assert.throws(() => debrief.rate('both', gig.id, 5), /your own fixer/);
+            assert.equal(gigs.get(person('both'), gig.id).canRate, false);
+            people.pop();
+        });
+
+        it('lets admins add runners once sign-ups are locked', async () => {
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            gigs.setStatus(admin, gig.id, 'closed');
+            await gigs.assign(admin, gig.id, ids.a);
+            assert.deepEqual(states(gig.id), [['a', 'interested']]);
+            await assert.rejects(gigs.assign(admin, gig.id, ids.a), /that player already has/);
         });
     });
 

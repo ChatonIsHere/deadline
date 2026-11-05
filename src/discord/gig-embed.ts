@@ -37,7 +37,7 @@ function debriefFields(gig: GigView, emoji: EmojiLookup) {
     ];
 }
 
-/** The forum post's starter message: the gig card plus Join / Leave buttons. */
+/** The forum post's starter message: the gig card and its buttons. */
 export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, images: { gig: string | null; fixer: string | null } = { gig: null, fixer: null }) {
     const icon = (name: string, fallback = '') => emoji(name) || fallback;
     const typeIcon = gig.type ? emoji(`type_${gig.type.toLowerCase().replace(/\W+/g, '_')}`) : '';
@@ -75,8 +75,9 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             { name: 'Pay', value: money(gig.pay, emoji), inline: true },
             ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
             { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
-            { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
-            ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n') }] : []),
+            // Discord rejects fields over 1024 characters, which a big crew can reach
+            { name: `Crew ${taken}/${gig.slots.length}`, value: cut(slotLines.join('\n\n')) },
+            ...(gig.reserves.length ? [{ name: 'Reserves', value: cut(gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n')) }] : []),
             ...debriefFields(gig, emoji),
         )
         // Footers can't hold links, so the address is shown as text and the button below links to it
@@ -103,7 +104,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
 const confirmButton = (id: number) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
 const dropButton = (id: number) => new ButtonBuilder().setCustomId(`gig/leave/${id}`).setLabel('Pull out').setStyle(ButtonStyle.Secondary);
 
-/** Confirm / drop out buttons for asking runners about a session. */
+/** Confirm and Pull out buttons, for asking runners about a session. */
 export const confirmButtons = (id: number) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
 
 const postButton = (threadUrl: string) => new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl);
@@ -131,7 +132,8 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
         );
 
     const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
-    if (gig.fixerRunnerId) {
+    // The fixer's own player doesn't rate them
+    if (gig.fixerRunnerId && payout.userId !== gig.fixerId) {
         const menu = new StringSelectMenuBuilder()
             .setCustomId(`rate/${gig.id}`)
             .setPlaceholder(voice.rateFixer(gig.fixerName))

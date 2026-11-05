@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ChannelType, Client, ForumChannel, ForumLayoutType, type MessageCreateOptions, ThreadAutoArchiveDuration } from 'discord.js';
+import { ChannelType, Client, DiscordAPIError, ForumChannel, ForumLayoutType, type MessageCreateOptions, RESTJSONErrorCodes, ThreadAutoArchiveDuration } from 'discord.js';
 import { Once } from 'necord';
 import { config } from '../config';
 import { LibraryService } from '../library/library.service';
@@ -41,12 +41,12 @@ const isFinal = (gig: GigView) => gig.status === 'completed' || gig.status === '
  * later changes edit it, and finished gigs get locked and archived. Live posts are
  * kept open (see GigsService.keepOpen). The forum is picked on the settings page.
  *
- * Needs Send Messages, Manage Threads and Embed Links in the forum, and Manage Channels
- * for the tags and gallery layout.
+ * Permissions: see SettingsService.inviteUrl.
  */
 @Injectable()
 export class GigPostService {
     private readonly logger = new Logger(GigPostService.name);
+    private tagQueue: Promise<unknown> = Promise.resolve();
 
     constructor(
         @Inject(Client) private readonly client: Client,
@@ -63,12 +63,12 @@ export class GigPostService {
     /** Status tags, gallery layout and week-long archive time. Run again when the forum changes. */
     async setupForum() {
         if (!this.settings.get().forumId) return;
-        let forum = await this.forum();
-        const missing = STATUS_TAGS.filter((name) => !forum.availableTags.some((t) => t.name === name));
-        if (missing.length) {
-            forum = await forum.setAvailableTags([...forum.availableTags, ...missing.map((name) => ({ name, moderated: true }))]);
-            this.logger.log(`Added forum tags: ${missing.join(', ')}`);
-        }
+        const forum = await this.withTags(async (current) => {
+            const missing = STATUS_TAGS.filter((name) => !current.availableTags.some((t) => t.name === name));
+            if (!missing.length) return current;
+            this.logger.log(`Adding forum tags: ${missing.join(', ')}`);
+            return current.setAvailableTags([...current.availableTags, ...missing.map((name) => ({ name, moderated: true }))]);
+        });
         if (forum.defaultForumLayout !== ForumLayoutType.GalleryView) await forum.setDefaultForumLayout(ForumLayoutType.GalleryView);
         if (forum.defaultAutoArchiveDuration !== ThreadAutoArchiveDuration.OneWeek) {
             await forum.setDefaultAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek);
@@ -93,7 +93,9 @@ export class GigPostService {
     async sync(gig: GigView, threadId: string | null, note?: string): Promise<string | null> {
         if (gig.status === 'pending' || gig.status === 'rejected') return threadId;
 
-        const forum = await this.ensureFixerTag(await this.forum(), gig.fixerName);
+        // Emoji load on startup; posts built before that would fall back to plain text
+        await this.emoji.ready;
+        const forum = await this.ensureFixerTag(gig.fixerName);
         const images = {
             gig: gig.imageId ? this.library.url(gig.imageId) : null,
             fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
@@ -101,7 +103,14 @@ export class GigPostService {
         const message = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
         const appliedTags = this.tagIds(forum, gig);
 
-        const thread = threadId ? await forum.threads.fetch(threadId).catch(() => null) : null;
+        // A new post only if there's none yet or Discord says it was deleted. Any other
+        // error (a timeout, an outage) is thrown, so a hiccup can't make a duplicate.
+        const thread = threadId
+            ? await forum.threads.fetch(threadId).catch((err) => {
+                  if (err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownChannel) return null;
+                  throw err;
+              })
+            : null;
         if (!thread) {
             const created = await forum.threads.create({
                 name: gig.name,
@@ -109,6 +118,10 @@ export class GigPostService {
                 appliedTags,
                 autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
             });
+            if (isFinal(gig)) {
+                await created.setLocked(true);
+                await created.setArchived(true);
+            }
             return created.id;
         }
 
@@ -186,18 +199,30 @@ export class GigPostService {
         return `https://discord.com/channels/${this.settings.get().guildId}/${threadId}`;
     }
 
-    /** Adds a "Fixer: Name" tag the first time a fixer posts, while the forum has room. */
-    private async ensureFixerTag(forum: ForumChannel, fixerName: string): Promise<ForumChannel> {
+    /** Adds a "Fixer: Name" tag the first time a fixer posts, while the forum has room. Returns the forum. */
+    private ensureFixerTag(fixerName: string): Promise<ForumChannel> {
         const name = fixerTag(fixerName);
-        if (forum.availableTags.some((t) => t.name.toLowerCase() === name.toLowerCase())) return forum;
-        if (forum.availableTags.length >= MAX_FORUM_TAGS) {
-            this.logger.warn(`No room for tag "${name}": the forum has ${MAX_FORUM_TAGS} tags`);
-            return forum;
-        }
-        return forum.setAvailableTags([...forum.availableTags, { name, moderated: true }]).catch((err) => {
-            this.logger.warn(`Couldn't add tag "${name}": ${err}`);
-            return forum;
+        return this.withTags(async (forum) => {
+            if (forum.availableTags.some((t) => t.name.toLowerCase() === name.toLowerCase())) return forum;
+            if (forum.availableTags.length >= MAX_FORUM_TAGS) {
+                this.logger.warn(`No room for tag "${name}": the forum has ${MAX_FORUM_TAGS} tags`);
+                return forum;
+            }
+            return forum.setAvailableTags([...forum.availableTags, { name, moderated: true }]).catch((err) => {
+                this.logger.warn(`Couldn't add tag "${name}": ${err}`);
+                return forum;
+            });
         });
+    }
+
+    /**
+     * Runs tag changes one at a time, each on a fresh copy of the forum. Discord replaces
+     * the whole tag list on every change, so two at once would drop each other's tags.
+     */
+    private withTags(change: (forum: ForumChannel) => Promise<ForumChannel>): Promise<ForumChannel> {
+        const run = this.tagQueue.then(async () => change(await this.forum()));
+        this.tagQueue = run.catch(() => undefined);
+        return run;
     }
 
     private async forum(): Promise<ForumChannel> {

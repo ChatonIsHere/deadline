@@ -1,7 +1,7 @@
 import type { RunnerSummary } from '@shared/schemas';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router';
-import { Say } from '@/components/common';
+import { LinkCard, Say } from '@/components/common';
 import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -65,7 +65,7 @@ export function FixersPage() {
             ) : fixers?.length ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {fixers.map((f) => (
-                        <Link key={f.id} to={`/runners/${f.id}`} className="cut-frame flex gap-4 p-4 transition-colors hover:[--frame:var(--color-primary)]">
+                        <LinkCard key={f.id} to={`/runners/${f.id}`} className="flex gap-4">
                             <RunnerAvatar runner={f} className="size-20 text-2xl [--cut:8px]" />
                             <div className="min-w-0 space-y-1">
                                 <h3 className="truncate text-lg">{f.handle}</h3>
@@ -76,7 +76,7 @@ export function FixersPage() {
                                     {f.gigCount} gig{f.gigCount === 1 ? '' : 's'} · {f.owner ? f.owner.name : 'NPC'}
                                 </p>
                             </div>
-                        </Link>
+                        </LinkCard>
                     ))}
                 </div>
             ) : (
@@ -92,14 +92,14 @@ function RunnerGrid({ runners, loading, empty, showPlayer }: { runners: RunnerSu
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {runners.map((r) => (
-                <Link key={r.id} to={`/runners/${r.id}`} className="cut-frame flex items-center gap-4 p-4 transition-colors hover:[--frame:var(--color-primary)]">
+                <LinkCard key={r.id} to={`/runners/${r.id}`} className="flex items-center gap-4">
                     <RunnerAvatar runner={r} className="size-16 text-2xl [--cut:8px]" />
                     <div className="min-w-0 space-y-1.5">
                         <h3 className="truncate text-lg">{r.handle}</h3>
                         <Roles runner={r} />
                         {showPlayer && r.owner && <p className="truncate text-xs text-muted-foreground">{r.owner.name}</p>}
                     </div>
-                </Link>
+                </LinkCard>
             ))}
         </div>
     );

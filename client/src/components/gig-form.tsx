@@ -11,6 +11,7 @@ import { RunnerAvatar } from '@/components/runner';
 import { Combobox } from '@/components/ui/combobox';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { firstIssue } from '@/lib/utils';
 import { imageUrl, uploadImage, useCrews, useFixers, useGigTypes, useLibrary, useUser } from '@/lib/api';
 
 // Numbers are kept as strings while typing so fields can be empty.
@@ -99,8 +100,11 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
     const crews = useCrews().data ?? [];
     const types = useGigTypes().data ?? [];
     // Admins can pick any fixer. Fixers pick from their own fixer characters.
-    const allFixers = useFixers().data ?? [];
+    const fixerQuery = useFixers();
+    const allFixers = fixerQuery.data ?? [];
     const fixers = me.isAdmin ? allFixers : allFixers.filter((f) => f.ownerId === me.id);
+    // A fixer can't post until they have a fixer character
+    const noFixer = !me.isAdmin && (fixerQuery.isPending || !fixers.length);
     const library = useLibrary().data;
 
     const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
@@ -134,8 +138,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
         e.preventDefault();
         const result = gigInput.safeParse(fromForm(form));
         if (!result.success) {
-            const issue = result.error.issues[0];
-            setError(`${issue.path.join(' ') || 'form'}: ${issue.message}`);
+            setError(firstIssue(result.error));
             return;
         }
         setError('');
@@ -247,6 +250,8 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                             <p className="flex h-9 items-center gap-2">
                                 <RunnerAvatar runner={fixers[0]} /> {fixers[0].handle}
                             </p>
+                        ) : fixerQuery.isPending ? (
+                            <Say className="text-xs">checking your fixers...</Say>
                         ) : (
                             <Say className="text-xs">
                                 you need a fixer character first: a runner with the Fixer role.{' '}
@@ -303,7 +308,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 {error && <p className="text-destructive">{error}</p>}
-                <Button type="submit" className="w-full" disabled={saving || uploading}>
+                <Button type="submit" className="w-full" disabled={saving || uploading || noFixer}>
                     {gig ? 'Save changes' : 'Post the gig'}
                 </Button>
             </div>

@@ -1,5 +1,6 @@
 import type { GigStatus, Member } from '@shared/schemas';
 import { type ReactNode, useState } from 'react';
+import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -66,6 +67,7 @@ export function ConfirmButton({
     onConfirm,
     variant = 'destructive',
     size,
+    className,
 }: {
     label: ReactNode;
     title: string;
@@ -73,12 +75,13 @@ export function ConfirmButton({
     onConfirm: () => void;
     variant?: 'destructive' | 'default' | 'outline';
     size?: 'sm' | 'icon';
+    className?: string;
 }) {
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant={variant === 'destructive' ? 'outline' : variant} size={size}>
+                <Button variant={variant === 'destructive' ? 'outline' : variant} size={size} className={className}>
                     {label}
                 </Button>
             </DialogTrigger>
@@ -101,5 +104,14 @@ export function ConfirmButton({
                 </div>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/** A card that links somewhere, lighting up its frame on hover. */
+export function LinkCard({ to, className, children }: { to: string; className?: string; children: ReactNode }) {
+    return (
+        <Link to={to} className={cn('cut-frame block p-4 transition-colors hover:[--frame:var(--color-primary)]', className)}>
+            {children}
+        </Link>
     );
 }

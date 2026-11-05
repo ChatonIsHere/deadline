@@ -1,4 +1,5 @@
-import { FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
+import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
+import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { Say } from '@/components/common';
@@ -7,23 +8,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select, type SelectOption } from '@/components/ui/select';
-import { api, useAction, useSettings, useUser } from '@/lib/api';
+import { api, imageUrl, plainImageUrl, useAction, useLibrary, useSettings, useUser } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const ROLES: { key: 'adminRoleId' | 'fixerRoleId' | 'edgerunnerRoleId'; label: string; hint: string }[] = [
     { key: 'adminRoleId', label: 'Admin', hint: 'Approves and manages gigs and crews. People with Manage Server count too.' },
-    { key: 'fixerRoleId', label: 'Fixer', hint: 'Submits gigs for approval.' },
+    { key: 'fixerRoleId', label: 'Fixer', hint: 'Submits gigs from their fixer characters for approval.' },
     { key: 'edgerunnerRoleId', label: 'Edgerunner', hint: 'Takes gigs and runs crews. @everyone works.' },
 ];
 
 export function SettingsPage() {
     const me = useUser();
-    const { data } = useSettings();
+    const { data } = useSettings(me.isAdmin);
     if (!me.isAdmin) return <Say>admins only.</Say>;
     if (!data) return <Say>loading config...</Say>;
     return (
         <>
             <SettingsTabs />
             <SettingsForm view={data} isOwner={me.isOwner} />
+            <BotProfileCard />
         </>
     );
 }
@@ -195,6 +198,52 @@ function RoleList({ roles, onChange }: { roles: string[]; onChange: (roles: stri
                 </Button>
             </div>
             <p className="text-xs text-muted-foreground">Fixer can't be removed: it's what puts a runner on the Fixers tab. Save config to keep changes.</p>
+        </Card>
+    );
+}
+
+/** The bot's Discord banner (a library picture, framed) and About me. Saved straight to Discord. */
+function BotProfileCard() {
+    const { data: profile } = useQuery({ queryKey: ['bot-profile'], queryFn: () => api<BotProfile>('/api/settings/bot-profile') });
+    const library = useLibrary().data;
+    const [about, setAbout] = useState<string | null>(null);
+    const [bannerImageId, setBannerImageId] = useState<number | null>(null);
+    const save = useAction(() => api('/api/settings/bot-profile', 'PUT', { about: about ?? profile?.about ?? '', bannerImageId }), () => {
+        setBannerImageId(null);
+        toast.success('Bot profile updated.');
+    });
+
+    const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
+
+    return (
+        <Card className="mx-auto mt-5 max-w-2xl space-y-4">
+            <CardTitle>Bot profile</CardTitle>
+            <div>
+                <Label>Banner</Label>
+                {profile?.bannerUrl && !bannerImageId && <img src={profile.bannerUrl} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
+                {bannerImageId && <img src={imageUrl(bannerImageId)} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
+                <p className="mb-2 text-xs text-muted-foreground">Pick a library picture. It gets cropped to a banner with the board's frame. Upload new ones under Library.</p>
+                <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-6">
+                    {pictures.map((id) => (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => setBannerImageId(id)}
+                            className={cn('cursor-pointer outline-2 outline-offset-1', bannerImageId === id ? 'outline-primary' : 'outline-transparent')}
+                        >
+                            <img src={plainImageUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="about">About me</Label>
+                <Input id="about" value={about ?? profile?.about ?? ''} onChange={(e) => setAbout(e.target.value)} maxLength={400} />
+                <p className="mt-1 text-xs text-muted-foreground">Shown on the bot's Discord profile.</p>
+            </div>
+            <Button type="button" className="w-full" disabled={save.isPending || !profile} onClick={() => save.mutate()}>
+                {save.isPending ? 'Updating' : 'Update bot profile'}
+            </Button>
         </Card>
     );
 }

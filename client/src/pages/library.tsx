@@ -95,15 +95,15 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
                     {ids.map((id) => (
                         <div key={id} className="group relative">
                             <img src={imageUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
-                            <Button
-                                variant="destructive"
+                            {/* Always shown on touch screens, on hover elsewhere */}
+                            <ConfirmButton
                                 size="icon"
-                                title="Remove"
-                                className="absolute top-1 right-1 size-6 opacity-0 group-hover:opacity-100"
-                                onClick={() => remove.mutate(id)}
-                            >
-                                <X className="size-3" />
-                            </Button>
+                                label={<X className="size-3" />}
+                                title="Remove this picture?"
+                                description="Gigs already using it keep it."
+                                onConfirm={() => remove.mutate(id)}
+                                className="absolute top-1 right-1 size-6 sm:opacity-0 sm:group-hover:opacity-100"
+                            />
                         </div>
                     ))}
                 </div>

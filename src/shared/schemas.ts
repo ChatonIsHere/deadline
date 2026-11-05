@@ -5,6 +5,10 @@ import { z } from 'zod';
 export const GIG_STATUSES = ['pending', 'open', 'closed', 'completed', 'cancelled', 'rejected'] as const;
 export type GigStatus = (typeof GIG_STATUSES)[number];
 
+/** Live gigs are posted and not finished: open, or with sign-ups locked. */
+export const LIVE_STATUSES: GigStatus[] = ['open', 'closed'];
+export const isLive = (status: GigStatus) => LIVE_STATUSES.includes(status);
+
 /** interested: no session time yet. awaiting: asked to confirm a time. confirmed: coming. */
 export const RUNNER_STATES = ['interested', 'awaiting', 'confirmed'] as const;
 export type RunnerState = (typeof RUNNER_STATES)[number];
@@ -144,6 +148,17 @@ export const settingsInput = z.object({
 });
 export type Settings = z.infer<typeof settingsInput>;
 
+/** The bot's Discord profile. About me is the app's description (400 characters max). */
+export const botProfileInput = z.object({
+    about: z.string().trim().max(400),
+    bannerImageId: z.number().int().nullable(),
+});
+export type BotProfileInput = z.infer<typeof botProfileInput>;
+export interface BotProfile {
+    about: string;
+    bannerUrl: string | null;
+}
+
 // API responses
 
 export interface Member {
@@ -173,6 +188,8 @@ export interface RunnerCard {
 
 export interface RunnerSummary extends RunnerCard {
     owner: Member | null;
+    /** Their player is on the server with the edgerunner role, so they can be put on gigs. */
+    canTakeGigs: boolean;
     /** Has the Fixer role and is an NPC or played by someone with the Discord fixer role. */
     isFixer: boolean;
 }
@@ -253,6 +270,8 @@ export interface GigView {
     summary: string | null;
     crewRewards: (Rewards & { hqIp: number | null }) | null;
     runnerRewards: (Rewards & { runner: RunnerCard })[];
+    /** Whether the signed in player had a runner on this finished gig and can rate its fixer. */
+    canRate: boolean;
     /** The signed in player's rating of the fixer for this gig. */
     myRating: number | null;
 }

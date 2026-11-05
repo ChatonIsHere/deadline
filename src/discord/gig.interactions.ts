@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { type ButtonInteraction, MessageFlags } from 'discord.js';
 import {
     Button,
@@ -53,7 +53,7 @@ export class GigInteractions {
             const reply = await this.gigs.join(interaction.user.id, Number(id), Number(runnerId));
             await interaction.update({ content: reply, components: [] });
         } catch (err) {
-            await interaction.update({ content: voice.error((err as Error).message), components: [] });
+            await interaction.update({ content: explain(err), components: [] });
         }
     }
 
@@ -64,7 +64,7 @@ export class GigInteractions {
             const reply = this.debrief.rate(interaction.user.id, Number(id), Number(stars));
             await interaction.reply(reply);
         } catch (err) {
-            await interaction.reply(voice.error((err as Error).message));
+            await interaction.reply(explain(err));
         }
     }
 
@@ -100,7 +100,7 @@ export class GigInteractions {
             try {
                 await interaction.update({ content: await action(), components: [] });
             } catch (err) {
-                await interaction.reply(voice.error((err as Error).message));
+                await interaction.reply(explain(err));
             }
             return;
         }
@@ -109,7 +109,14 @@ export class GigInteractions {
         try {
             await interaction.editReply(await action());
         } catch (err) {
-            await interaction.editReply(voice.error((err as Error).message));
+            await interaction.editReply(explain(err));
         }
     }
+}
+
+/** What to tell someone when an action fails. Our own errors say why; anything else stays vague. */
+function explain(err: unknown): string {
+    if (err instanceof HttpException) return voice.error(err.message);
+    new Logger(GigInteractions.name).error(err);
+    return voice.error(voice.broken);
 }

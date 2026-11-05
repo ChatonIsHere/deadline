@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import DOMPurify from 'dompurify';
 import { Bold, Code, Italic, Link, List, ListOrdered, type LucideIcon, Quote, Strikethrough } from 'lucide-react';
 import { marked } from 'marked';
+import { useEffect } from 'react';
 import { fieldClass } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,12 @@ export function MarkdownEditor({ value, onChange, singleLine = false }: { value:
         onUpdate: ({ editor }) => onChange(editor.getMarkdown()),
         editorProps: { attributes: { class: cn(fieldClass, 'md py-2', singleLine ? 'min-h-9' : 'min-h-32') } },
     });
+
+    // Follow changes from outside (e.g. a row above being removed). Typing doesn't trigger this,
+    // since the editor's own text already matches.
+    useEffect(() => {
+        if (editor && value !== editor.getMarkdown()) editor.commands.setContent(value, { contentType: 'markdown' });
+    }, [editor, value]);
 
     const active = useEditorState({
         editor,

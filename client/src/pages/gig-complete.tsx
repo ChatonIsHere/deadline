@@ -1,4 +1,4 @@
-import { completeInput, type CompleteInput, type GigView } from '@shared/schemas';
+import { completeInput, type CompleteInput, type GigView, isLive } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Icon, Say } from '@/components/common';
@@ -7,6 +7,7 @@ import { RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
+import { firstIssue } from '@/lib/utils';
 import { api, useAction, useGig, useUser } from '@/lib/api';
 
 // Amounts are strings while typing so boxes can be empty
@@ -18,10 +19,11 @@ const num = (s: string) => (s.trim() === '' ? null : Number(s));
 export function GigComplete() {
     const { id } = useParams();
     const me = useUser();
-    const { data: gig } = useGig(id);
+    const { data: gig, isError } = useGig(id);
     if (!me.isAdmin) return <Say>admins only.</Say>;
+    if (isError) return <Say>no such contract.</Say>;
     if (!gig) return <Say>decrypting...</Say>;
-    if (gig.status !== 'open' && gig.status !== 'closed') return <Say>that gig isn't live.</Say>;
+    if (!isLive(gig.status)) return <Say>that gig isn't live.</Say>;
     return <DebriefForm gig={gig} />;
 }
 
@@ -46,8 +48,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
             runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId: Number(runnerId), eb: num(a.eb), ip: num(a.ip), text: a.text })),
         });
         if (!result.success) {
-            const issue = result.error.issues[0];
-            setError(`${issue.path.join(' ') || 'form'}: ${issue.message}`);
+            setError(firstIssue(result.error));
             return;
         }
         complete.mutate(result.data);

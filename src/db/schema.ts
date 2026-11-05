@@ -143,8 +143,9 @@ export const regions = sqliteTable('regions', {
 });
 
 /**
- * Pictures for gig posts. Library images (inLibrary) get picked at random: a region's own
- * first, then the general pool (no region). Uploads for a single gig stay out of the library.
+ * Pictures for gig posts and runners. Library images (inLibrary) get picked at random:
+ * the region's own, then its district's, then the general pool (no region). Uploads for a
+ * single gig, and runner pictures, stay out of the library.
  */
 export const images = sqliteTable('images', {
     id: integer().primaryKey({ autoIncrement: true }),
@@ -166,7 +167,7 @@ export const gigObjectives = sqliteTable('gig_objectives', {
     position: integer().notNull(),
 });
 
-// One row per slot. No crew means any edgerunner can take it. No user means it's empty.
+// One row per slot. No crew means any runner can take it. No player means it's empty.
 export const gigSlots = sqliteTable('gig_slots', {
     id: integer().primaryKey({ autoIncrement: true }),
     gigId: integer()

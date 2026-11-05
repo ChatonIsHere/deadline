@@ -2,7 +2,7 @@ import { canCreateCrew } from '@shared/permissions';
 import type { CrewView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Icon, Say } from '@/components/common';
+import { Icon, LinkCard, Say } from '@/components/common';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -36,7 +36,7 @@ export function Crews() {
 
 function CrewCard({ crew }: { crew: CrewView }) {
     return (
-        <Link to={`/crews/${crew.id}`} className="cut-frame block p-4 transition-colors hover:[--frame:var(--color-primary)]">
+        <LinkCard to={`/crews/${crew.id}`}>
             <h3 className="flex items-center gap-2 text-lg">
                 <Icon name="crew" /> {crew.name}
             </h3>
@@ -47,7 +47,7 @@ function CrewCard({ crew }: { crew: CrewView }) {
                 ))}
                 <span className="ml-2 text-xs text-muted-foreground">{crew.members.length} runner(s)</span>
             </div>
-        </Link>
+        </LinkCard>
     );
 }
 

@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { DB, Db } from '../db/db';
-import { fixerRatings, gigRewards, gigs, gigSlots } from '../db/schema';
+import { fixerRatings, gigReserves, gigRewards, gigs, gigSlots } from '../db/schema';
 import { GigPostService } from '../discord/gig-post.service';
 import { voice } from '../discord/voice';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
@@ -42,6 +42,8 @@ export class DebriefService {
                 .where(eq(gigs.id, id))
                 .run();
             tx.delete(gigRewards).where(eq(gigRewards.gigId, id)).run();
+            // Nobody is waiting for a slot on a finished gig
+            tx.delete(gigReserves).where(eq(gigReserves.gigId, id)).run();
             const extras = input.runners.filter((r) => r.eb || r.ip || r.text);
             if (extras.length) tx.insert(gigRewards).values(extras.map((r) => ({ gigId: id, ...r }))).run();
         });
@@ -59,6 +61,7 @@ export class DebriefService {
     rate(userId: string, id: number, stars: number): string {
         const gig = this.gigs.row(id);
         if (gig.status !== 'completed' || !gig.fixerRunnerId) throw new BadRequestException("there's no fixer to rate on that gig.");
+        if (gig.fixerId === userId) throw new BadRequestException("you can't rate your own fixer.");
         const wasOn = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, id), eq(gigSlots.userId, userId)) }).sync();
         if (!wasOn) throw new BadRequestException('only runners on the gig can rate its fixer.');
 

@@ -17,7 +17,7 @@ export const panelClass = 'cut-frame py-1 [--cut:8px] [--frame:var(--color-prima
 export const optionClass =
     'flex cursor-pointer items-center gap-2 px-3 py-1.5 outline-none data-highlighted:bg-muted data-highlighted:text-primary aria-selected:bg-muted aria-selected:text-primary';
 
-// Radix can't use '' as an item value, but our "none" options do.
+// Radix can't use '' as an item value (it means "nothing picked"), but our "none" options do.
 const NONE = '__none__';
 const toItem = (value: string) => (value === '' ? NONE : value);
 
@@ -41,7 +41,7 @@ export function Select({
 }) {
     const hasEmpty = options.some((o) => o.value === '');
     return (
-        <S.Root value={value === '' && !hasEmpty ? undefined : toItem(value)} onValueChange={(v) => onChange(v === NONE ? '' : v)} disabled={disabled}>
+        <S.Root value={value === '' && !hasEmpty ? '' : toItem(value)} onValueChange={(v) => onChange(v === NONE ? '' : v)} disabled={disabled}>
             <S.Trigger id={id} className={cn(fieldClass, 'flex h-9 cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-default disabled:opacity-60', className)}>
                 <span className="truncate">
                     <S.Value placeholder={<span className="text-muted-foreground">{placeholder}</span>} />

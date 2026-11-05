@@ -98,7 +98,7 @@ export function Combobox({
                     <ul id={`${id}-list`} role="listbox" className={panelClass}>
                         {matches.map((s, i) => (
                             <li
-                                key={`${s.value}-${s.hint}`}
+                                key={`${s.value}-${s.hint}-${i}`}
                                 role="option"
                                 aria-selected={i === active}
                                 // mousedown, not click, so the box doesn't lose focus first

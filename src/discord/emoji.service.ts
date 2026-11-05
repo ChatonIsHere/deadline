@@ -20,9 +20,15 @@ export class EmojiService {
     private readonly logger = new Logger(EmojiService.name);
     private readonly emojis = new Map<string, string>();
 
-    constructor(@Inject(Client) private readonly client: Client) {}
-
     get: EmojiLookup = (name) => this.emojis.get(name) ?? '';
+
+    /** Settles once emoji are loaded (or failed to), so posts aren't built without them. */
+    readonly ready: Promise<void>;
+    private markReady!: () => void;
+
+    constructor(@Inject(Client) private readonly client: Client) {
+        this.ready = new Promise((resolve) => (this.markReady = resolve));
+    }
 
     @Once('clientReady')
     async onReady(@Context() [client]: ContextOf<'clientReady'>) {
@@ -42,6 +48,8 @@ export class EmojiService {
             }
         } catch (err) {
             this.logger.warn(`Emoji sync failed, using text instead: ${err}`);
+        } finally {
+            this.markReady();
         }
     }
 }

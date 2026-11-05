@@ -18,6 +18,7 @@ const players = [admin, person('a'), person('b')];
 const members = {
     me: async (id: string) => players.find((p) => p.id === id) ?? null,
     member: (id: string) => ({ id, name: id, avatar: null }),
+    isEdgerunner: (id: string) => !!players.find((p) => p.id === id)?.isEdgerunner,
     isFixerRunner: (r: { role: string; ownerId: string | null }) => r.role === 'Fixer' && !r.ownerId,
 } as unknown as MembersService;
 const settings = { get: () => ({ guildId: '1', runnerRoles: CORE_ROLES, reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;

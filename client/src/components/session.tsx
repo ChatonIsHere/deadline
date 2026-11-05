@@ -138,7 +138,7 @@ export function AssignRunner({ gig }: { gig: GigView }) {
     const assign = useAction(() => api(`/api/gigs/${gig.id}/runners`, 'POST', { runnerId: Number(runnerId) }), () => setRunnerId(''));
 
     const playersOn = new Set([...gig.slots.map((s) => s.runner?.ownerId), ...gig.reserves.map((r) => r.ownerId)]);
-    const options = runners.filter((r) => r.owner && !playersOn.has(r.ownerId));
+    const options = runners.filter((r) => r.canTakeGigs && !playersOn.has(r.ownerId));
 
     return (
         <div className="mt-4 flex gap-2">

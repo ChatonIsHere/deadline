@@ -1,5 +1,5 @@
 import { canDeleteGig, canEditGig, NEXT_STATUSES } from '@shared/permissions';
-import type { GigStatus } from '@shared/schemas';
+import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -16,7 +16,8 @@ import { api, imageUrl, useAction, useGig, useUser } from '@/lib/api';
 const STATUS_ACTIONS: Record<string, { label: string; confirm?: string }> = {
     open: { label: 'Reopen sign-ups' },
     closed: { label: 'Lock sign-ups' },
-    completed: { label: 'Mark complete', confirm: 'The Discord post gets locked and archived.' },
+    // Opens the debrief page rather than changing status here
+    completed: { label: 'Mark complete' },
     cancelled: { label: 'Cancel gig', confirm: 'The Discord post gets locked and archived.' },
 };
 
@@ -41,9 +42,7 @@ export function Gig() {
     const owner = { createdBy: gig.createdBy.id, status: gig.status };
     const nextStatuses = me.isAdmin ? NEXT_STATUSES[gig.status] : [];
     const canDelete = canDeleteGig(me, owner);
-    const active = gig.status === 'open' || gig.status === 'closed';
-    // Players who had a runner on a finished gig can rate its fixer
-    const wasOn = gig.status === 'completed' && gig.slots.some((s) => s.runner?.ownerId === me.id);
+    const active = isLive(gig.status);
 
     return (
         <div className="space-y-6">
@@ -93,7 +92,7 @@ export function Gig() {
                 <div className="space-y-5">
                     {gig.imageId && <img src={imageUrl(gig.imageId)} alt="" className="aspect-video w-full object-cover" />}
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
-                    {wasOn && gig.fixerRunnerId && <RateFixer gig={gig} />}
+                    {gig.canRate && <RateFixer gig={gig} />}
                     <Card>
                         <CardTitle className="flex items-center gap-2">
                             <Icon name="objective" /> Primary objective
@@ -141,7 +140,7 @@ export function Gig() {
                     </Card>
 
                     {me.isEdgerunner && active && <MySpot gig={gig} userId={me.id} />}
-                    {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
+                    {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={gig.sessionAt ?? 'none'} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
                         <CardTitle className="flex items-center gap-2">

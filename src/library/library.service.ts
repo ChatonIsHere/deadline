@@ -5,7 +5,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import sharp from 'sharp';
 import { config } from '../config';
 import { DB, Db } from '../db/db';
-import { gigs, images, regions } from '../db/schema';
+import { gigs, images, regions, runners } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
 import { FRAME_VERSION, framedFile, plainFile } from '../shared/images';
 import { frameSvg, type ImageKind, SIZES } from './frame';
@@ -32,30 +32,19 @@ export class LibraryService implements OnModuleInit {
         if (!this.db.query.regions.findFirst().sync()) this.seedRegions();
         if (!this.db.query.images.findFirst().sync()) await this.importFolder(POOL_DIR, null);
         await this.importDrops();
-        await this.upgradeFiles();
+        await this.reframe();
     }
 
-    /**
-     * Converts plain pictures saved as JPEG (before WebP) and builds framed copies missing
-     * for the current FRAME_VERSION. Older framed files stay: finished posts link to them.
-     */
-    private async upgradeFiles() {
-        let converted = 0;
+    /** Builds framed copies missing for the current FRAME_VERSION. Older framed files stay: finished posts link to them. */
+    private async reframe() {
         let framed = 0;
         for (const { id, kind } of this.db.select({ id: images.id, kind: images.kind }).from(images).all()) {
             const plain = join(this.dir, plainFile(id));
-            const jpeg = join(this.dir, `${id}.jpg`);
-            if (!existsSync(plain) && existsSync(jpeg)) {
-                writeFileSync(plain, await sharp(jpeg).webp(WEBP).toBuffer());
-                unlinkSync(jpeg);
-                converted++;
-            }
             const target = join(this.dir, framedFile(id));
             if (existsSync(target) || !existsSync(plain)) continue;
             writeFileSync(target, await frame(readFileSync(plain), kind));
             framed++;
         }
-        if (converted) this.logger.log(`Converted ${converted} picture(s) to WebP`);
         if (framed) this.logger.log(`Built ${framed} framed picture(s) for frame v${FRAME_VERSION}`);
     }
 
@@ -106,10 +95,11 @@ export class LibraryService implements OnModuleInit {
         return this.add(data, { ...opts, createdBy: user.id });
     }
 
-    /** Takes an image out of the library. Its files stay while a gig still uses it. */
+    /** Takes an image out of the library. Its files stay while a gig or runner still uses it. */
     remove(user: Me, id: number) {
         if (!user.isAdmin) throw new ForbiddenException();
-        const used = this.db.query.gigs.findFirst({ where: eq(gigs.imageId, id) }).sync();
+        const used =
+            this.db.query.gigs.findFirst({ where: eq(gigs.imageId, id) }).sync() ?? this.db.query.runners.findFirst({ where: eq(runners.imageId, id) }).sync();
         if (used) {
             this.db.update(images).set({ inLibrary: false }).where(eq(images.id, id)).run();
             return;

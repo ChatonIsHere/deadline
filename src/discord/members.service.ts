@@ -4,7 +4,7 @@ import { Context, ContextOf, Once } from 'necord';
 import { SettingsService } from '../settings/settings.service';
 import { FIXER_ROLE, type Me, type Member } from '../shared/schemas';
 
-/** People and their roles, read from the bot's view of the server. Nothing about users is stored. */
+/** People and their roles, read from the bot's view of the server. Names, avatars and roles aren't stored. */
 @Injectable()
 export class MembersService {
     private readonly logger = new Logger(MembersService.name);
@@ -63,6 +63,12 @@ export class MembersService {
     member(id: string): Member {
         const member = this.guild?.members.cache.get(id);
         return member ? toMember(member) : { id, name: 'Unknown player', avatar: null };
+    }
+
+    /** Whether someone on the server has the edgerunner role (from the cache), so their runners can go on gigs. */
+    isEdgerunner(userId: string): boolean {
+        const roleId = this.settings.get().edgerunnerRoleId;
+        return !!roleId && !!this.guild?.members.cache.get(userId)?.roles.cache.has(roleId);
     }
 
     /** Everyone who can sign in (admin, fixer or edgerunner role, or Manage Server). For admins giving out runners. */

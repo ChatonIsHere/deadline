@@ -1,4 +1,4 @@
-// Everything the board's AI says, in one place so the tone is easy to change.
+// Most of what the board's AI says, in one place so the tone is easy to change. Command errors are in commands.ts.
 
 const say = (line: string) => `\`// DEADLINE:\` ${line}`;
 
@@ -32,7 +32,7 @@ export const voice = {
     reminderDay: (gigName: string, at: number) => say(`reminder: **${gigName}** is on ${when(at)}.`),
     reminderSoon: (gigName: string, at: number) => say(`**${gigName}** starts <t:${Math.floor(at / 1000)}:R>. gear up.`),
     remindersOff: (url: string) => say(`reminders off. turn them back on at ${url}/me`),
-    remindersSet: (on: boolean) => say(on ? "reminders on. you'll get a DM on the day and 30 minutes before." : 'reminders off. confirm requests still come through.'),
+    remindersSet: (on: boolean) => say(on ? "reminders on. you'll get a DM a few hours before and 30 minutes before." : 'reminders off. confirm requests still come through.'),
     runnerMade: (handle: string, editUrl: string) => say(`**${handle}** is on file. add a picture and extra roles at ${editUrl}`),
 
     // After the job
@@ -76,6 +76,9 @@ export const voice = {
     notIn: "you're not on this contract.",
     nothingToConfirm: "there's no session time to confirm yet.",
     notRunner: 'you need the edgerunner role to take gigs.',
+    playerAlreadyIn: 'that player already has a runner on this gig.',
+    playerAlreadyReserve: 'that player already has a runner on the reserves.',
+    broken: 'something broke on our end. try again in a minute.',
     pickRunner: 'you have more than one runner. pick which one is going.',
     noRunner: (url: string) => `you don't have a runner yet. make one at ${url}/runners/new`,
 };

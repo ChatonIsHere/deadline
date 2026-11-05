@@ -129,6 +129,8 @@ export class RunnersService {
             .set({ ...fields, ownerId })
             .where(eq(runners.id, id))
             .run();
+        // A fixer character's gigs follow it to its new player
+        if (ownerId !== r.ownerId) this.db.update(gigs).set({ fixerId: ownerId }).where(eq(gigs.fixerRunnerId, id)).run();
         this.gigs.refresh(this.liveGigs(id));
         return this.get(user, id);
     }
@@ -175,7 +177,12 @@ export class RunnersService {
     }
 
     private summary(r: Runner): RunnerSummary {
-        return { ...toCard(r), owner: r.ownerId ? this.members.member(r.ownerId) : null, isFixer: this.members.isFixerRunner(r) };
+        return {
+            ...toCard(r),
+            owner: r.ownerId ? this.members.member(r.ownerId) : null,
+            canTakeGigs: !!r.ownerId && this.members.isEdgerunner(r.ownerId),
+            isFixer: this.members.isFixerRunner(r),
+        };
     }
 
     /** Average stars from players who went on this fixer's gigs. */

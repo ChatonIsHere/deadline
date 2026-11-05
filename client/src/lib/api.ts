@@ -3,15 +3,6 @@ import type { CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCa
 import { framedFile, plainFile } from '@shared/images';
 import { toast } from 'sonner';
 
-export class ApiError extends Error {
-    constructor(
-        public status: number,
-        message: string,
-    ) {
-        super(message);
-    }
-}
-
 /** JSON in and out. A FormData body is sent as a file upload. */
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     const json = body !== undefined && !(body instanceof FormData);
@@ -25,7 +16,7 @@ export async function api<T>(path: string, method = 'GET', body?: unknown): Prom
     const data = await res.json().catch(() => null);
     if (!res.ok) {
         const message = Array.isArray(data?.message) ? data.message.join(', ') : (data?.message ?? res.statusText);
-        throw new ApiError(res.status, message);
+        throw new Error(message);
     }
     return data as T;
 }

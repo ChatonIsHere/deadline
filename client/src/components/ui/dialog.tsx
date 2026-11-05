@@ -9,7 +9,7 @@ export const DialogClose = D.Close;
 export function DialogContent({ className, children, ...props }: ComponentProps<typeof D.Content>) {
     return (
         <D.Portal>
-            <D.Overlay className="fixed inset-0 z-40 bg-black/70" />
+            <D.Overlay className="fixed inset-0 z-40 bg-background/80" />
             <D.Content
                 className={cn('cut-frame fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-1/2 p-6 [--frame:var(--color-primary)]', className)}
                 {...props}

@@ -83,7 +83,7 @@ export function Layout() {
             </header>
 
             {/* Bottom padding on phones keeps content clear of the icon bar */}
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 sm:pb-6">
+            <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-40 sm:pb-6">
                 {me.isAdmin && <SetupReminder />}
                 <Outlet />
             </main>

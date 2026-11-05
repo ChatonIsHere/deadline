@@ -41,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/:id" element={<Crew />} />
                         <Route path="settings/library" element={<LibraryPage />} />
+                        {/* Old /library links */}
                         <Route path="library" element={<Navigate to="/settings/library" replace />} />
                         <Route path="me" element={<MePage />} />
                         <Route path="settings" element={<SettingsPage />} />

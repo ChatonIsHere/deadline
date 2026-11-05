@@ -11,7 +11,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, uploadImage, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, firstIssue } from '@/lib/utils';
 
 /**
  * New runner, or editing one. Admins pick who plays the runner (or nobody, for an NPC
@@ -19,9 +19,14 @@ import { cn } from '@/lib/utils';
  */
 export function RunnerEdit() {
     const { id } = useParams();
-    const { data: runner } = useRunner(id);
+    const me = useUser();
+    const [params] = useSearchParams();
+    const { data: runner, isError } = useRunner(id);
+    if (isError) return <Say>no such runner.</Say>;
     if (id && !runner) return <Say>loading runner...</Say>;
-    return <RunnerForm runner={runner} />;
+    if (runner && !me.isAdmin && runner.ownerId !== me.id) return <Say>that runner isn't yours to change.</Say>;
+    // Keyed so going from editing one runner to a new one starts a fresh form
+    return <RunnerForm key={runner?.id ?? `new-${params.get('npc') ?? ''}`} runner={runner} />;
 }
 
 function RunnerForm({ runner }: { runner?: RunnerView }) {
@@ -78,8 +83,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         e.preventDefault();
         const result = runnerInput.safeParse(form);
         if (!result.success) {
-            const issue = result.error.issues[0];
-            setError(`${issue.path.join(' ') || 'form'}: ${issue.message}`);
+            setError(firstIssue(result.error));
             return;
         }
         setError('');
@@ -107,7 +111,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                     <p className="text-xs text-muted-foreground">
                         {isNpc
                             ? 'An NPC fixer has no player. They show on the Fixers tab and can be picked for gigs.'
-                            : 'The runner shows under their Runners tab and they can sign them up for gigs.'}
+                            : "The runner shows on that player's Runners tab, and they can sign it up for gigs."}
                     </p>
                 </Card>
             )}

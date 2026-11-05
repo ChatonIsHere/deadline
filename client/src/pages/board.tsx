@@ -1,4 +1,4 @@
-import type { GigView, Me } from '@shared/schemas';
+import { type GigView, isLive, type Me } from '@shared/schemas';
 import { Say } from '@/components/common';
 import { GigCard } from '@/components/gig-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,12 +11,12 @@ interface Tab {
     filter: (gig: GigView, me: Me) => boolean;
 }
 
-const isLive = (g: GigView) => g.status === 'open' || g.status === 'closed';
+
 const isMine = (g: GigView, me: Me) =>
     g.createdBy.id === me.id || g.fixerId === me.id || g.slots.some((s) => s.runner?.ownerId === me.id) || g.reserves.some((r) => r.ownerId === me.id);
 
 const TABS: Tab[] = [
-    { key: 'live', label: 'Live', filter: isLive },
+    { key: 'live', label: 'Live', filter: (g) => isLive(g.status) },
     {
         key: 'pending',
         label: 'Pending',

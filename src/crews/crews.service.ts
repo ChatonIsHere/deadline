@@ -55,7 +55,7 @@ export class CrewsService {
         const affected = this.gigs.gigsForCrew(id);
         // Their gig slots become open to anyone (ON DELETE SET NULL)
         this.db.delete(crews).where(eq(crews.id, id)).run();
-        this.gigs.refresh(affected);
+        this.gigs.refill(affected);
     }
 
     /** The crew's owner (or an admin) adds a player's runner. */
@@ -66,6 +66,8 @@ export class CrewsService {
         if (!runner?.ownerId) throw new BadRequestException("Only players' runners can join a crew.");
 
         this.db.insert(crewMembers).values({ crewId: id, runnerId }).onConflictDoNothing().run();
+        // They may now fit a crew slot they were waiting on
+        this.gigs.refill(this.gigs.gigsForCrew(id));
         return this.get(id);
     }
 

@@ -10,12 +10,12 @@ import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
 import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
-import type { GigInput, GigStatus, GigView, Me, RunnerCard, RunnerState } from '../shared/schemas';
+import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, type RunnerCard, type RunnerState } from '../shared/schemas';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot } from './slots';
 
-export const ACTIVE: GigStatus[] = ['open', 'closed'];
+export const ACTIVE = LIVE_STATUSES;
 const SWEEP_MS = 6 * 60 * 60 * 1000;
 /** How often reminders, nudges and no-response drops are checked. */
 const CLOCK_MS = 60 * 1000;
@@ -137,8 +137,14 @@ export class GigsService {
         if (!NEXT_STATUSES[gig.status].includes(status)) throw new BadRequestException(`Can't go from ${gig.status} to ${status}.`);
 
         this.db.update(gigs).set({ status }).where(eq(gigs.id, id)).run();
+        if (status === 'cancelled') this.clearReserves(id);
         this.post(id, { note: voice.statusChanged[status] });
         return this.view(id, user.id);
+    }
+
+    /** A finished gig has no one waiting for a slot. */
+    clearReserves(id: number) {
+        this.db.delete(gigReserves).where(eq(gigReserves.gigId, id)).run();
     }
 
     // Runners and sessions
@@ -158,14 +164,20 @@ export class GigsService {
 
         const slot = this.slotOf(id, userId);
         if (slot?.state === 'awaiting') return this.confirm(userId, id);
+        if (this.row(id).status !== 'open') throw new BadRequestException(voice.notOpen);
 
         const added = this.add(this.pickRunner(userId, runnerId), id, false);
         if (added.reserve) return voice.reserve(added.reserve);
         return added.state === 'interested' ? voice.interested() : voice.joined(added.left);
     }
 
-    /** The player's runners, when they need to pick one to sign up with. Empty means no choice needed. */
+    /**
+     * The player's runners, when they need to pick one to sign up with. Empty means no
+     * choice is needed (or joining will fail anyway, which join() then explains).
+     */
     runnerChoices(userId: string, id: number): RunnerCard[] {
+        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.id, id) }).sync();
+        if (gig?.status !== 'open' || !this.members.isEdgerunner(userId)) return [];
         if (this.slotOf(id, userId) || this.isReserve(id, userId)) return [];
         const mine = this.runnersOf(userId);
         return mine.length > 1 ? mine.map(toCard) : [];
@@ -213,7 +225,7 @@ export class GigsService {
     kick(user: Me, id: number, slotId: number): GigView {
         if (!user.isAdmin) throw new ForbiddenException();
         if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
-        const slot =this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.id, slotId), eq(gigSlots.gigId, id)) }).sync();
+        const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.id, slotId), eq(gigSlots.gigId, id)) }).sync();
         if (!slot?.userId) throw new NotFoundException();
 
         this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slotId)).run();
@@ -224,6 +236,7 @@ export class GigsService {
     /** Admin removes a player's runner from the reserves. */
     unreserve(user: Me, id: number, userId: string): GigView {
         if (!user.isAdmin) throw new ForbiddenException();
+        if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
         if (!this.removeReserve(id, userId)) throw new NotFoundException();
         this.post(id);
         return this.view(id, user.id);
@@ -260,7 +273,7 @@ export class GigsService {
     /** Lifts a crew's hold on its slots in this gig, so any runner can take them. */
     openCrewSlots(user: Me, id: number, crewId: number): GigView {
         if (!user.isAdmin) throw new ForbiddenException();
-        this.row(id);
+        if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
         const crew = this.db.query.crews.findFirst({ where: eq(crews.id, crewId) }).sync();
         const changed = this.db
             .update(gigSlots)
@@ -273,7 +286,7 @@ export class GigsService {
         return this.view(id, user.id);
     }
 
-    /** Takes a runner off every live gig before it's deleted. Finished gigs keep their record. */
+    /** Takes a runner off every unfinished gig before it's deleted. Finished gigs keep their record. */
     dropRunner(runnerId: number) {
         const live = this.db
             .selectDistinct({ id: gigs.id })
@@ -297,11 +310,12 @@ export class GigsService {
         const userId = runner.ownerId!;
         const result = this.db.transaction((tx) => {
             const gig = this.row(id);
-            if (gig.status !== 'open') throw new BadRequestException(voice.notOpen);
+            // Admins can still add runners once sign-ups are locked
+            if (assigned ? !ACTIVE.includes(gig.status) : gig.status !== 'open') throw new BadRequestException(assigned ? voice.notActive : voice.notOpen);
 
             const slots = tx.select().from(gigSlots).where(eq(gigSlots.gigId, id)).all();
-            if (slots.some((s) => s.userId === userId)) throw new BadRequestException(voice.alreadyIn);
-            if (this.isReserve(id, userId)) throw new BadRequestException(voice.alreadyReserve);
+            if (slots.some((s) => s.userId === userId)) throw new BadRequestException(assigned ? voice.playerAlreadyIn : voice.alreadyIn);
+            if (this.isReserve(id, userId)) throw new BadRequestException(assigned ? voice.playerAlreadyReserve : voice.alreadyReserve);
 
             const slot = pickSlot(slots, this.crewIds(runner.id));
             if (!slot) {
@@ -322,11 +336,17 @@ export class GigsService {
         return result;
     }
 
-    /** After someone leaves (or slots change): fill gaps from the reserves and update the post. */
+    /**
+     * After someone leaves (or slots change): fill gaps from the reserves and update the
+     * post. Not once the session has happened: removing a no-show shouldn't pull a
+     * reserve into a job they weren't on.
+     */
     private afterRemoval(id: number, note?: string) {
-        const promoted = this.promote(id);
+        const gig = this.row(id);
+        const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
+        const promoted = ACTIVE.includes(gig.status) && !played ? this.promote(id) : [];
         const notes = [note, promoted.length ? voice.promoted(promoted.map((p) => this.handle(p.runnerId))) : ''].filter(Boolean).join('\n');
-        this.post(id, { note: notes || undefined, ask: this.row(id).sessionAt ? promoted.map((p) => p.userId) : [] });
+        this.post(id, { note: notes || undefined, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
     }
 
     /** Moves reserves into any empty slots they can take. Returns who moved up. */
@@ -410,7 +430,12 @@ export class GigsService {
             .map((r) => r.id);
     }
 
-    /** Re-posts gigs after something they show changes (a crew renamed or deleted, a runner edited). */
+    /** Fills open slots from the reserves (after crew changes) and updates the posts. */
+    refill(ids: number[]) {
+        for (const id of ids) this.afterRemoval(id);
+    }
+
+    /** Re-posts gigs after something they show changes (a crew renamed, a runner edited). */
     refresh(ids: number[]) {
         for (const id of ids) this.post(id);
     }
@@ -479,6 +504,7 @@ export class GigsService {
             if (work.remind) {
                 this.db
                     .update(gigs)
+                    // The 30-minute reminder covers the day-of one too, so that never comes after it
                     .set(work.remind === 'soon' ? { remindedDay: true, remindedSoon: true } : { remindedDay: true })
                     .where(eq(gigs.id, gig.id))
                     .run();
@@ -553,9 +579,11 @@ export class GigsService {
                 const threadId = await this.posts.sync(view, gig.threadId, note);
                 if (threadId !== gig.threadId) this.db.update(gigs).set({ threadId }).where(eq(gigs.id, id)).run();
                 if (!threadId) return;
-                if (ask.length && view.sessionAt) {
+                // Only players still waiting to confirm by now (someone may have pulled out meanwhile)
+                const stillAsked = ask.filter((userId) => view.slots.some((s) => s.runner?.ownerId === userId && s.state === 'awaiting'));
+                if (stillAsked.length && view.sessionAt) {
                     const confirmBy = confirmDeadline(Date.now(), view.sessionAt, this.settings.get().confirmHours);
-                    await this.posts.askToConfirm(view, threadId, ask, confirmBy);
+                    await this.posts.askToConfirm(view, threadId, stillAsked, confirmBy);
                 }
                 await after?.(view, threadId);
             } catch (err) {
@@ -633,6 +661,7 @@ export class GigsService {
             runnerRewards: gig.rewards
                 .filter((r) => cards.has(r.runnerId))
                 .map((r) => ({ runner: toCard(cards.get(r.runnerId)!), eb: r.eb, ip: r.ip, text: r.text })),
+            canRate: done && !!gig.fixerRunnerId && !!userId && gig.fixerId !== userId && gig.slots.some((s) => s.userId === userId),
             myRating: rating?.stars ?? null,
         };
     }

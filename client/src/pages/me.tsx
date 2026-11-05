@@ -26,7 +26,7 @@ export function MePage() {
 
             <Card className="space-y-3">
                 <CardTitle>Session reminders</CardTitle>
-                <p>DMs on the day of a session you've confirmed, and 30 minutes before it starts.</p>
+                <p>DMs a few hours before a session you've confirmed, and 30 minutes before it starts.</p>
                 {prefs ? (
                     <Button variant={prefs.reminders ? 'outline' : 'default'} disabled={save.isPending} onClick={() => save.mutate({ ...prefs, reminders: !prefs.reminders })}>
                         {prefs.reminders ? 'Turn reminders off' : 'Turn reminders on'}
@@ -34,7 +34,7 @@ export function MePage() {
                 ) : (
                     <Say>loading...</Say>
                 )}
-                <p className="text-xs text-muted-foreground">Asks to confirm a session time still come through, since your slot depends on them.</p>
+                <p className="text-xs text-muted-foreground">Requests to confirm a session time still come through, since your slot depends on them.</p>
             </Card>
 
             <Button variant="outline" className="w-full" onClick={logout}>

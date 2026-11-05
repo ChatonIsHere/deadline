@@ -1,4 +1,4 @@
-import { Injectable, UseInterceptors } from '@nestjs/common';
+import { HttpException, Injectable, UseInterceptors } from '@nestjs/common';
 import { type AutocompleteInteraction, MessageFlags } from 'discord.js';
 import { AutocompleteInterceptor, Context, Options, SlashCommand, type SlashCommandContext, StringOption } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
@@ -112,8 +112,8 @@ export class Commands {
     @SlashCommand({ name: 'gig', description: 'Show a live gig' })
     async gig(@Context() [interaction]: SlashCommandContext, @Options() { gig }: GigOptions) {
         const id = Number(gig) || this.gigs.live().find((g) => g.name.toLowerCase() === gig.trim().toLowerCase())?.id;
-        const view = id ? this.gigs.view(id) : undefined;
-        if (!view || (view.status !== 'open' && view.status !== 'closed')) return this.oops(interaction, 'no live gig by that name.');
+        const view = id && this.gigs.live().some((g) => g.id === id) ? this.gigs.view(id) : undefined;
+        if (!view) return this.oops(interaction, 'no live gig by that name.');
         const image = view.imageId ? this.library.url(view.imageId) : null;
         await interaction.reply(gigCard(view, this.emoji.get, config.PUBLIC_URL, image));
     }
@@ -168,7 +168,8 @@ export class Commands {
             });
             await interaction.reply({ content: voice.runnerMade(runner.handle, `${config.PUBLIC_URL}/runners/${runner.id}/edit`), flags: MessageFlags.Ephemeral });
         } catch (err) {
-            await this.oops(interaction, (err as Error).message);
+            // Our own errors (bad role, taken name) say why; anything else stays vague
+            await this.oops(interaction, err instanceof HttpException ? err.message : voice.broken);
         }
     }
 

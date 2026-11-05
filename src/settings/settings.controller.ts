@@ -1,8 +1,9 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { BotProfileService } from '../discord/bot-profile.service';
 import { GigPostService } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
-import { type Me, type Settings, settingsInput, type SettingsView } from '../shared/schemas';
+import { botProfileInput, type BotProfileInput, type Me, type Settings, settingsInput, type SettingsView } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { SettingsService } from './settings.service';
 
@@ -13,6 +14,7 @@ export class SettingsController {
         private readonly settings: SettingsService,
         private readonly members: MembersService,
         private readonly posts: GigPostService,
+        private readonly botProfiles: BotProfileService,
     ) {}
 
     @Get()
@@ -26,6 +28,18 @@ export class SettingsController {
             options: current.guildId ? await this.settings.options(current.guildId).catch(() => null) : null,
             inviteUrl: this.settings.inviteUrl(),
         };
+    }
+
+    /** The bot's Discord banner and About me. */
+    @Get('bot-profile')
+    botProfile(@CurrentUser() user: Me) {
+        if (!user.isAdmin) throw new ForbiddenException();
+        return this.botProfiles.get();
+    }
+
+    @Put('bot-profile')
+    setBotProfile(@CurrentUser() user: Me, @Body(new ZodPipe(botProfileInput)) body: BotProfileInput) {
+        return this.botProfiles.set(user, body);
     }
 
     /** Forums and roles of another server, while the owner is picking one. */

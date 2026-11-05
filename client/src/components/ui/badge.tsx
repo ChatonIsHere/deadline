@@ -8,7 +8,7 @@ const badgeVariants = cva('cut inline-flex items-center px-2 py-0.5 font-display
             default: 'bg-primary text-primary-foreground',
             accent: 'bg-accent text-accent-foreground',
             success: 'bg-success text-primary-foreground',
-            destructive: 'bg-destructive text-white',
+            destructive: 'bg-destructive text-destructive-foreground',
             muted: 'bg-muted text-muted-foreground',
         },
     },
