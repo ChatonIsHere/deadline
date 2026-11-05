@@ -1,0 +1,85 @@
+import { join } from 'node:path';
+import { Resvg, type ResvgRenderOptions } from '@resvg/resvg-js';
+import sharp from 'sharp';
+import { FORUM, frameSvg, type Variant } from './frame';
+
+/**
+ * A gig's picture for Discord: cut to the forum gallery preview's shape, framed, with the
+ * operation's name in the bottom left, one word per line, as big as fits.
+ * Bump when the look changes, so Discord fetches new copies.
+ */
+export const CARD_VERSION = 1;
+
+/** Chakra Petch Bold (SIL Open Font License, see assets/fonts/OFL.txt), the site's heading font. */
+const FONT = join(__dirname, '..', '..', 'assets', 'fonts', 'ChakraPetch-Bold.ttf');
+const RESVG: ResvgRenderOptions = { font: { fontFiles: [FONT], loadSystemFonts: false, defaultFontFamily: 'Chakra Petch' } };
+
+const Y = '#f3e600';
+const P = '#ff2a6d';
+const BG = '#0a0a12';
+
+/** Room the name may take, as parts of the space inside the frame. Wider would run into the barcode. */
+const MAX_WIDTH = 0.6;
+const MAX_HEIGHT = 0.5;
+/** Gap between lines' baselines, in cap heights. */
+const LINE = 1.3;
+
+const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const textSvg = (inner: string, w = 4000, h = 400) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${inner}</svg>`;
+
+/** Width and cap height of text in the font at size 100. */
+function measure(text: string): { width: number; height: number } {
+    const box = new Resvg(textSvg(`<text x="0" y="200" font-family="Chakra Petch" font-weight="700" font-size="100">${escape(text)}</text>`), RESVG).getBBox();
+    return { width: box?.width ?? 0, height: box?.height ?? 0 };
+}
+
+export async function renderGigCard(plain: Buffer, variant: Variant, name: string): Promise<Buffer> {
+    const { width: W, height: H } = FORUM;
+    const { overlay, mask } = frameSvg(W, H, { variant, padded: true });
+    const framed = await sharp(plain)
+        .resize(W, H, { fit: 'cover' })
+        .ensureAlpha()
+        .composite([
+            { input: Buffer.from(mask), blend: 'dest-in' },
+            { input: Buffer.from(overlay) },
+        ])
+        .png()
+        .toBuffer();
+
+    const words = name.toUpperCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return sharp(framed).webp({ quality: 85 }).toBuffer();
+
+    // The frame's margin and padding inside it (same scale as frame.ts, sized off 720 high)
+    const s = Math.min(W, H) / 720;
+    const margin = Math.round(28 * s);
+    const pad = Math.round(44 * s);
+
+    // As big as fits: the longest word within the width, all lines within the height
+    const cap = measure('H').height;
+    const widest = Math.max(...words.map((w) => measure(w).width));
+    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / widest;
+    const byHeight = ((H - 2 * margin) * MAX_HEIGHT * 100) / (cap * (1 + (words.length - 1) * LINE));
+    const size = Math.min(byWidth, byHeight);
+    const capPx = (cap * size) / 100;
+
+    const x = margin + pad;
+    const lastBaseline = H - margin - pad;
+    const lines = words
+        .map((word, i) => {
+            const y = lastBaseline - (words.length - 1 - i) * capPx * LINE;
+            const text = escape(word);
+            const font = `font-family="Chakra Petch" font-weight="700" font-size="${size.toFixed(1)}"`;
+            // A pink offset copy behind (the glitch look of the emoji), then yellow with a dark edge to read on any picture
+            return (
+                `<text x="${x - size * 0.035}" y="${y + size * 0.03}" ${font} fill="${P}" opacity="0.85">${text}</text>` +
+                `<text x="${x}" y="${y}" ${font} fill="${Y}" stroke="${BG}" stroke-width="${(size * 0.06).toFixed(1)}" stroke-linejoin="round" paint-order="stroke">${text}</text>`
+            );
+        })
+        .join('');
+
+    const label = new Resvg(textSvg(lines, W, H), RESVG).render().asPng();
+    return sharp(framed)
+        .composite([{ input: label }])
+        .webp({ quality: 85 })
+        .toBuffer();
+}

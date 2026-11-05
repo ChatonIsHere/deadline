@@ -7,8 +7,8 @@ export type ImageKind = keyof typeof SIZES;
 
 /**
  * Discord's forum gallery crops previews to about 1.485:1 (measured: 802x540 on mobile; desktop
- * sits between about 1.42 and 1.54). Gig pictures for Discord get cut to this shape from the
- * plain 1280x720 one, so nothing is upscaled. The frame's margin covers the desktop range.
+ * sits between about 1.42 and 1.54). Gig cards (gig-card.ts) are cut to this shape from the
+ * plain 1280x720 picture, so nothing is upscaled. The frame's margin covers the desktop range.
  */
 export const FORUM = { width: 1070, height: 720 } as const;
 
@@ -28,7 +28,7 @@ const P = '#ff2a6d';
  * brackets (top right, bottom left), two small corner marks, a side tick and a barcode.
  * They differ in which colour goes where and how long the brackets are.
  */
-interface Variant {
+export interface Variant {
     edge: string;
     /** Top right and bottom left brackets. */
     major: [string, string];

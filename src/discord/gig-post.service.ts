@@ -99,7 +99,7 @@ export class GigPostService {
         await this.emoji.ready;
         const forum = await this.ensureFixerTag(gig.fixerName);
         const images = {
-            gig: gig.imageId ? this.library.url(gig.imageId) : null,
+            gig: gig.imageId ? await this.library.gigCardUrl({ id: gig.id, imageId: gig.imageId, name: gig.name }) : null,
             fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
         };
         const { first, more } = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);

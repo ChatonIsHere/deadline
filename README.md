@@ -120,11 +120,13 @@ Server, forum and roles live in the database and are set on **Settings > Discord
 
 ## Pictures
 
-Every gig has a picture, framed in the board's colours. There are six frame variants (`src/library/frame.ts`), the same shape with the colours and lengths moved around; each picture always gets the same one. Outside the frame's cut edge the picture is transparent, so it sits on any Discord theme. Each picture is stored as WebP in a few versions: plain, framed for Discord (gig pictures at 1070x720, the shape the forum gallery previews use, about 1.485:1, with a margin so desktop and mobile both show the whole frame; runner pictures square), framed to the edge for the web, and a small thumb (pickers, grids, avatars) and medium copy (gig cards) of the web one. They're built on upload, and on startup for anything missing. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
+Every gig has a picture, framed in the board's colours. There are six frame variants (`src/library/frame.ts`), the same shape with the colours and lengths moved around; each picture always gets the same one. Outside the frame's cut edge the picture is transparent, so it sits on any Discord theme. Each picture is stored as WebP in a few versions: plain, framed with a margin for Discord, framed to the edge for the web, and a small thumb (pickers, grids, avatars) and medium copy (gig cards) of the web one. They're built on upload, and on startup for anything missing. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
 
 Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 
 For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) next to the database (by default `data/import/`) and restart. They get added to the library and the files are deleted.
+
+Gig posts use a **gig card** made for each gig (`src/library/gig-card.ts`): its picture cut to 1070x720 (the shape Discord's forum gallery previews use, about 1.485:1), framed with a margin so desktop and mobile both show the whole frame, and the operation's name in the bottom left, one word per line, as big as fits. It's rebuilt when the gig's name or picture changes. The font is Chakra Petch Bold (`assets/fonts`, SIL Open Font License).
 
 ## Emoji
 

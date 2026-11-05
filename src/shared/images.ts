@@ -9,11 +9,6 @@ export const FRAME_VERSION = 6;
 export const plainFile = (id: number) => `${id}.webp`;
 /** Framed with a transparent margin, for Discord (its gallery preview crops the edges). */
 export const framedFile = (id: number) => `${id}-framed-v${FRAME_VERSION}.webp`;
-/**
- * Gig pictures for Discord: cropped to the forum gallery's preview shape (FORUM in
- * library/frame.ts) and framed with a margin, so the preview doesn't cut the frame off.
- */
-export const forumFile = (id: number) => `${id}-forum-v${FRAME_VERSION}.webp`;
 /** Framed to the edge, for the web. */
 export const webFile = (id: number) => `${id}-web-v${FRAME_VERSION}.webp`;
 /** Smaller copies of the web picture: thumb for pickers, grids and avatars, medium for gig cards. Sizes are in library/frame.ts. */
