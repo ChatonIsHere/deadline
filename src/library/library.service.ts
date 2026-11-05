@@ -7,7 +7,7 @@ import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { gigs, images, regions, runners } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
-import { framedFile, mediumFile, plainFile, thumbFile } from '../shared/images';
+import { framedFile, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
 import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
 import { NIGHT_CITY } from './night-city';
 
@@ -45,19 +45,26 @@ export class LibraryService implements OnModuleInit {
             const plainPath = join(this.dir, plainFile(id));
             if (!existsSync(plainPath)) continue;
             const plain = readFileSync(plainPath);
-            const framedPath = join(this.dir, framedFile(id));
-            if (!existsSync(framedPath)) {
-                writeFileSync(framedPath, await frame(plain, kind, id));
+            for (const [file, padded] of [
+                [framedFile, true],
+                [webFile, false],
+            ] as const) {
+                if (existsSync(join(this.dir, file(id)))) continue;
+                writeFileSync(join(this.dir, file(id)), await frame(plain, kind, id, padded));
                 built++;
             }
-            for (const [file, data] of await previews(readFileSync(framedPath), kind, (f) => !existsSync(join(this.dir, f(id))))) {
+            for (const [file, data] of await previews(readFileSync(join(this.dir, webFile(id))), kind, (f) => !existsSync(join(this.dir, f(id))))) {
                 writeFileSync(join(this.dir, file(id)), data);
                 built++;
             }
-            // Previews from before they carried the frame
-            for (const old of [`${id}-thumb.webp`, `${id}-medium.webp`]) rmSync(join(this.dir, old), { force: true });
         }
         if (built) this.logger.log(`Built ${built} framed or preview file(s)`);
+
+        // Only the web uses previews and web copies, so older versions of those can go
+        const current = new Set(this.db.select({ id: images.id }).from(images).all().flatMap(({ id }) => [thumbFile(id), mediumFile(id), webFile(id)]));
+        for (const file of readdirSync(this.dir)) {
+            if (/^\d+-(thumb|medium|web)(-v\d+)?\.webp$/.test(file) && !current.has(file)) rmSync(join(this.dir, file), { force: true });
+        }
     }
 
     list(): LibraryView {
@@ -92,9 +99,10 @@ export class LibraryService implements OnModuleInit {
             .returning({ id: images.id })
             .all();
         writeFileSync(join(this.dir, plainFile(row.id)), plain);
-        const framed = await frame(plain, kind, row.id);
-        writeFileSync(join(this.dir, framedFile(row.id)), framed);
-        for (const [file, data] of await previews(framed, kind)) writeFileSync(join(this.dir, file(row.id)), data);
+        writeFileSync(join(this.dir, framedFile(row.id)), await frame(plain, kind, row.id, true));
+        const web = await frame(plain, kind, row.id, false);
+        writeFileSync(join(this.dir, webFile(row.id)), web);
+        for (const [file, data] of await previews(web, kind)) writeFileSync(join(this.dir, file(row.id)), data);
         return row.id;
     }
 
@@ -118,7 +126,7 @@ export class LibraryService implements OnModuleInit {
             return;
         }
         this.db.delete(images).where(eq(images.id, id)).run();
-        for (const file of [plainFile(id), framedFile(id), thumbFile(id), mediumFile(id)]) rmSync(join(this.dir, file), { force: true });
+        for (const file of [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)]) rmSync(join(this.dir, file), { force: true });
     }
 
     exists(id: number): boolean {
@@ -198,7 +206,7 @@ export class LibraryService implements OnModuleInit {
     }
 }
 
-/** The thumb and medium copies of a framed picture, as [file name, data]. `wanted` skips ones that already exist. */
+/** The thumb and medium copies of the web picture, as [file name, data]. `wanted` skips ones that already exist. */
 async function previews(framed: Buffer, kind: ImageKind, wanted: (file: (id: number) => string) => boolean = () => true) {
     const out: [(id: number) => string, Buffer][] = [];
     for (const [file, size] of [
@@ -210,10 +218,13 @@ async function previews(framed: Buffer, kind: ImageKind, wanted: (file: (id: num
     return out;
 }
 
-/** Cuts a plain picture to the frame's shape (outside it is transparent) and draws the picture's frame variant over it. */
-function frame(plain: Buffer, kind: ImageKind, id: number): Promise<Buffer> {
+/**
+ * Cuts a plain picture to the frame's shape (outside it is transparent) and draws the
+ * picture's frame variant over it. Padded for Discord, to the edge for the web.
+ */
+function frame(plain: Buffer, kind: ImageKind, id: number, padded: boolean): Promise<Buffer> {
     const { width, height } = SIZES[kind];
-    const { overlay, mask } = frameSvg(width, height, variantFor(id));
+    const { overlay, mask } = frameSvg(width, height, { variant: variantFor(id), padded });
     return sharp(plain)
         .ensureAlpha()
         .composite([

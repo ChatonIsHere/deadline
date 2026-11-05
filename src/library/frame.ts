@@ -52,13 +52,17 @@ export const variantFor = (imageId: number): Variant => VARIANTS[imageId % VARIA
  * down for avatars. No text, so no fonts needed.
  *
  * `mask` is the shape the picture is cut to: outside it is transparent, so the frame sits
- * on whatever Discord theme it's shown on. The margin is wide enough to survive the crop
- * in Discord's gallery preview. `solid` fills the margin instead (for the bot banner).
+ * on whatever background it's shown on.
+ *
+ * `padded` leaves a transparent margin wide enough to survive the crop in Discord's gallery
+ * preview. The web doesn't need it (the page spaces things out), so its copies run the frame
+ * to the edge. `solid` fills the margin instead (for the bot banner).
  */
-export function frameSvg(W: number, H: number, v: Variant = VARIANTS[0], solid = false): { overlay: string; mask: string } {
+export function frameSvg(W: number, H: number, { variant: v = VARIANTS[0], padded = true, solid = false }: { variant?: Variant; padded?: boolean; solid?: boolean } = {}): { overlay: string; mask: string } {
     const s = Math.min(W, H) / 720;
     const n = (x: number) => Math.round(x * s);
-    const M = n(28); // margin
+    // Unpadded still keeps half a bracket's width, so the thick strokes aren't cut off
+    const M = padded ? n(28) : n(4);
     const K = n(72); // corner cut
     const reach = n(v.reach);
 

@@ -51,7 +51,7 @@ export class BotProfileService {
             const banner = await sharp(plain)
                 .resize(BANNER.width, BANNER.height, { fit: 'cover' })
                 // Banners get a solid margin: Discord shows them on a coloured strip anyway
-                .composite([{ input: Buffer.from(frameSvg(BANNER.width, BANNER.height, undefined, true).overlay) }])
+                .composite([{ input: Buffer.from(frameSvg(BANNER.width, BANNER.height, { solid: true }).overlay) }])
                 .png()
                 .toBuffer();
             await this.client.user!.setBanner(banner);

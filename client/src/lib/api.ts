@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { framedFile, mediumFile, plainFile, thumbFile } from '@shared/images';
+import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -66,8 +66,8 @@ export async function uploadImage(file: File, opts: UploadOptions = {}): Promise
     return (await api<{ id: number }>('/api/library/images', 'POST', form)).id;
 }
 
-/** A picture with its frame, or without (for small sizes, where the frame would be lost). */
-export const imageUrl = (id: number) => `/images/${framedFile(id)}`;
+/** The framed picture for the web (frame to the edge), or the plain one. Discord gets a padded copy. */
+export const imageUrl = (id: number) => `/images/${webFile(id)}`;
 export const plainImageUrl = (id: number) => `/images/${plainFile(id)}`;
 /** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
 export const thumbUrl = (id: number) => `/images/${thumbFile(id)}`;
