@@ -46,14 +46,36 @@ export const gigs = sqliteTable('gigs', {
     id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     fixerName: text().notNull(),
+    // Set when the fixer is a real person with the fixer role. NPC fixers are just a name.
+    fixerId: text(),
     location: text().notNull(),
     type: text(),
     pay: integer().notNull(),
     objective: text().notNull(),
+    imageId: integer().references(() => images.id),
     status: text({ enum: GIG_STATUSES }).notNull().default('pending'),
     createdBy: text().notNull(),
     // Forum post. In a forum the starter message shares the thread's ID.
     threadId: text(),
+    createdAt: createdAt(),
+});
+
+/** Night City districts, suggested for gig locations. Seeded on first start, editable by admins. */
+export const regions = sqliteTable('regions', {
+    id: integer().primaryKey({ autoIncrement: true }),
+    name: text().notNull().unique(),
+    district: text(),
+});
+
+/**
+ * Pictures for gig posts. Library images (inLibrary) get picked at random: a region's own
+ * first, then the general pool (no region). Uploads for a single gig stay out of the library.
+ */
+export const images = sqliteTable('images', {
+    id: integer().primaryKey({ autoIncrement: true }),
+    regionId: integer().references(() => regions.id, { onDelete: 'set null' }),
+    inLibrary: integer({ mode: 'boolean' }).notNull(),
+    createdBy: text(),
     createdAt: createdAt(),
 });
 

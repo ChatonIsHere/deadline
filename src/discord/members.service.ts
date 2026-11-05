@@ -66,7 +66,14 @@ export class MembersService {
     }
 
     edgerunners(): Member[] {
-        const roleId = this.settings.get().edgerunnerRoleId;
+        return this.withRole(this.settings.get().edgerunnerRoleId);
+    }
+
+    fixers(): Member[] {
+        return this.withRole(this.settings.get().fixerRoleId);
+    }
+
+    private withRole(roleId: string | null): Member[] {
         const role = roleId ? this.guild?.roles.cache.get(roleId) : undefined;
         return [...(role?.members.values() ?? [])].map(toMember).sort((a, b) => a.name.localeCompare(b.name));
     }

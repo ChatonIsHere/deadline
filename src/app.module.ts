@@ -16,6 +16,8 @@ import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
 import { GigsController } from './gigs/gigs.controller';
 import { GigsService } from './gigs/gigs.service';
+import { LibraryController } from './library/library.controller';
+import { LibraryService } from './library/library.service';
 
 // One module. The app is small enough that splitting it up would only add files.
 @Module({
@@ -25,12 +27,13 @@ import { GigsService } from './gigs/gigs.service';
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController, SettingsController],
+    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController],
     providers: [
         { provide: DB, useFactory: () => openDb(config.DATABASE_PATH) },
         AuthService,
         AuthGuard,
         SettingsService,
+        LibraryService,
         MembersService,
         EmojiService,
         GigPostService,

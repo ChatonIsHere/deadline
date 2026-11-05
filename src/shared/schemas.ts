@@ -19,8 +19,10 @@ export const gigInput = z.object({
     type: z.string().trim().max(40).nullable(),
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
     objective: text(2000),
+    imageId: z.number().int().nullable(),
     objectives: z
-        .array(z.object({ text: text(150), bonus: z.number().int().min(1).nullable() }))
+        // One line each: they're list items in the Discord post
+        .array(z.object({ text: text(150).transform((s) => s.replace(/\s*\n+\s*/g, ' ')), bonus: z.number().int().min(1).nullable() }))
         .max(8),
     slots: z
         .array(z.object({ crewId: z.number().int().nullable(), count: z.number().int().min(1) }))
@@ -41,6 +43,26 @@ export const crewInput = z.object({
 export type CrewInput = z.infer<typeof crewInput>;
 
 export const memberInput = z.object({ userId: z.string().min(1) });
+
+export const regionInput = z.object({
+    name: text(40),
+    district: z.string().trim().max(40).nullable(),
+});
+export type RegionInput = z.infer<typeof regionInput>;
+
+export interface RegionView {
+    id: number;
+    name: string;
+    district: string | null;
+    /** Library image IDs. Shown at /images/<id>-framed.jpg */
+    images: number[];
+}
+
+export interface LibraryView {
+    regions: RegionView[];
+    /** General pool image IDs, used when a region has none. */
+    pool: number[];
+}
 
 const snowflake = z.string().regex(/^\d+$/).nullable();
 
@@ -79,10 +101,13 @@ export interface GigView {
     id: number;
     name: string;
     fixerName: string;
+    /** Set when the fixer is someone with the fixer role. They can manage the gig. */
+    fixerId: string | null;
     location: string;
     type: string | null;
     pay: number;
     objective: string;
+    imageId: number | null;
     objectives: { text: string; bonus: number | null }[];
     slots: SlotView[];
     status: GigStatus;

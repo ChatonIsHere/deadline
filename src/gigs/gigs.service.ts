@@ -1,16 +1,19 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Once } from 'necord';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { DB, Db } from '../db/db';
 import { crewMembers, crews, gigObjectives, gigs, gigSlots } from '../db/schema';
 import { GigPostService } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
-import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
+import { LibraryService } from '../library/library.service';
+import { canCreateGig, canDeleteGig, canEditGig, canRunGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
 import type { GigInput, GigStatus, GigView, Me } from '../shared/schemas';
 import { SettingsService } from '../settings/settings.service';
 import { diffSlots, pickSlot } from './slots';
 
 const ACTIVE: GigStatus[] = ['open', 'closed'];
+const SWEEP_MS = 6 * 60 * 60 * 1000;
 
 /** Every change to a gig goes through here, from the web and from Discord buttons. */
 @Injectable()
@@ -18,12 +21,14 @@ export class GigsService {
     private readonly logger = new Logger(GigsService.name);
     /** Post updates per gig, run one at a time so an older state never lands last. */
     private readonly postQueue = new Map<number, Promise<void>>();
+    private sweep: NodeJS.Timeout | null = null;
 
     constructor(
         @Inject(DB) private readonly db: Db,
         private readonly members: MembersService,
         private readonly posts: GigPostService,
         private readonly settings: SettingsService,
+        private readonly library: LibraryService,
     ) {}
 
     list(user: Me): GigView[] {
@@ -42,7 +47,7 @@ export class GigsService {
         const status: GigStatus = user.isAdmin ? 'open' : 'pending';
 
         const id = this.db.transaction((tx) => {
-            const { objectives, slots, ...fields } = input;
+            const { objectives, slots, ...fields } = this.prepare(user, input);
             const [gig] = tx.insert(gigs).values({ ...fields, status, createdBy: user.id }).returning({ id: gigs.id }).all();
             this.writeObjectives(tx, gig.id, objectives);
             this.writeSlots(tx, gig.id, slots);
@@ -58,7 +63,7 @@ export class GigsService {
         if (!canEditGig(user, gig)) throw new ForbiddenException();
 
         this.db.transaction((tx) => {
-            const { objectives, slots, ...fields } = input;
+            const { objectives, slots, ...fields } = this.prepare(user, input);
             tx.update(gigs).set(fields).where(eq(gigs.id, id)).run();
             tx.delete(gigObjectives).where(eq(gigObjectives.gigId, id)).run();
             this.writeObjectives(tx, id, objectives);
@@ -87,7 +92,7 @@ export class GigsService {
 
     setStatus(user: Me, id: number, status: GigStatus): GigView {
         const gig = this.row(id);
-        if (!user.isAdmin) throw new ForbiddenException();
+        if (!canRunGig(user, gig)) throw new ForbiddenException();
         if (!NEXT_STATUSES[gig.status].includes(status)) throw new BadRequestException(`Can't go from ${gig.status} to ${status}.`);
 
         this.db.update(gigs).set({ status }).where(eq(gigs.id, id)).run();
@@ -164,7 +169,38 @@ export class GigsService {
         return this.db.select({ n: count() }).from(gigs).where(eq(gigs.status, 'open')).get()?.n ?? 0;
     }
 
+    /** Brings back the post of a live gig that Discord archived or someone closed. */
+    keepOpen(threadId: string) {
+        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.threadId, threadId) }).sync();
+        if (gig && ACTIVE.includes(gig.status)) this.queuePost(gig.id);
+    }
+
+    /** Refreshes every live post: on startup (so format changes reach old posts) and every few hours. */
+    @Once('clientReady')
+    refreshAll() {
+        const live = this.db.select({ id: gigs.id }).from(gigs).where(inArray(gigs.status, ACTIVE)).all();
+        for (const { id } of live) this.queuePost(id);
+        if (!this.sweep) {
+            this.sweep = setInterval(() => this.refreshAll(), SWEEP_MS);
+            this.sweep.unref();
+        }
+    }
+
     // Helpers
+
+    /**
+     * Fills in the fixer and picture. Fixers are always themselves. Admins type a name,
+     * which links to the person if someone with the fixer role has it. No picture means
+     * a random one for the location.
+     */
+    private prepare(user: Me, input: GigInput) {
+        const fixer = user.isAdmin ? this.members.fixers().find((f) => f.name.toLowerCase() === input.fixerName.toLowerCase()) : user;
+        const fixerName = user.isAdmin ? input.fixerName : user.name;
+
+        if (input.imageId && !this.library.exists(input.imageId)) throw new BadRequestException('That picture is gone. Pick another.');
+        const imageId = input.imageId ?? this.library.pick(input.location);
+        return { ...input, fixerName, fixerId: fixer?.id ?? null, imageId };
+    }
 
     private queuePost(id: number, note?: string) {
         const previous = this.postQueue.get(id) ?? Promise.resolve();
@@ -200,10 +236,12 @@ export class GigsService {
             id: gig.id,
             name: gig.name,
             fixerName: gig.fixerName,
+            fixerId: gig.fixerId,
             location: gig.location,
             type: gig.type,
             pay: gig.pay,
             objective: gig.objective,
+            imageId: gig.imageId,
             objectives: gig.objectives.sort((a, b) => a.position - b.position).map((o) => ({ text: o.text, bonus: o.bonus })),
             slots: gig.slots
                 .sort((a, b) => a.position - b.position)

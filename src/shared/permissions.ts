@@ -21,7 +21,10 @@ export const canCreateCrew = (u: Me) => u.isAdmin || u.isEdgerunner;
 
 export const canManageCrew = (u: Me, crew: { ownerId: string }) => u.isAdmin || crew.ownerId === u.id;
 
-/** Status changes an admin can make on a posted gig. Pending gigs are approved or rejected instead. */
+/** The gig's own fixer runs it alongside admins: locking sign-ups, completing, cancelling. */
+export const canRunGig = (u: Me, gig: { fixerId: string | null }) => u.isAdmin || (!!gig.fixerId && gig.fixerId === u.id);
+
+/** Status changes on a posted gig. Pending gigs are approved or rejected instead. */
 export const NEXT_STATUSES: Record<GigStatus, GigStatus[]> = {
     pending: [],
     open: ['closed', 'completed', 'cancelled'],

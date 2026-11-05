@@ -1,13 +1,14 @@
-import { canDeleteGig, canEditGig, NEXT_STATUSES } from '@shared/permissions';
+import { canDeleteGig, canEditGig, canRunGig, NEXT_STATUSES } from '@shared/permissions';
 import type { GigStatus } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Money, Person, Say, StatusBadge } from '@/components/common';
+import { Markdown } from '@/components/markdown';
 import { SlotList } from '@/components/slot-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { api, useAction, useGig, useUser } from '@/lib/api';
+import { api, imageUrl, useAction, useGig, useUser } from '@/lib/api';
 
 const STATUS_ACTIONS: Record<string, { label: string; confirm?: string }> = {
     open: { label: 'Reopen sign-ups' },
@@ -33,7 +34,7 @@ export function Gig() {
     if (!gig) return <Say>decrypting...</Say>;
 
     const owner = { createdBy: gig.createdBy.id, status: gig.status };
-    const nextStatuses = me.isAdmin ? NEXT_STATUSES[gig.status] : [];
+    const nextStatuses = canRunGig(me, gig) ? NEXT_STATUSES[gig.status] : [];
     const canDelete = canDeleteGig(me, owner);
 
     return (
@@ -82,11 +83,12 @@ export function Gig() {
 
             <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
                 <div className="space-y-5">
+                    {gig.imageId && <img src={imageUrl(gig.imageId)} alt="" className="aspect-video w-full object-cover" />}
                     <Card>
                         <CardTitle className="flex items-center gap-2">
                             <Icon name="objective" /> Primary objective
                         </CardTitle>
-                        <p className="whitespace-pre-wrap">{gig.objective}</p>
+                        <Markdown text={gig.objective} />
                     </Card>
                     {gig.objectives.length > 0 && (
                         <Card>
@@ -96,7 +98,9 @@ export function Gig() {
                             <ul className="space-y-2">
                                 {gig.objectives.map((o, i) => (
                                     <li key={i} className="flex justify-between gap-4">
-                                        <span>- {o.text}</span>
+                                        <span>
+                                            - <Markdown inline text={o.text} />
+                                        </span>
                                         {o.bonus && <Money amount={o.bonus} className="shrink-0" />}
                                     </li>
                                 ))}

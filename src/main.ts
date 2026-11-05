@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -28,6 +28,8 @@ async function bootstrap() {
         }),
     );
     app.useStaticAssets(join(ROOT, 'assets'));
+    // Gig pictures. A file never changes once written, so it can be cached for good.
+    app.useStaticAssets(resolve(dirname(config.DATABASE_PATH), 'images'), { prefix: '/images/', maxAge: '365d', immutable: true });
 
     if (isProd) {
         const clientDir = join(ROOT, 'dist', 'client');

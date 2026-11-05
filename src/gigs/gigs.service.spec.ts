@@ -5,6 +5,7 @@ import { CrewsService } from '../crews/crews.service';
 import { openDb } from '../db/db';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
 import type { GigInput, Me } from '../shared/schemas';
 import { GigsService } from './gigs.service';
@@ -27,10 +28,12 @@ const people = [admin, fixer, person('a'), person('b'), person('c')];
 const members = {
     me: async (id: string) => people.find((p) => p.id === id) ?? null,
     member: (id: string) => ({ id, name: id, avatar: null }),
+    fixers: () => [{ id: 'fixer', name: 'fixer', avatar: null }],
 } as unknown as MembersService;
 
 const posts = { sync: async () => 'thread' } as unknown as GigPostService;
 const settings = { get: () => ({ guildId: '1' }) } as unknown as SettingsService;
+const library = { exists: () => true, pick: () => null } as unknown as LibraryService;
 
 const input = (slots: GigInput['slots']): GigInput => ({
     name: 'Grab the data',
@@ -39,6 +42,7 @@ const input = (slots: GigInput['slots']): GigInput => ({
     type: null,
     pay: 2000,
     objective: 'Get in, get out.',
+    imageId: null,
     objectives: [{ text: 'No alarms', bonus: 500 }],
     slots,
 });
@@ -49,8 +53,26 @@ describe('GigsService', () => {
 
     beforeEach(() => {
         const db = openDb(':memory:');
-        gigs = new GigsService(db, members, posts, settings);
+        gigs = new GigsService(db, members, posts, settings, library);
         crews = new CrewsService(db, members, gigs);
+    });
+
+    it('makes fixers the fixer of their own gigs', () => {
+        const gig = gigs.create(fixer, input([{ crewId: null, count: 1 }]));
+        assert.equal(gig.fixerName, 'fixer');
+        assert.equal(gig.fixerId, 'fixer');
+    });
+
+    it('links an admin-typed fixer name to the person with the fixer role', () => {
+        assert.equal(gigs.create(admin, { ...input([{ crewId: null, count: 1 }]), fixerName: 'FIXER' }).fixerId, 'fixer');
+        assert.equal(gigs.create(admin, input([{ crewId: null, count: 1 }])).fixerId, null);
+    });
+
+    it("lets a gig's fixer complete it, but not someone else's", () => {
+        const theirs = gigs.create(admin, { ...input([{ crewId: null, count: 1 }]), fixerName: 'fixer' });
+        const npc = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+        assert.equal(gigs.setStatus(fixer, theirs.id, 'completed').status, 'completed');
+        assert.throws(() => gigs.setStatus(fixer, npc.id, 'completed'), /Forbidden/);
     });
 
     it('posts admin gigs straight away and holds fixer gigs for approval', () => {

@@ -1,0 +1,146 @@
+import type { RegionView } from '@shared/schemas';
+import { useQueryClient } from '@tanstack/react-query';
+import { Plus, Upload, X } from 'lucide-react';
+import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { ConfirmButton, Say } from '@/components/common';
+import { Button } from '@/components/ui/button';
+import { Card, CardTitle } from '@/components/ui/card';
+import { Input, Label, Select } from '@/components/ui/input';
+import { api, imageUrl, uploadImage, useAction, useLibrary, useUser } from '@/lib/api';
+
+export function LibraryPage() {
+    const me = useUser();
+    const { data } = useLibrary();
+    if (!me.isAdmin) return <Say>admins only.</Say>;
+    if (!data) return <Say>loading library...</Say>;
+
+    const districts = data.regions.filter((r) => !r.district);
+    const inDistrict = (name: string) => data.regions.filter((r) => r.district === name);
+    const orphans = data.regions.filter((r) => r.district && !districts.some((d) => d.name === r.district));
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h1 className="text-3xl text-primary">Library</h1>
+                <Say className="mt-1">gigs get a picture from their region, then its district, then the general pool.</Say>
+            </div>
+
+            <Pictures title="General pool" ids={data.pool} region={null} />
+
+            {districts.map((d) => (
+                <section key={d.id} className="space-y-3">
+                    <h2 className="text-xl text-accent">{d.name}</h2>
+                    <Pictures title={`${d.name} (whole district)`} ids={d.images} region={d} />
+                    {inDistrict(d.name).map((r) => (
+                        <Pictures key={r.id} title={r.name} ids={r.images} region={r} />
+                    ))}
+                </section>
+            ))}
+            {orphans.map((r) => (
+                <Pictures key={r.id} title={r.name} ids={r.images} region={r} />
+            ))}
+
+            <NewRegion districts={districts.map((d) => d.name)} />
+        </div>
+    );
+}
+
+function Pictures({ title, ids, region }: { title: string; ids: number[]; region: RegionView | null }) {
+    const fileInput = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+    const remove = useAction((id: number) => api(`/api/library/images/${id}`, 'DELETE'));
+    const removeRegion = useAction(() => api(`/api/library/regions/${region!.id}`, 'DELETE'), 'Region deleted.');
+    const queryClient = useQueryClient();
+
+    const upload = async (e: ChangeEvent<HTMLInputElement>) => {
+        const files = [...(e.target.files ?? [])];
+        e.target.value = '';
+        setUploading(true);
+        try {
+            for (const file of files) await uploadImage(file, { library: true, regionId: region?.id });
+            await queryClient.invalidateQueries({ queryKey: ['library'] });
+            toast.success('Uploaded.');
+        } catch (err) {
+            toast.error((err as Error).message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <Card className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="mb-0 flex-1">
+                    {title} <span className="text-muted-foreground">({ids.length})</span>
+                </CardTitle>
+                <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInput.current?.click()}>
+                    <Upload className="size-4" /> {uploading ? 'Uploading' : 'Upload'}
+                </Button>
+                <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={upload} />
+                {region && (
+                    <ConfirmButton
+                        size="sm"
+                        label="Delete"
+                        title={`Delete ${region.name}?`}
+                        description="Its pictures move to the general pool."
+                        onConfirm={() => removeRegion.mutate()}
+                    />
+                )}
+            </div>
+            {ids.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                    {ids.map((id) => (
+                        <div key={id} className="group relative">
+                            <img src={imageUrl(id)} alt="" loading="lazy" className="aspect-video w-full object-cover" />
+                            <Button
+                                variant="destructive"
+                                size="icon"
+                                title="Remove"
+                                className="absolute top-1 right-1 size-6 opacity-0 group-hover:opacity-100"
+                                onClick={() => remove.mutate(id)}
+                            >
+                                <X className="size-3" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Card>
+    );
+}
+
+function NewRegion({ districts }: { districts: string[] }) {
+    const [name, setName] = useState('');
+    const [district, setDistrict] = useState('');
+    const add = useAction(() => api('/api/library/regions', 'POST', { name, district: district || null }), () => setName(''));
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        if (name.trim()) add.mutate();
+    };
+
+    return (
+        <Card>
+            <CardTitle>Add a region</CardTitle>
+            <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+                <div className="min-w-48 flex-1">
+                    <Label htmlFor="region-name">Name</Label>
+                    <Input id="region-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
+                </div>
+                <div className="min-w-48 flex-1">
+                    <Label htmlFor="region-district">Part of</Label>
+                    <Select id="region-district" value={district} onChange={(e) => setDistrict(e.target.value)}>
+                        <option value="">Nothing (it's a district)</option>
+                        {districts.map((d) => (
+                            <option key={d}>{d}</option>
+                        ))}
+                    </Select>
+                </div>
+                <Button type="submit" disabled={add.isPending || !name.trim()}>
+                    <Plus className="size-4" /> Add
+                </Button>
+            </form>
+        </Card>
+    );
+}

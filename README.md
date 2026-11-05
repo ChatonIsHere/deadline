@@ -62,6 +62,21 @@ Server, forum and roles live in the database and are set on the Settings page.
 
 Gig posts have **Take the job** and **Pull out** buttons.
 
+## Gig posts
+
+- The forum is switched to gallery view and posts auto-archive after a week, the longest Discord allows. Live gigs (open or closed to sign-ups) get reopened if Discord or anyone archives or locks them. The bot also checks every 6 hours and on startup.
+- Completing or cancelling a gig locks and archives its post. The gig's fixer can do that, as well as admins.
+- Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
+- Objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
+
+## Pictures
+
+Every gig has a picture, framed in the board's colours. A fixer can upload one, or it's picked from the library: the location's region first, then its district, then the general pool.
+
+Admins manage the library on the **Library** page. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
+
+For bulk imports, drop images in `data/import/<Region name>/` (or `data/import/pool/`) and restart. They get added to the library and the files are deleted.
+
 ## Emoji
 
 `assets/emoji/*.svg` get uploaded as the bot's application emojis on startup if they're missing. To change one, edit the SVG, delete the emoji in the developer portal and restart. Types get an emoji when one is named `type_<type>`, e.g. `type_heist`.

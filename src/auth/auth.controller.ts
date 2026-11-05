@@ -55,6 +55,13 @@ export class AuthController {
         return user;
     }
 
+    /** People with the fixer role, suggested when an admin names a gig's fixer. */
+    @Get('api/fixers')
+    @UseGuards(AuthGuard)
+    fixers() {
+        return this.members.fixers();
+    }
+
     /** Edgerunners, for adding people to crews. */
     @Get('api/members')
     @UseGuards(AuthGuard)

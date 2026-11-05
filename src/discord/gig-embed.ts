@@ -23,7 +23,7 @@ export function money(amount: number, emoji: EmojiLookup): string {
 export const openSlots = (gig: GigView) => gig.slots.filter((s) => !s.runner).length;
 
 /** The forum post's starter message: the gig card plus Join / Leave buttons. */
-export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string) {
+export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, imageUrl: string | null = null) {
     const icon = (name: string, fallback = '') => emoji(name) || fallback;
     const typeIcon = gig.type ? emoji(`type_${gig.type.toLowerCase().replace(/\W+/g, '_')}`) : '';
 
@@ -56,6 +56,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string) {
             { name: `Crew ${taken}/${gig.slots.length}`, value: slotLines.join('\n\n') },
         )
         .setFooter({ text: voice.footer(gig.status) })
+        .setImage(imageUrl)
         .setTimestamp(gig.createdAt);
 
     const canJoin = gig.status === 'open';

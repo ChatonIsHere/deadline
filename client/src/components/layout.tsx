@@ -50,9 +50,14 @@ export function Layout() {
                             Crews
                         </NavLink>
                         {me.isAdmin && (
-                            <NavLink to="/settings" className={navClass}>
-                                Settings
-                            </NavLink>
+                            <>
+                                <NavLink to="/library" className={navClass}>
+                                    Library
+                                </NavLink>
+                                <NavLink to="/settings" className={navClass}>
+                                    Settings
+                                </NavLink>
+                            </>
                         )}
                     </nav>
                     <div className="ml-auto flex items-center gap-3">
