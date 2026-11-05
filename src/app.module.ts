@@ -12,6 +12,8 @@ import { EmojiService } from './discord/emoji.service';
 import { GigInteractions } from './discord/gig.interactions';
 import { GigPostService } from './discord/gig-post.service';
 import { MembersService } from './discord/members.service';
+import { SettingsController } from './settings/settings.controller';
+import { SettingsService } from './settings/settings.service';
 import { GigsController } from './gigs/gigs.controller';
 import { GigsService } from './gigs/gigs.service';
 
@@ -21,14 +23,14 @@ import { GigsService } from './gigs/gigs.service';
         NecordModule.forRoot({
             token: config.DISCORD_TOKEN,
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
-            development: [config.DISCORD_GUILD_ID],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController],
+    controllers: [AuthController, GigsController, CrewsController, SettingsController],
     providers: [
         { provide: DB, useFactory: () => openDb(config.DATABASE_PATH) },
         AuthService,
         AuthGuard,
+        SettingsService,
         MembersService,
         EmojiService,
         GigPostService,

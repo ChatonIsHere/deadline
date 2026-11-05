@@ -42,6 +42,17 @@ export type CrewInput = z.infer<typeof crewInput>;
 
 export const memberInput = z.object({ userId: z.string().min(1) });
 
+const snowflake = z.string().regex(/^\d+$/).nullable();
+
+export const settingsInput = z.object({
+    guildId: snowflake,
+    forumId: snowflake,
+    adminRoleId: snowflake,
+    fixerRoleId: snowflake,
+    edgerunnerRoleId: snowflake,
+});
+export type Settings = z.infer<typeof settingsInput>;
+
 // API responses
 
 export interface Member {
@@ -51,6 +62,8 @@ export interface Member {
 }
 
 export interface Me extends Member {
+    /** Owns the Discord application. Can pick the server. */
+    isOwner: boolean;
     isAdmin: boolean;
     isFixer: boolean;
     isEdgerunner: boolean;
@@ -76,6 +89,27 @@ export interface GigView {
     createdBy: Member;
     threadUrl: string | null;
     createdAt: number;
+}
+
+export interface Option {
+    id: string;
+    name: string;
+    color?: string;
+}
+
+/** What a server offers for the settings page. */
+export interface GuildOptions {
+    forums: Option[];
+    roles: Option[];
+}
+
+export interface SettingsView {
+    settings: Settings;
+    guilds: Option[];
+    /** Forums and roles of the chosen server, if there is one. */
+    options: GuildOptions | null;
+    /** Adds the bot to a server with the permissions it needs. */
+    inviteUrl: string;
 }
 
 export interface CrewView {

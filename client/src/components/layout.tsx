@@ -1,10 +1,25 @@
 import { canCreateGig } from '@shared/permissions';
 import { LogOut, Plus } from 'lucide-react';
-import { Link, Navigate, NavLink, Outlet } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { api, useMe } from '@/lib/api';
+import { api, useMe, useSettings } from '@/lib/api';
 import { cn } from '@/lib/utils';
+
+/** Nags admins until there's a server and forum to post to. */
+function SetupReminder() {
+    const { data } = useSettings();
+    const { pathname } = useLocation();
+    if (!data || pathname === '/settings' || (data.settings.guildId && data.settings.forumId)) return null;
+    return (
+        <div className="cut-frame mb-6 flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
+            <Say className="flex-1">not configured. pick a server and a gig forum before posting gigs.</Say>
+            <Button asChild size="sm">
+                <Link to="/settings">Settings</Link>
+            </Button>
+        </div>
+    );
+}
 
 export function Layout() {
     const { data: me, isPending, isError } = useMe();
@@ -34,6 +49,11 @@ export function Layout() {
                         <NavLink to="/crews" className={navClass}>
                             Crews
                         </NavLink>
+                        {me.isAdmin && (
+                            <NavLink to="/settings" className={navClass}>
+                                Settings
+                            </NavLink>
+                        )}
                     </nav>
                     <div className="ml-auto flex items-center gap-3">
                         {canCreateGig(me) && (
@@ -54,6 +74,7 @@ export function Layout() {
                 </div>
             </header>
             <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+                {me.isAdmin && <SetupReminder />}
                 <Outlet />
             </main>
             <footer className="mx-auto w-full max-w-6xl px-4 py-4 text-xs">

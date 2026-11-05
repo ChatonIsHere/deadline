@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ChannelType, Client, ForumChannel } from 'discord.js';
 import { Once } from 'necord';
 import { config } from '../config';
+import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { EmojiService } from './emoji.service';
 import { gigMessage, openSlots } from './gig-embed';
@@ -30,6 +31,7 @@ const isFinal = (gig: GigView) => gig.status === 'completed' || gig.status === '
  * Keeps each posted gig's forum post in line with the gig. Approved gigs get a post,
  * later changes edit it, and finished gigs get locked and archived. Needs Send Messages,
  * Manage Threads and Embed Links in the forum, and Manage Channels once to add the tags.
+ * The forum is picked on the settings page.
  */
 @Injectable()
 export class GigPostService {
@@ -38,24 +40,28 @@ export class GigPostService {
     constructor(
         @Inject(Client) private readonly client: Client,
         private readonly emoji: EmojiService,
+        private readonly settings: SettingsService,
     ) {}
 
     @Once('clientReady')
-    async onReady() {
-        try {
-            const forum = await this.forum();
-            const missing = STATUS_TAGS.filter((name) => !forum.availableTags.some((t) => t.name === name));
-            if (missing.length) {
-                await forum.setAvailableTags([...forum.availableTags, ...missing.map((name) => ({ name, moderated: true }))]);
-                this.logger.log(`Added forum tags: ${missing.join(', ')}`);
-            }
-        } catch (err) {
-            this.logger.error(`Forum setup failed: ${err}`);
+    onReady() {
+        return this.setupForum().catch((err) => this.logger.error(`Forum setup failed: ${err}`));
+    }
+
+    /** Adds the status tags to the forum if they're missing. Run again when the forum changes. */
+    async setupForum() {
+        if (!this.settings.get().forumId) return;
+        const forum = await this.forum();
+        const missing = STATUS_TAGS.filter((name) => !forum.availableTags.some((t) => t.name === name));
+        if (missing.length) {
+            await forum.setAvailableTags([...forum.availableTags, ...missing.map((name) => ({ name, moderated: true }))]);
+            this.logger.log(`Added forum tags: ${missing.join(', ')}`);
         }
     }
 
     /** Forum tags that aren't statuses. Offered as gig types, and applied when a gig's type matches. */
     async types(): Promise<string[]> {
+        if (!this.settings.get().forumId) return [];
         const forum = await this.forum();
         return forum.availableTags.map((t) => t.name).filter((name) => !STATUS_TAGS.includes(name));
     }
@@ -93,8 +99,10 @@ export class GigPostService {
     }
 
     private async forum(): Promise<ForumChannel> {
-        const channel = await this.client.channels.fetch(config.GIG_FORUM_ID);
-        if (channel?.type !== ChannelType.GuildForum) throw new Error('GIG_FORUM_ID is not a forum channel');
+        const id = this.settings.get().forumId;
+        if (!id) throw new Error('No gig forum set. An admin needs to pick one in settings.');
+        const channel = await this.client.channels.fetch(id);
+        if (channel?.type !== ChannelType.GuildForum) throw new Error('The gig forum is gone or is not a forum.');
         return channel;
     }
 

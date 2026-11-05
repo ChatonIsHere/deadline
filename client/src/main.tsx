@@ -11,6 +11,7 @@ import { Crews } from '@/pages/crews';
 import { Gig } from '@/pages/gig';
 import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
+import { SettingsPage } from '@/pages/settings';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
 
@@ -27,6 +28,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="gigs/:id/edit" element={<GigEdit />} />
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/:id" element={<Crew />} />
+                        <Route path="settings" element={<SettingsPage />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

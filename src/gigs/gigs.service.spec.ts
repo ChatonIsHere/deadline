@@ -5,6 +5,7 @@ import { CrewsService } from '../crews/crews.service';
 import { openDb } from '../db/db';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import type { SettingsService } from '../settings/settings.service';
 import type { GigInput, Me } from '../shared/schemas';
 import { GigsService } from './gigs.service';
 
@@ -12,6 +13,7 @@ const person = (id: string, roles: Partial<Me> = {}): Me => ({
     id,
     name: id,
     avatar: null,
+    isOwner: false,
     isAdmin: false,
     isFixer: false,
     isEdgerunner: true,
@@ -28,6 +30,7 @@ const members = {
 } as unknown as MembersService;
 
 const posts = { sync: async () => 'thread' } as unknown as GigPostService;
+const settings = { get: () => ({ guildId: '1' }) } as unknown as SettingsService;
 
 const input = (slots: GigInput['slots']): GigInput => ({
     name: 'Grab the data',
@@ -46,7 +49,7 @@ describe('GigsService', () => {
 
     beforeEach(() => {
         const db = openDb(':memory:');
-        gigs = new GigsService(db, members, posts);
+        gigs = new GigsService(db, members, posts, settings);
         crews = new CrewsService(db, members, gigs);
     });
 

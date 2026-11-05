@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewView, GigView, Me, Member } from '@shared/schemas';
+import type { CrewView, GigView, Me, Member, SettingsView } from '@shared/schemas';
 import { toast } from 'sonner';
 
 export class ApiError extends Error {
@@ -40,6 +40,8 @@ export const useGigTypes = () => useQuery({ queryKey: ['gig-types'], queryFn: ()
 export const useCrews = () => useQuery({ queryKey: ['crews'], queryFn: () => api<CrewView[]>('/api/crews') });
 export const useCrew = (id: string | undefined) =>
     useQuery({ queryKey: ['crews', id], queryFn: () => api<CrewView>(`/api/crews/${id}`), enabled: !!id });
+export const useSettings = (enabled = true) =>
+    useQuery({ queryKey: ['settings'], queryFn: () => api<SettingsView>('/api/settings'), enabled });
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<Member[]>('/api/members') });
 
 /** A change that refreshes everything when it lands and shows errors as toasts. */

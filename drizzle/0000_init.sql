@@ -52,3 +52,12 @@ CREATE TABLE `sessions` (
 	`user_id` text NOT NULL,
 	`expires_at` integer NOT NULL
 );
+--> statement-breakpoint
+CREATE TABLE `settings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`guild_id` text,
+	`forum_id` text,
+	`admin_role_id` text,
+	`fixer_role_id` text,
+	`edgerunner_role_id` text
+);

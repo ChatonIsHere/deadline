@@ -7,7 +7,7 @@ import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
 import type { GigInput, GigStatus, GigView, Me } from '../shared/schemas';
-import { config } from '../config';
+import { SettingsService } from '../settings/settings.service';
 import { diffSlots, pickSlot } from './slots';
 
 const ACTIVE: GigStatus[] = ['open', 'closed'];
@@ -23,6 +23,7 @@ export class GigsService {
         @Inject(DB) private readonly db: Db,
         private readonly members: MembersService,
         private readonly posts: GigPostService,
+        private readonly settings: SettingsService,
     ) {}
 
     list(user: Me): GigView[] {
@@ -213,7 +214,7 @@ export class GigsService {
                 })),
             status: gig.status,
             createdBy: this.members.member(gig.createdBy),
-            threadUrl: gig.threadId ? `https://discord.com/channels/${config.DISCORD_GUILD_ID}/${gig.threadId}` : null,
+            threadUrl: gig.threadId ? `https://discord.com/channels/${this.settings.get().guildId}/${gig.threadId}` : null,
             createdAt: gig.createdAt.getTime(),
         };
     }

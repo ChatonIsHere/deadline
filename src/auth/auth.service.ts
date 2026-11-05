@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Client } from 'discord.js';
 import { eq, lt } from 'drizzle-orm';
 import { config } from '../config';
 import { DB, Db } from '../db/db';
@@ -15,12 +16,20 @@ const DISCORD_API = 'https://discord.com/api/v10';
 export class AuthService {
     constructor(
         @Inject(DB) private readonly db: Db,
+        @Inject(Client) private readonly client: Client,
         private readonly members: MembersService,
     ) {}
 
+    /** The bot's application ID doubles as the OAuth client ID. */
+    private get clientId(): string {
+        const id = this.client.application?.id;
+        if (!id) throw new ServiceUnavailableException('The bot is still connecting. Try again in a moment.');
+        return id;
+    }
+
     loginUrl(state: string): string {
         const params = new URLSearchParams({
-            client_id: config.DISCORD_CLIENT_ID,
+            client_id: this.clientId,
             redirect_uri: `${config.PUBLIC_URL}/auth/callback`,
             response_type: 'code',
             scope: 'identify',
@@ -36,7 +45,7 @@ export class AuthService {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-                client_id: config.DISCORD_CLIENT_ID,
+                client_id: this.clientId,
                 client_secret: config.DISCORD_CLIENT_SECRET,
                 grant_type: 'authorization_code',
                 code,

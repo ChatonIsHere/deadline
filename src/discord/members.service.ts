@@ -1,37 +1,61 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Client, Guild, GuildMember } from 'discord.js';
+import { Client, Guild, GuildMember, PermissionFlagsBits, Team, User } from 'discord.js';
 import { Context, ContextOf, Once } from 'necord';
-import { config } from '../config';
+import { SettingsService } from '../settings/settings.service';
 import type { Me, Member } from '../shared/schemas';
 
 /** People and their roles, read from the bot's view of the server. Nothing about users is stored. */
 @Injectable()
 export class MembersService {
     private readonly logger = new Logger(MembersService.name);
+    /** Whoever owns the Discord application (or its team). Always admins, so setup can't lock anyone out. */
+    private readonly owners = new Set<string>();
 
-    constructor(@Inject(Client) private readonly client: Client) {}
+    constructor(
+        @Inject(Client) private readonly client: Client,
+        private readonly settings: SettingsService,
+    ) {}
 
     @Once('clientReady')
     async onReady(@Context() [client]: ContextOf<'clientReady'>) {
-        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        const { owner } = await client.application.fetch();
+        if (owner instanceof Team) owner.members.forEach((m) => this.owners.add(m.id));
+        else if (owner instanceof User) this.owners.add(owner.id);
+        await this.load();
+    }
+
+    /** Caches everyone in the chosen server. Run again when the server changes. */
+    async load() {
+        const guild = this.guild;
+        if (!guild) return;
         const members = await guild.members.fetch();
         this.logger.log(`Cached ${members.size} members of ${guild.name}`);
     }
 
     private get guild(): Guild | undefined {
-        return this.client.guilds.cache.get(config.DISCORD_GUILD_ID);
+        const id = this.settings.get().guildId;
+        return id ? this.client.guilds.cache.get(id) : undefined;
     }
 
-    /** A member with their roles, or null if they aren't in the server. */
+    /** A person with their roles, or null if they can't use Deadline. */
     async me(id: string): Promise<Me | null> {
+        const isOwner = this.owners.has(id);
         const member = this.guild?.members.cache.get(id) ?? (await this.guild?.members.fetch(id).catch(() => null));
-        if (!member) return null;
-        const roles = member.roles.cache;
+
+        if (!member) {
+            if (!isOwner) return null;
+            const user = await this.client.users.fetch(id);
+            return { id, name: user.displayName, avatar: user.displayAvatarURL({ size: 64 }), isOwner, isAdmin: true, isFixer: false, isEdgerunner: false };
+        }
+
+        const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();
+        const has = (roleId: string | null) => !!roleId && member.roles.cache.has(roleId);
         return {
             ...toMember(member),
-            isAdmin: roles.has(config.ADMIN_ROLE_ID),
-            isFixer: roles.has(config.FIXER_ROLE_ID),
-            isEdgerunner: roles.has(config.EDGERUNNER_ROLE_ID),
+            isOwner,
+            isAdmin: isOwner || member.permissions.has(PermissionFlagsBits.ManageGuild) || has(adminRoleId),
+            isFixer: has(fixerRoleId),
+            isEdgerunner: has(edgerunnerRoleId),
         };
     }
 
@@ -42,7 +66,8 @@ export class MembersService {
     }
 
     edgerunners(): Member[] {
-        const role = this.guild?.roles.cache.get(config.EDGERUNNER_ROLE_ID);
+        const roleId = this.settings.get().edgerunnerRoleId;
+        const role = roleId ? this.guild?.roles.cache.get(roleId) : undefined;
         return [...(role?.members.values() ?? [])].map(toMember).sort((a, b) => a.name.localeCompare(b.name));
     }
 }

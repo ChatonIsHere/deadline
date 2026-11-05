@@ -7,6 +7,16 @@ const createdAt = () =>
         .notNull()
         .$defaultFn(() => new Date());
 
+// A single row (id 1). Set from the web settings page.
+export const settings = sqliteTable('settings', {
+    id: integer().primaryKey(),
+    guildId: text(),
+    forumId: text(),
+    adminRoleId: text(),
+    fixerRoleId: text(),
+    edgerunnerRoleId: text(),
+});
+
 export const sessions = sqliteTable('sessions', {
     id: text().primaryKey(),
     userId: text().notNull(),
