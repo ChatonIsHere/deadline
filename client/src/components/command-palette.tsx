@@ -40,10 +40,12 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     return (
         <D.Root open={open} onOpenChange={onOpenChange}>
             <D.Portal>
-                <D.Overlay className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" />
+                {/* No blur here: it made the browser redraw the whole page under the palette on every frame */}
+                <D.Overlay className="fixed inset-0 z-40 bg-background/90" />
                 <D.Content className="cut-frame fixed top-[12vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 [--frame:var(--color-primary)]" aria-describedby={undefined}>
                     <D.Title className="sr-only">Jump to</D.Title>
-                    <Command loop className="flex max-h-[70vh] flex-col">
+                    {/* The mouse highlights with CSS hover; only the keyboard moves the selection, so hovering costs nothing */}
+                    <Command loop disablePointerSelection className="flex max-h-[70vh] flex-col">
                         <div className="flex items-center gap-2 border-b border-border px-4">
                             <span className="font-display text-primary">&gt;</span>
                             <Command.Input autoFocus placeholder="jump to..." className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
@@ -117,7 +119,7 @@ function Item({ value, tag, onSelect, children }: { value: string; tag: string; 
         <Command.Item
             value={value}
             onSelect={onSelect}
-            className="flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm data-[selected=true]:border-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+            className="flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm hover:bg-primary/10 hover:text-primary data-[selected=true]:border-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
         >
             <span className="min-w-0 flex-1 truncate">{children}</span>
             <span className="shrink-0 text-[10px] tracking-widest text-muted-foreground">{tag}</span>

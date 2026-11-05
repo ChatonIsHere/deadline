@@ -1,6 +1,6 @@
 import { canCreateGig } from '@shared/permissions';
 import { isLive } from '@shared/schemas';
-import { Briefcase, LayoutGrid, LogOut, type LucideIcon, Plus, Search, Settings, Shield, Users } from 'lucide-react';
+import { LogOut, Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
@@ -32,7 +32,8 @@ function SetupReminder() {
 interface Channel {
     to: string;
     label: string;
-    icon: LucideIcon;
+    /** Three letters for the phone bar. */
+    short: string;
 }
 
 /**
@@ -61,11 +62,11 @@ export function Layout() {
     if (isPending) return <Say className="p-6">connecting to the board...</Say>;
 
     const channels: Channel[] = [
-        { to: '/', label: 'Board', icon: LayoutGrid },
-        { to: '/runners', label: 'Runners', icon: Users },
-        { to: '/fixers', label: 'Fixers', icon: Briefcase },
-        { to: '/crews', label: 'Crews', icon: Shield },
-        ...(me.isAdmin ? [{ to: '/settings', label: 'Settings', icon: Settings }] : []),
+        { to: '/', label: 'Board', short: 'BRD' },
+        { to: '/runners', label: 'Runners', short: 'RNS' },
+        { to: '/fixers', label: 'Fixers', short: 'FIX' },
+        { to: '/crews', label: 'Crews', short: 'CRW' },
+        ...(me.isAdmin ? [{ to: '/settings', label: 'Settings', short: 'SET' }] : []),
     ];
 
     return (
@@ -93,7 +94,7 @@ export function Layout() {
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
-                            <c.icon className="size-5" />
+                            <span className="font-display text-sm tracking-widest">{c.short}</span>
                         </BarLink>
                     ))}
                     <BarLink to="/me" label="You">
@@ -262,7 +263,7 @@ function useOnline() {
     return online;
 }
 
-/** One channel in the phone bar: its icon over its number. The active one gets a bar on top. */
+/** One channel in the phone bar: its number over its short name. The active one gets a bar on top. */
 function BarLink({ to, label, number, children }: { to: string; label: string; number?: number; children: ReactNode }) {
     return (
         <NavLink
@@ -277,8 +278,9 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
                 )
             }
         >
+            {number && <span className="font-display text-[10px] tracking-widest opacity-60">{channelNo(number)}</span>}
             {children}
-            <span className="font-display text-[10px] tracking-widest">{number ? channelNo(number) : 'YOU'}</span>
+            {!number && <span className="font-display text-[10px] tracking-widest">YOU</span>}
         </NavLink>
     );
 }
