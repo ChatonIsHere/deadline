@@ -7,6 +7,7 @@ import { config } from '../config';
 import { DB, Db } from '../db/db';
 import { gigs, images, regions } from '../db/schema';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
+import { FRAME_VERSION, framedFile } from '../shared/images';
 import { frameSvg, HEIGHT, WIDTH } from './frame';
 import { NIGHT_CITY } from './night-city';
 
@@ -29,6 +30,22 @@ export class LibraryService implements OnModuleInit {
         if (!this.db.query.regions.findFirst().sync()) this.seedRegions();
         if (!this.db.query.images.findFirst().sync()) await this.importFolder(POOL_DIR, null);
         await this.importDrops();
+        await this.reframe();
+    }
+
+    /** Builds framed copies missing for the current FRAME_VERSION and clears out older ones. */
+    private async reframe() {
+        let count = 0;
+        for (const { id } of this.db.select({ id: images.id }).from(images).all()) {
+            const target = join(this.dir, framedFile(id));
+            const plain = join(this.dir, `${id}.jpg`);
+            if (existsSync(target) || !existsSync(plain)) continue;
+            writeFileSync(target, await frame(readFileSync(plain)));
+            count++;
+        }
+        const current = new Set(this.db.select({ id: images.id }).from(images).all().map((r) => framedFile(r.id)));
+        for (const file of readdirSync(this.dir).filter((f) => f.includes('-framed') && !current.has(f))) rmSync(join(this.dir, file));
+        if (count) this.logger.log(`Rebuilt ${count} framed image(s) for frame v${FRAME_VERSION}`);
     }
 
     list(): LibraryView {
@@ -51,14 +68,11 @@ export class LibraryService implements OnModuleInit {
         } catch {
             throw new BadRequestException("That file isn't an image I can read.");
         }
-        const framed = await sharp(plain)
-            .composite([{ input: Buffer.from(frameSvg()) }])
-            .jpeg({ quality: 82, mozjpeg: true })
-            .toBuffer();
+        const framed = await frame(plain);
 
         const [row] = this.db.insert(images).values(opts).returning({ id: images.id }).all();
         writeFileSync(join(this.dir, `${row.id}.jpg`), plain);
-        writeFileSync(join(this.dir, `${row.id}-framed.jpg`), framed);
+        writeFileSync(join(this.dir, framedFile(row.id)), framed);
         return row.id;
     }
 
@@ -77,7 +91,7 @@ export class LibraryService implements OnModuleInit {
             return;
         }
         this.db.delete(images).where(eq(images.id, id)).run();
-        for (const file of [`${id}.jpg`, `${id}-framed.jpg`]) rmSync(join(this.dir, file), { force: true });
+        for (const file of [`${id}.jpg`, framedFile(id)]) rmSync(join(this.dir, file), { force: true });
     }
 
     exists(id: number): boolean {
@@ -99,7 +113,7 @@ export class LibraryService implements OnModuleInit {
 
     /** Public URL of an image with its frame, for Discord. */
     url(id: number): string {
-        return `${config.PUBLIC_URL}/images/${id}-framed.jpg`;
+        return `${config.PUBLIC_URL}/images/${framedFile(id)}`;
     }
 
     // Regions
@@ -155,4 +169,12 @@ export class LibraryService implements OnModuleInit {
         }
         if (count) this.logger.log(`Imported ${count} image(s) from ${dir}`);
     }
+}
+
+/** Draws the frame over a plain 1280x720 image. */
+function frame(plain: Buffer): Promise<Buffer> {
+    return sharp(plain)
+        .composite([{ input: Buffer.from(frameSvg()) }])
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
 }

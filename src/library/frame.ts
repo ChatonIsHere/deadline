@@ -1,7 +1,6 @@
 /** Gig images are stored at this size (16:9, which suits Discord's gallery view). */
 export const WIDTH = 1280;
 export const HEIGHT = 720;
-
 const BG = '#0a0a12';
 const YELLOW = '#f3e600';
 const CYAN = '#00e5ff';
@@ -14,7 +13,7 @@ const PINK = '#ff2a6d';
 export function frameSvg(): string {
     const W = WIDTH;
     const H = HEIGHT;
-    const P = 14; // dark margin
+    const P = 28; // dark margin. Wide enough to survive the crop in Discord's gallery preview.
     const C = 72; // corner cut
 
     const inner = `M${P} ${P}H${W - P - C}L${W - P} ${P + C}V${H - P}H${P + C}L${P} ${H - P - C}Z`;

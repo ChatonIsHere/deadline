@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewView, GigView, LibraryView, Me, Member, SettingsView } from '@shared/schemas';
+import { framedFile } from '@shared/images';
 import { toast } from 'sonner';
 
 export class ApiError extends Error {
@@ -57,7 +58,7 @@ export async function uploadImage(file: File, opts: { library?: boolean; regionI
     return (await api<{ id: number }>('/api/library/images', 'POST', form)).id;
 }
 
-export const imageUrl = (id: number) => `/images/${id}-framed.jpg`;
+export const imageUrl = (id: number) => `/images/${framedFile(id)}`;
 
 /** A change that refreshes everything when it lands and shows errors as toasts. */
 export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, done?: string | ((result: R) => void)) {

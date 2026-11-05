@@ -54,7 +54,7 @@ export interface RegionView {
     id: number;
     name: string;
     district: string | null;
-    /** Library image IDs. Shown at /images/<id>-framed.jpg */
+    /** Library image IDs. See framedFile in shared/images.ts for the URL. */
     images: number[];
 }
 
