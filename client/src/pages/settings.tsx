@@ -14,10 +14,10 @@ import { cn } from '@/lib/utils';
 // Settings, one tab per page: Discord, Scheduling, Runner roles, Bot (and Library, in library.tsx).
 // Each tab edits its part of the config and saves the whole thing.
 
-const ROLES: { key: 'adminRoleId' | 'fixerRoleId' | 'edgerunnerRoleId'; label: string; hint: string }[] = [
-    { key: 'adminRoleId', label: 'Admin', hint: 'approves and manages gigs and crews. people with Manage Server count too.' },
-    { key: 'fixerRoleId', label: 'Fixer', hint: 'submits gigs from their fixer characters for approval.' },
-    { key: 'edgerunnerRoleId', label: 'Edgerunner', hint: 'takes gigs and founds crews. @everyone works.' },
+const ROLES: { key: 'adminRoleId' | 'fixerRoleId' | 'edgerunnerRoleId'; label: string }[] = [
+    { key: 'adminRoleId', label: 'Admin' },
+    { key: 'fixerRoleId', label: 'Fixer' },
+    { key: 'edgerunnerRoleId', label: 'Edgerunner' },
 ];
 
 /** Admins only. Shows the tabs, then the page once the config has loaded. */
@@ -73,9 +73,7 @@ function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }
     return (
         <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-3">
-                <CardTitle help={isOwner ? 'the Discord server the board runs on. changing it orphans existing gig posts.' : 'the Discord server the board runs on. only the bot owner can change it.'}>
-                    Server
-                </CardTitle>
+                <CardTitle>Server</CardTitle>
                 {view.guilds.length ? (
                     <Select
                         value={form.guildId ?? ''}
@@ -87,9 +85,12 @@ function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }
                 ) : (
                     <Say>the bot isn't in any server yet.</Say>
                 )}
-                <a href={view.inviteUrl} target="_blank" rel="noreferrer" className="inline-block text-xs text-accent hover:underline">
-                    Invite the bot to a server
-                </a>
+                <p className="text-xs text-muted-foreground">
+                    {isOwner ? 'Changing this orphans existing gig posts. ' : 'Only the bot owner can change this. '}
+                    <a href={view.inviteUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                        Invite the bot to a server
+                    </a>
+                </p>
             </Card>
 
             {form.guildId && !options && <Say>scanning server...</Say>}
@@ -97,18 +98,19 @@ function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }
             {options && (
                 <>
                     <Card className="space-y-3">
-                        <CardTitle help="approved gigs get posted here. live gigs move over on their next update if you change it.">Gig forum</CardTitle>
+                        <CardTitle>Gig forum</CardTitle>
                         <Select value={form.forumId ?? ''} placeholder="Pick a forum" options={toOptions(options.forums)} onChange={(forumId) => set({ forumId: forumId || null })} />
                         {!options.forums.length && <Say>no forums the bot can see. make one, or check the bot's permissions.</Say>}
                     </Card>
 
                     <Card className="space-y-4">
-                        <CardTitle help="Discord roles that decide who can do what on the board.">Roles</CardTitle>
+                        <div>
+                            <CardTitle className="mb-1">Roles</CardTitle>
+                            <p className="text-xs text-muted-foreground">Anyone with Manage Server counts as an admin too. @everyone works for edgerunners.</p>
+                        </div>
                         {ROLES.map((r) => (
                             <div key={r.key}>
-                                <Label htmlFor={r.key} help={r.hint}>
-                                    {r.label}
-                                </Label>
+                                <Label htmlFor={r.key}>{r.label}</Label>
                                 <Select
                                     id={r.key}
                                     value={form[r.key] ?? ''}
@@ -136,21 +138,16 @@ function SchedulingForm({ view }: { view: SettingsView }) {
     return (
         <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-4">
-                <CardTitle help="once an admin sets a gig's session time, everyone on it is asked by DM to confirm.">Gig scheduling</CardTitle>
+                <CardTitle>Gig scheduling</CardTitle>
                 <div>
-                    <Label htmlFor="reminder-hours" help="confirmed runners also get one 30 minutes before. they can turn reminders off.">
-                        Day-of reminder (hours before)
-                    </Label>
+                    <Label htmlFor="reminder-hours">Day-of reminder (hours before)</Label>
                     <Input id="reminder-hours" type="number" min={1} max={72} value={form.reminderHours} onChange={(e) => set({ reminderHours: Number(e.target.value) })} />
+                    <p className="mt-1 text-xs text-muted-foreground">A second one goes out 30 minutes before.</p>
                 </div>
                 <div>
-                    <Label
-                        htmlFor="confirm-hours"
-                        help="counted from when they're asked. ends an hour before the session if that's sooner. one nudge with 12 hours left, then their slot goes to the reserves."
-                    >
-                        Time to confirm (hours)
-                    </Label>
+                    <Label htmlFor="confirm-hours">Time to confirm (hours)</Label>
                     <Input id="confirm-hours" type="number" min={1} max={168} value={form.confirmHours} onChange={(e) => set({ confirmHours: Number(e.target.value) })} />
+                    <p className="mt-1 text-xs text-muted-foreground">Ends an hour before the session if that's sooner. One nudge with 12 hours left, then the slot goes to the reserves.</p>
                 </div>
             </Card>
             <SaveButton pending={save.isPending} />
@@ -176,9 +173,10 @@ function RolesForm({ view }: { view: SettingsView }) {
     return (
         <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-3">
-                <CardTitle help="the roles players can give their runners. taking one off doesn't change runners who already have it. Fixer stays: it's what puts a runner on the Fixers tab.">
-                    Runner roles
-                </CardTitle>
+                <div>
+                    <CardTitle className="mb-1">Runner roles</CardTitle>
+                    <p className="text-xs text-muted-foreground">Fixer can't be removed: it's what puts a runner on the Fixers tab.</p>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                     {roles.map((r) => (
                         <span key={r} className="cut inline-flex items-center gap-1 bg-muted py-1 pr-1 pl-2 font-display text-xs tracking-wider uppercase [--cut:5px]">
@@ -239,9 +237,9 @@ function BotProfileCard() {
 
     return (
         <Card className="space-y-4">
-            <CardTitle help="the bot's own Discord profile. its status shows how many gigs are open.">Bot profile</CardTitle>
+            <CardTitle>Bot profile</CardTitle>
             <div>
-                <Label help="pick a library picture. it gets cropped to a banner with the board's frame. upload new ones under Library.">Banner</Label>
+                <Label>Banner</Label>
                 {profile?.bannerUrl && !bannerImageId && <img src={profile.bannerUrl} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
                 {bannerImageId && <img src={imageUrl(bannerImageId)} alt="" className="mb-2 aspect-[5/2] w-full object-cover" />}
                 <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-6">
@@ -258,9 +256,7 @@ function BotProfileCard() {
                 </div>
             </div>
             <div>
-                <Label htmlFor="about" help="shown on the bot's Discord profile.">
-                    About me
-                </Label>
+                <Label htmlFor="about">About me</Label>
                 <Input id="about" value={about ?? profile?.about ?? ''} onChange={(e) => setAbout(e.target.value)} maxLength={400} />
             </div>
             <Button type="button" className="w-full" disabled={save.isPending || !profile} onClick={() => save.mutate()}>

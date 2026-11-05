@@ -4,7 +4,6 @@ import { LogOut, Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
-import { PageActionsSlot } from '@/components/page-actions';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { api, useCrew, useGig, useGigs, useMe, useRunner, useSettings } from '@/lib/api';
@@ -47,7 +46,6 @@ export function Layout() {
     const { data: me, isPending, isError } = useMe();
     const { pathname } = useLocation();
     const [palette, setPalette] = useState(false);
-    const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -71,24 +69,36 @@ export function Layout() {
         ...(me.isAdmin ? [{ to: '/settings', label: 'Settings', short: 'SET' }] : []),
     ];
 
+    // The corner + makes whatever the page lists, and a gig everywhere else
+    const fab =
+        pathname === '/runners'
+            ? { to: '/runners/new', label: 'New runner' }
+            : pathname === '/fixers' && me.isAdmin
+              ? { to: '/runners/new?npc=1', label: 'New NPC fixer' }
+              : canCreateGig(me) && pathname !== '/gigs/new'
+                ? { to: '/gigs/new', label: 'New gig' }
+                : null;
+
     return (
         <div className="min-h-screen md:grid md:grid-cols-[13rem_1fr]">
             <Rail channels={channels} />
 
             <div className="flex min-w-0 flex-col">
-                <PromptBar onOpen={() => setPalette(true)} actionsRef={setActionsSlot} />
+                <PromptBar onOpen={() => setPalette(true)} />
                 {/* Bottom padding on phones keeps content clear of the channel bar */}
                 <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-40 md:px-8 md:pb-10">
                     {me.isAdmin && <SetupReminder />}
-                    <PageActionsSlot.Provider value={actionsSlot}>
-                        <Outlet />
-                    </PageActionsSlot.Provider>
+                    <Outlet />
                 </main>
             </div>
 
-            {canCreateGig(me) && pathname !== '/gigs/new' && (
-                <Button asChild size="icon" className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 size-14 [--cut:12px] md:hidden">
-                    <Link to="/gigs/new" aria-label="New gig" title="New gig">
+            {fab && (
+                <Button
+                    asChild
+                    size="icon"
+                    className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 size-14 [--cut:12px] md:right-8 md:bottom-8"
+                >
+                    <Link to={fab.to} aria-label={fab.label} title={fab.label}>
                         <Plus className="size-6" />
                     </Link>
                 </Button>
@@ -145,15 +155,6 @@ function Rail({ channels }: { channels: Channel[] }) {
                 ))}
             </nav>
 
-            {canCreateGig(me) && (
-                <div className="px-4 pt-5">
-                    <Button asChild size="sm" className="w-full">
-                        <Link to="/gigs/new">
-                            <Plus className="size-4" /> New gig
-                        </Link>
-                    </Button>
-                </div>
-            )}
 
             <div className="mt-auto space-y-3 border-t border-primary/40 px-4 py-4">
                 <p className="text-xs tracking-widest text-muted-foreground">// STATUS</p>
@@ -195,9 +196,9 @@ function Readout() {
 
 /**
  * Where you are, as a path the board's AI would print, in place of page titles. Click it
- * (or Ctrl+K) to jump anywhere. The page's own buttons and help sit on the right.
+ * (or Ctrl+K) to jump anywhere.
  */
-function PromptBar({ onOpen, actionsRef }: { onOpen: () => void; actionsRef: (el: HTMLElement | null) => void }) {
+function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
         <div className="sticky top-0 z-20 flex h-12 w-full items-center gap-2 border-b border-primary/40 bg-background/95 px-4 text-sm backdrop-blur md:px-8">
@@ -210,7 +211,6 @@ function PromptBar({ onOpen, actionsRef }: { onOpen: () => void; actionsRef: (el
                     <span className="blink ml-0.5 inline-block h-4 w-2 translate-y-0.5 bg-primary" />
                 </span>
             </button>
-            <div ref={actionsRef} className="flex shrink-0 items-center gap-2" />
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex shrink-0 cursor-pointer items-center text-muted-foreground outline-none">
                 <Search className="size-4 md:hidden" />
                 <kbd className="cut hidden bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px] md:block">CTRL K</kbd>
