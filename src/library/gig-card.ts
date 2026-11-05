@@ -9,7 +9,7 @@ import { FORUM, frameSvg, type Variant } from './frame';
  * bottom), one word per line, as big as fits. PNG: Discord labels WebP pictures as GIFs.
  * Bump when the look changes, so Discord fetches new copies.
  */
-export const CARD_VERSION = 2;
+export const CARD_VERSION = 3;
 
 /** Chakra Petch Bold (SIL Open Font License, see assets/fonts/OFL.txt), the site's heading font. */
 const FONT = join(__dirname, '..', '..', 'assets', 'fonts', 'ChakraPetch-Bold.ttf');
@@ -23,7 +23,10 @@ const BG = '#0a0a12';
 const MAX_WIDTH = 0.6;
 const MAX_HEIGHT = 0.5;
 /** Gap between lines' baselines, in cap heights. */
-const LINE = 1.3;
+const LINE = 1.5;
+/** Each word sits on a dark bar so it reads on bright pictures too. Padding in cap heights. */
+const BAR_X = 0.3;
+const BAR_Y = 0.17;
 
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const textSvg = (inner: string, w = 4000, h = 400) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${inner}</svg>`;
@@ -58,23 +61,35 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
     // As big as fits: the longest word within the width, all lines within the height
     const cap = measure('H').height;
     const widest = Math.max(...words.map((w) => measure(w).width));
-    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / widest;
-    const byHeight = ((H - 2 * margin) * MAX_HEIGHT * 100) / (cap * (1 + (words.length - 1) * LINE));
+    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / (widest + 2 * BAR_X * cap);
+    const byHeight = ((H - 2 * margin) * MAX_HEIGHT * 100) / (cap * (1 + 2 * BAR_Y + (words.length - 1) * LINE));
     const size = Math.min(byWidth, byHeight);
     const capPx = (cap * size) / 100;
 
-    const x = margin + pad;
+    const padX = capPx * BAR_X;
+    const padY = capPx * BAR_Y;
+    const x = margin + pad + padX;
     const blockHeight = capPx * (1 + (words.length - 1) * LINE);
     const firstBaseline = (H - blockHeight) / 2 + capPx;
     const lines = words
         .map((word, i) => {
             const y = firstBaseline + i * capPx * LINE;
             const text = escape(word);
+            // The bar: dark, a pink edge on the left, the bottom right corner cut like the frame
+            const left = x - padX;
+            const right = x + (measure(word).width * size) / 100 + padX;
+            const top = y - capPx - padY;
+            const bottom = y + padY;
+            const cut = (bottom - top) * 0.35;
+            const bar =
+                `<path d="M${left} ${top}H${right}V${bottom - cut}L${right - cut} ${bottom}H${left}Z" fill="${BG}" fill-opacity="0.82"/>` +
+                `<rect x="${left}" y="${top}" width="${capPx * 0.09}" height="${bottom - top}" fill="${P}"/>`;
             const font = `font-family="Chakra Petch" font-weight="700" font-size="${size.toFixed(1)}"`;
-            // A pink offset copy behind (the glitch look of the emoji), then yellow with a dark edge to read on any picture
+            // A pink offset copy behind (the glitch look of the emoji), then yellow with a dark edge
             return (
-                `<text x="${x - size * 0.035}" y="${y + size * 0.03}" ${font} fill="${P}" opacity="0.85">${text}</text>` +
-                `<text x="${x}" y="${y}" ${font} fill="${Y}" stroke="${BG}" stroke-width="${(size * 0.06).toFixed(1)}" stroke-linejoin="round" paint-order="stroke">${text}</text>`
+                bar +
+                `<text x="${x - size * 0.035}" y="${y + size * 0.03}" ${font} fill="${P}" opacity="0.7">${text}</text>` +
+                `<text x="${x}" y="${y}" ${font} fill="${Y}" stroke="${BG}" stroke-width="${(size * 0.04).toFixed(1)}" stroke-linejoin="round" paint-order="stroke">${text}</text>`
             );
         })
         .join('');
