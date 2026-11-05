@@ -168,13 +168,12 @@ function Rail({ channels }: { channels: Channel[] }) {
     );
 }
 
-/** Live gigs, the time in Night City (Los Angeles time) and whether the browser is online. */
+/** Live gigs, today's date in the game (51 years on) and whether the browser is online. */
 function Readout() {
     const gigs = useGigs().data ?? [];
     const live = gigs.filter((g) => isLive(g.status)).length;
-    const now = useNow();
+    const date = useInWorldDate();
     const online = useOnline();
-    const ncTime = now.toLocaleTimeString('en-GB', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit' });
 
     return (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
@@ -182,8 +181,8 @@ function Readout() {
             <dd className="text-primary tabular-nums">
                 {live} contract{live === 1 ? '' : 's'}
             </dd>
-            <dt className="text-muted-foreground">NC TIME</dt>
-            <dd className="tabular-nums">{ncTime}</dd>
+            <dt className="text-muted-foreground">DATE</dt>
+            <dd className="tabular-nums">{date}</dd>
             <dt className="text-muted-foreground">LINK</dt>
             <dd className={online ? 'text-success' : 'text-destructive'}>{online ? 'uplink stable' : 'no signal'}</dd>
         </dl>
@@ -236,13 +235,22 @@ function usePath(): string {
     return parts.join('/');
 }
 
-function useNow() {
-    const [now, setNow] = useState(() => new Date());
+/** The campaign runs 51 years ahead: today in 2026 is the same day in 2077. */
+const YEARS_AHEAD = 51;
+
+/** Today's in-game date, e.g. "05 NOV 2077". Checked again on each page change and when the tab comes back into view. */
+function useInWorldDate(): string {
+    const { pathname } = useLocation();
+    const [today, setToday] = useState(() => new Date());
+    useEffect(() => setToday(new Date()), [pathname]);
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 15_000);
-        return () => clearInterval(timer);
+        const onShow = () => document.visibilityState === 'visible' && setToday(new Date());
+        document.addEventListener('visibilitychange', onShow);
+        return () => document.removeEventListener('visibilitychange', onShow);
     }, []);
-    return now;
+    const date = new Date(today);
+    date.setFullYear(date.getFullYear() + YEARS_AHEAD);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
 }
 
 function useOnline() {

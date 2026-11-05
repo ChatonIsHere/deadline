@@ -8,6 +8,6 @@ export const FRAME_VERSION = 4;
 /** File names under /images. Everything is WebP. */
 export const plainFile = (id: number) => `${id}.webp`;
 export const framedFile = (id: number) => `${id}-framed-v${FRAME_VERSION}.webp`;
-/** Smaller plain copies: thumb for pickers and grids, medium for gig cards. Sizes are in library/frame.ts. */
-export const thumbFile = (id: number) => `${id}-thumb.webp`;
-export const mediumFile = (id: number) => `${id}-medium.webp`;
+/** Smaller copies of the framed picture: thumb for pickers, grids and avatars, medium for gig cards. Sizes are in library/frame.ts. */
+export const thumbFile = (id: number) => `${id}-thumb-v${FRAME_VERSION}.webp`;
+export const mediumFile = (id: number) => `${id}-medium-v${FRAME_VERSION}.webp`;
