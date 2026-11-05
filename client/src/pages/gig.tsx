@@ -3,7 +3,7 @@ import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Money, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, Icon, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -91,11 +91,22 @@ export function Gig() {
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
                     {gig.canRate && <RateFixer gig={gig} />}
                     <Card>
-                        <CardTitle className="flex items-center gap-2">
-                            <Icon name="objective" /> Brief
-                        </CardTitle>
-                        <Markdown text={gig.objective} />
+                        <CardTitle>Brief</CardTitle>
+                        <Markdown text={gig.brief} />
                     </Card>
+                    {gig.primaryObjective && (
+                        <Card>
+                            <CardTitle className="flex items-center gap-2">
+                                <Icon name="objective" /> Primary objective
+                            </CardTitle>
+                            <p className="flex justify-between gap-4">
+                                <span>
+                                    <Markdown inline text={gig.primaryObjective} />
+                                </span>
+                                <Money amount={gig.pay} className="shrink-0" />
+                            </p>
+                        </Card>
+                    )}
                     {gig.objectives.length > 0 && (
                         <Card>
                             <CardTitle className="flex items-center gap-2">
@@ -133,7 +144,7 @@ export function Gig() {
                             }
                         />
                         <Detail icon="location" label="Location" value={gig.location} />
-                        <Detail icon="eb" label="Pay" value={<Money amount={gig.pay} />} />
+                        <Detail icon="eb" label="Pay" value={<Pay gig={gig} />} />
                     </Card>
 
                     {me.isEdgerunner && active && <MySpot gig={gig} userId={me.id} />}

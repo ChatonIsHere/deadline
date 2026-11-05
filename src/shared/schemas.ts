@@ -54,9 +54,12 @@ export const gigInput = z.object({
     fixerRunnerId: z.number().int().nullable(),
     location: text(100),
     type: z.string().trim().max(40).nullable(),
+    /** The brief: everything about the job. It's the post's description, which Discord caps at 4096. */
+    brief: text(4000),
+    /** What the crew has to do to get paid. */
+    primaryObjective: text(500),
+    /** What the primary objective pays. */
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
-    /** The brief. It's the post's description, which Discord caps at 4096. */
-    objective: text(4000),
     imageId: z.number().int().nullable(),
     objectives: z
         // One line each: they're list items in the Discord post
@@ -308,8 +311,10 @@ export interface GigView {
     fixerId: string | null;
     location: string;
     type: string | null;
+    /** What the primary objective pays. */
     pay: number;
-    objective: string;
+    brief: string;
+    primaryObjective: string;
     imageId: number | null;
     objectives: { text: string; bonus: number | null }[];
     slots: SlotView[];
@@ -379,3 +384,9 @@ export interface CrewInvite {
     invitedBy: Member;
     createdAt: number;
 }
+
+/** A gig's pay: the primary objective alone, up to that plus every secondary bonus. */
+export const payRange = (gig: { pay: number; objectives: { bonus: number | null }[] }) => ({
+    min: gig.pay,
+    max: gig.pay + gig.objectives.reduce((sum, o) => sum + (o.bonus ?? 0), 0),
+});

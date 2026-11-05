@@ -1,7 +1,7 @@
 import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import type { Payout } from '../gigs/debrief.service';
 import { groupSlots } from '../shared/slots';
-import type { GigStatus, GigView, RunnerCard } from '../shared/schemas';
+import { type GigStatus, type GigView, payRange, type RunnerCard } from '../shared/schemas';
 import { packEmbeds } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
 import { voice } from './voice';
@@ -20,6 +20,12 @@ export function money(amount: number, emoji: EmojiLookup): string {
     const n = amount.toLocaleString('en-GB');
     const eb = emoji('eb');
     return eb ? `${eb} ${n}` : `${n}eb`;
+}
+
+/** "€$ 2,000", or a range when secondary objectives pay bonuses: "€$ 2,000 – 2,500". */
+export function payText(gig: GigView, emoji: EmojiLookup): string {
+    const { min, max } = payRange(gig);
+    return max > min ? `${money(min, emoji)} – ${max.toLocaleString('en-GB')}` : money(min, emoji);
 }
 
 export const openSlots = (gig: GigView) => gig.slots.filter((s) => !s.runner).length;
@@ -55,7 +61,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
     };
     // One field per crew (and one for anyone), side by side, with how many of its slots are taken
     const slotFields: APIEmbedField[] = groupSlots(gig.slots).map((group) => ({
-        name: `${group.crew ? group.crew.name : 'Any edgerunner'} · ${group.slots.filter((x) => x.runner).length}/${group.slots.length}`,
+        name: `${group.crew ? group.crew.name : 'Freelance'} · ${group.slots.filter((x) => x.runner).length}/${group.slots.length}`,
         value: group.slots.map(runnerLine).join('\n'),
         inline: true,
     }));
@@ -64,8 +70,9 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
     const fields: APIEmbedField[] = [
         { name: 'Fixer', value: `${icon('fixer')} ${gig.fixerName}`.trim(), inline: true },
         { name: 'Location', value: `${icon('location')} ${gig.location}`.trim(), inline: true },
-        { name: 'Pay', value: money(gig.pay, emoji), inline: true },
+        { name: 'Pay', value: payText(gig, emoji), inline: true },
         ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
+        ...(gig.primaryObjective ? [{ name: 'Primary objective', value: `${icon('objective', '-')} ${gig.primaryObjective} · ${money(gig.pay, emoji)}` }] : []),
         ...(gig.objectives.length
             ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${o.bonus ? ` · +${money(o.bonus, emoji)}` : ''}`).join('\n') }]
             : []),
@@ -79,9 +86,9 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         color: COLOURS[gig.status],
         title: gig.name,
         url: `${boardUrl}/gigs/${gig.id}`,
-        description: gig.objective,
-        // Footers can't hold links, so the board's address goes in the author line, which can
-        author: { name: `DEADLINE // ${new URL(boardUrl).host}`, url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
+        description: gig.brief,
+        // Footers can't hold links, so the link to the board goes on the author line, which can
+        author: { name: 'DEADLINE // GIG BOARD', url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
         footer: { text: voice.footer(gig.status) },
         thumbnail: images.fixer ? { url: images.fixer } : undefined,
         image: images.gig ? { url: images.gig } : undefined,

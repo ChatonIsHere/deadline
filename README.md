@@ -114,7 +114,7 @@ Server, forum and roles live in the database and are set on **Settings > Discord
 - Completing a gig posts a debrief as the thread's last message (the summary, the rewards and who went), then locks and archives the post. Cancelling locks and archives it too.
 - The line above the title links to the board. Discord doesn't allow links in footers, so the footer just shows the status.
 - Each post gets tags for its status, its fixer ("Fixer: Name", added while the forum has room under Discord's 20-tag limit) and its type if a tag matches.
-- The brief is the post's description (up to 4,000 characters). Secondary objectives, the crew and the debrief are fields.
+- The brief is the post's description (up to 4,000 characters): everything about the job. The primary objective is what the crew must do to get paid, and carries the pay. Pay shows as a range, from the primary objective alone up to that plus every secondary bonus. Secondary objectives, the crew (one field per crew, plus Freelance for anyone) and the debrief are fields.
 - Nothing gets cut. Long fields split into "(cont.)" fields, and whatever doesn't fit Discord's limits (6,000 characters a message) goes in follow-up messages in the thread, which are kept up to date.
 - The brief and objectives support the markdown Discord embeds render: bold, italic, strikethrough, code, links, lists and quotes.
 

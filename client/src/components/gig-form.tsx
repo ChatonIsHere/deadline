@@ -3,7 +3,7 @@ import { Plus, Shuffle, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { Icon, Say } from '@/components/common';
+import { Icon, Pay, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -23,8 +23,10 @@ interface FormState {
     fixerRunnerId: string;
     location: string;
     type: string;
+    brief: string;
+    primaryObjective: string;
+    /** What the primary objective pays. */
     pay: string;
-    objective: string;
     imageId: number | null;
     /** The picture came from the library, so it follows the location. */
     imageAuto: boolean;
@@ -40,8 +42,9 @@ function toForm(gig?: GigView): FormState {
             fixerRunnerId: '',
             location: '',
             type: '',
+            brief: '',
+            primaryObjective: '',
             pay: '',
-            objective: '',
             imageId: null,
             imageAuto: true,
             objectives: [],
@@ -56,8 +59,9 @@ function toForm(gig?: GigView): FormState {
         fixerRunnerId: gig.fixerRunnerId ? String(gig.fixerRunnerId) : '',
         location: gig.location,
         type: gig.type ?? '',
+        brief: gig.brief,
+        primaryObjective: gig.primaryObjective,
         pay: String(gig.pay),
-        objective: gig.objective,
         imageId: gig.imageId,
         imageAuto: false,
         objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '' })),
@@ -141,8 +145,21 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     </div>
                     <div>
                         <Label help="the post's description in Discord, up to 4,000 characters. bold, italic, lists, links and quotes carry over.">Brief</Label>
-                        <MarkdownEditor value={form.objective} onChange={(objective) => set({ objective })} />
-                        <p className={cn('mt-1 text-right text-xs', form.objective.length > 4000 ? 'text-destructive' : 'text-muted-foreground')}>{form.objective.length} / 4000</p>
+                        <MarkdownEditor value={form.brief} onChange={(brief) => set({ brief })} />
+                        <p className={cn('mt-1 text-right text-xs', form.brief.length > 4000 ? 'text-destructive' : 'text-muted-foreground')}>{form.brief.length} / 4000</p>
+                    </div>
+                </Card>
+
+                <Card className="space-y-3">
+                    <CardTitle help="what the crew has to pull off to get paid, and what it pays.">Primary objective</CardTitle>
+                    <div className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
+                        <div className="w-full sm:w-auto sm:flex-1">
+                            <MarkdownEditor singleLine value={form.primaryObjective} onChange={(primaryObjective) => set({ primaryObjective })} />
+                        </div>
+                        <div className="relative flex-1 sm:w-32 sm:flex-none">
+                            <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
+                            <Input className="pl-8" type="number" min={1} value={form.pay} onChange={(e) => set({ pay: e.target.value })} placeholder="Pay" aria-label="Pay" />
+                        </div>
                     </div>
                 </Card>
 
@@ -260,11 +277,8 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <Combobox id="type" value={form.type} onChange={(type) => set({ type })} suggestions={types.map((t) => ({ value: t }))} maxLength={40} />
                     </div>
                     <div>
-                        <Label htmlFor="pay" help="the base pay for the job, in eb. secondary objective bonuses come on top.">Pay</Label>
-                        <div className="relative">
-                            <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
-                            <Input id="pay" className="pl-8" type="number" min={0} value={form.pay} onChange={(e) => set({ pay: e.target.value })} />
-                        </div>
+                        <Label help="the primary objective's pay, up to that plus every secondary bonus.">Pay</Label>
+                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null })) }} />
                     </div>
                 </Card>
 
@@ -277,7 +291,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                             <Select
                                 value={s.crewId}
                                 onChange={(crewId) => setRow('slots', i, { crewId })}
-                                options={[{ value: '', label: 'Any edgerunner' }, ...crews.map((c) => ({ value: String(c.id), label: c.name, hint: 'Crew' }))]}
+                                options={[{ value: '', label: 'Freelance' }, ...crews.map((c) => ({ value: String(c.id), label: c.name, hint: 'Crew' }))]}
                             />
                             <Input className="w-20 shrink-0" type="number" min={1} value={s.count} onChange={(e) => setRow('slots', i, { count: e.target.value })} />
                             <Button type="button" variant="ghost" size="icon" className="mt-0.5" onClick={() => removeRow('slots', i)}>

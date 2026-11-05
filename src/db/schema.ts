@@ -131,8 +131,12 @@ export const gigs = sqliteTable('gigs', {
     fixerId: text(),
     location: text().notNull(),
     type: text(),
+    // What the primary objective pays. The gig's pay runs from this to this plus every bonus.
     pay: integer().notNull(),
-    objective: text().notNull(),
+    // The brief (the column kept its first name)
+    brief: text('objective').notNull(),
+    // The main thing the crew has to do to get paid
+    primaryObjective: text().notNull().default(''),
     imageId: integer().references(() => images.id),
     status: text({ enum: GIG_STATUSES }).notNull().default('pending'),
     createdBy: text().notNull(),

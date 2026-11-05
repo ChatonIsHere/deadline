@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import type { GigView, Review, RunnerView } from '../shared/schemas';
 import type { EmojiLookup } from './emoji.service';
-import { COLOURS, money, openSlots } from './gig-embed';
+import { COLOURS, openSlots, payText } from './gig-embed';
 import { voice } from './voice';
 
 // Compact cards for slash command replies. The full gig card is the forum post (gig-embed.ts).
@@ -17,11 +17,11 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
         .setColor(COLOURS[gig.status])
         .setTitle(gig.name)
         .setURL(`${boardUrl}/gigs/${gig.id}`)
-        .setDescription(cut(gig.objective, 300))
+        .setDescription(cut(gig.brief, 300))
         .addFields(
             { name: 'Fixer', value: gig.fixerName, inline: true },
             { name: 'Location', value: gig.location, inline: true },
-            { name: 'Pay', value: money(gig.pay, emoji), inline: true },
+            { name: 'Pay', value: payText(gig, emoji), inline: true },
             { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled', inline: true },
             { name: 'Crew', value: `${taken}/${gig.slots.length}${gig.reserves.length ? ` (+${gig.reserves.length} reserve)` : ''}`, inline: true },
             { name: 'Status', value: gig.status === 'open' ? 'Taking runners' : 'Sign-ups locked', inline: true },

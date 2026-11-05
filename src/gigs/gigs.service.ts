@@ -637,7 +637,8 @@ export class GigsService {
             location: gig.location,
             type: gig.type,
             pay: gig.pay,
-            objective: gig.objective,
+            brief: gig.brief,
+            primaryObjective: gig.primaryObjective,
             imageId: gig.imageId,
             objectives: gig.objectives.sort((a, b) => a.position - b.position).map((o) => ({ text: o.text, bonus: o.bonus })),
             slots: gig.slots

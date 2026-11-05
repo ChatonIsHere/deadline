@@ -2,18 +2,20 @@
 
 // Lines go out as ```ansi code blocks: Discord's desktop app colours them (the phone app shows
 // them plain). Code blocks don't render timestamps, mentions or links, so those go on a normal
-// line underneath: pass them as `extra`, and links are moved there on their own.
+// line underneath: pass them as `extra`. Links are written [label](url): the label stays in the
+// line and the link goes underneath, so no bare addresses show.
 const ESC = '\u001b';
 const cyan = (s: string) => `${ESC}[0;36m${s}${ESC}[0m`;
 const yellow = (s: string) => `${ESC}[1;33m${s}${ESC}[0m`;
-const URL_RE = /https?:\/\/\S+/g;
+const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** A line from the board's AI. `**name**` comes out yellow. */
 const say = (line: string, extra?: string) => {
-    const links = line.match(URL_RE) ?? [];
+    // <url> stops Discord adding a preview of the page
+    const links = [...line.matchAll(LINK_RE)].map(([, label, url]) => `[${cap(label)}](<${url}>)`);
     const text = line
-        .replace(URL_RE, '')
-        .replace(/\s+([.,])/g, '$1')
+        .replace(LINK_RE, '$1')
         .trim()
         // A gig name with ``` in it would end the block early
         .replace(/```/g, "'''")
@@ -27,6 +29,7 @@ export const plainVoice = (said: string) =>
     said
         .replace(/```(ansi)?\n?/g, '')
         .replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')
+        .replace(LINK_RE, '$1')
         .replace(/[*`]/g, '')
         .replace(/\n+/g, ' ')
         .trim();
@@ -63,9 +66,9 @@ export const voice = {
     // Reminders for confirmed runners
     reminderDay: (gigName: string, at: number) => say(`reminder: ${n(gigName)} is on today.`, `**When:** ${when(at)}`),
     reminderSoon: (gigName: string, at: number) => say(`${n(gigName)} starts soon. gear up.`, `**Starts** ${ts(at, 'R')}`),
-    remindersOff: (url: string) => say(`reminders off. turn them back on from your Me page: ${url}/me`),
+    remindersOff: (url: string) => say(`reminders off. turn them back on from your [Me page](${url}/me).`),
     remindersSet: (on: boolean) => say(on ? "reminders on. you'll get a DM a few hours before and 30 minutes before." : 'reminders off. confirm requests still come through.'),
-    runnerMade: (handle: string, editUrl: string) => say(`${n(handle)} is on file. add a picture and extra roles on the web: ${editUrl}`),
+    runnerMade: (handle: string, editUrl: string) => say(`${n(handle)} is on file. add a picture and extra roles on the [edit page](${editUrl}).`),
 
     // After the job
     payout: (gigName: string) => say(`${n(gigName)} is done. here's your cut.`),
@@ -82,7 +85,7 @@ export const voice = {
     sessionCleared: () => say('session time cleared. back to gauging interest.'),
     sessionSoon: (at: number) => say('session starts soon.', `**Starts** ${ts(at, 'R')}`),
     sessionToday: (at: number) => say('session is on today. confirmed runners, see you there.', `**When:** ${when(at)}`),
-    slotsOpened: (crewName: string) => say(`${n(crewName)}'s reserved slots are open to any edgerunner now.`),
+    slotsOpened: (crewName: string) => say(`${n(crewName)}'s reserved slots are open to freelancers now.`),
     statusChanged: {
         open: say('contract is live. sign-ups open.'),
         closed: say('sign-ups locked. good luck out there.'),
@@ -90,7 +93,7 @@ export const voice = {
         cancelled: say('contract pulled. stand down.'),
     } as Record<string, string>,
 
-    board: (url: string, open: number) => say(`${open} contract(s) live. full board: ${url}/gigs`),
+    board: (url: string, open: number) => say(`${open} contract(s) live. full list on the [gig board](${url}/gigs).`),
 
     // Errors the service throws, shown on the web and in Discord
     notOpen: 'that contract is not taking runners.',
@@ -105,5 +108,5 @@ export const voice = {
     playerAlreadyReserve: 'that player already has a runner on the reserves.',
     broken: 'something broke on our end. try again in a minute.',
     pickRunner: 'you have more than one runner. pick which one is going.',
-    noRunner: (url: string) => `you don't have a runner yet. make one here: ${url}/runners/new`,
+    noRunner: (url: string) => `you don't have a runner yet. make one on the [new runner page](${url}/runners/new).`,
 };

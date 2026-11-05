@@ -21,7 +21,7 @@ export function SlugField({ id, name, base, value, onChange }: { id: string; nam
                 onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') || undefined)}
             />
             <p className={cn('mt-1 text-xs break-all', bad ? 'text-destructive' : 'text-muted-foreground')}>
-                {bad ? SLUG_HINT : `${location.host}/${base}/${shown || '...'} · can't be changed later`}
+                {bad ? SLUG_HINT : `/${base}/${shown || '...'} · can't be changed later`}
             </p>
         </div>
     );

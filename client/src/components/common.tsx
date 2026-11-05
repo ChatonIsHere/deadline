@@ -1,4 +1,4 @@
-import type { GigStatus, Member } from '@shared/schemas';
+import { type GigStatus, type Member, payRange } from '@shared/schemas';
 import { Popover } from 'radix-ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -17,6 +17,18 @@ export function Money({ amount, className }: { amount: number; className?: strin
         <span className={cn('inline-flex items-center gap-1 font-semibold text-primary', className)}>
             <Icon name="eb" />
             {amount.toLocaleString('en-GB')}
+        </span>
+    );
+}
+
+/** A gig's pay: the primary objective alone, up to that plus every bonus. */
+export function Pay({ gig, className }: { gig: { pay: number; objectives: { bonus: number | null }[] }; className?: string }) {
+    const { min, max } = payRange(gig);
+    return (
+        <span className={cn('inline-flex items-center gap-1 font-semibold text-primary', className)}>
+            <Icon name="eb" />
+            {min.toLocaleString('en-GB')}
+            {max > min && ` – ${max.toLocaleString('en-GB')}`}
         </span>
     );
 }

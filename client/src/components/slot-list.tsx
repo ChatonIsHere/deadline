@@ -31,12 +31,12 @@ export function SlotList({
             {groupSlots(gig.slots).map((group) => (
                 <div key={group.crew?.id ?? 'any'}>
                     <div className="mb-1 flex items-center gap-2">
-                        <p className="font-display text-xs tracking-widest text-muted-foreground uppercase">{group.crew ? group.crew.name : 'Any edgerunner'}</p>
+                        <p className="font-display text-xs tracking-widest text-muted-foreground uppercase">{group.crew ? group.crew.name : 'Freelance'}</p>
                         {group.crew && onOpenCrew && (
                             <button
                                 type="button"
                                 className="ml-auto cursor-pointer text-xs text-accent hover:underline"
-                                title="Let any edgerunner take these slots"
+                                title="Open these slots to freelancers"
                                 onClick={() => onOpenCrew(group.crew!.id)}
                             >
                                 open to anyone

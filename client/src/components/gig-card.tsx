@@ -1,5 +1,5 @@
 import type { GigView } from '@shared/schemas';
-import { Icon, LinkCard, Money, StatusBadge } from '@/components/common';
+import { Icon, LinkCard, Pay, StatusBadge } from '@/components/common';
 import { formatSession } from '@/components/session';
 import { mediumUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ export function GigCard({ gig }: { gig: GigView }) {
                 {gig.sessionAt && <span className="text-accent">{formatSession(gig.sessionAt)}</span>}
             </p>
             <div className="flex items-center justify-between gap-4">
-                <Money amount={gig.pay} />
+                <Pay gig={gig} />
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="flex gap-0.5">
                         {gig.slots.map((s) => (
