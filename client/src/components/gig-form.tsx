@@ -6,7 +6,9 @@ import { Icon, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Input, Label } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { imageUrl, uploadImage, useCrews, useFixers, useGigTypes, useLibrary, useUser } from '@/lib/api';
 
 // Numbers are kept as strings while typing so fields can be empty.
@@ -210,31 +212,28 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     {me.isAdmin && (
                         <div>
                             <Label htmlFor="fixer">Fixer</Label>
-                            <Input id="fixer" list="fixers" value={form.fixerName} onChange={(e) => set({ fixerName: e.target.value })} maxLength={60} />
-                            <datalist id="fixers">
-                                {fixers.map((f) => (
-                                    <option key={f.id} value={f.name} />
-                                ))}
-                            </datalist>
+                            <Combobox
+                                id="fixer"
+                                value={form.fixerName}
+                                onChange={(fixerName) => set({ fixerName })}
+                                suggestions={fixers.map((f) => ({ value: f.name, hint: 'Fixer role' }))}
+                                maxLength={60}
+                            />
                         </div>
                     )}
                     <div>
                         <Label htmlFor="location">Location</Label>
-                        <Input id="location" list="regions" value={form.location} onChange={(e) => set({ location: e.target.value })} maxLength={100} />
-                        <datalist id="regions">
-                            {library?.regions.map((r) => (
-                                <option key={r.id} value={r.name} label={r.district ?? 'District'} />
-                            ))}
-                        </datalist>
+                        <Combobox
+                            id="location"
+                            value={form.location}
+                            onChange={(location) => set({ location })}
+                            suggestions={(library?.regions ?? []).map((r) => ({ value: r.name, hint: r.district ?? 'District' }))}
+                            maxLength={100}
+                        />
                     </div>
                     <div>
                         <Label htmlFor="type">Type (optional)</Label>
-                        <Input id="type" list="gig-types" value={form.type} onChange={(e) => set({ type: e.target.value })} maxLength={40} />
-                        <datalist id="gig-types">
-                            {types.map((t) => (
-                                <option key={t} value={t} />
-                            ))}
-                        </datalist>
+                        <Combobox id="type" value={form.type} onChange={(type) => set({ type })} suggestions={types.map((t) => ({ value: t }))} maxLength={40} />
                     </div>
                     <div>
                         <Label htmlFor="pay">Pay</Label>
@@ -251,14 +250,11 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     </CardTitle>
                     {form.slots.map((s, i) => (
                         <div key={i} className="flex gap-2">
-                            <Select value={s.crewId} onChange={(e) => setRow('slots', i, { crewId: e.target.value })}>
-                                <option value="">Any edgerunner</option>
-                                {crews.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </Select>
+                            <Select
+                                value={s.crewId}
+                                onChange={(crewId) => setRow('slots', i, { crewId })}
+                                options={[{ value: '', label: 'Any edgerunner' }, ...crews.map((c) => ({ value: String(c.id), label: c.name, hint: 'Crew' }))]}
+                            />
                             <Input className="w-20 shrink-0" type="number" min={1} value={s.count} onChange={(e) => setRow('slots', i, { count: e.target.value })} />
                             <Button type="button" variant="ghost" size="icon" className="mt-0.5" onClick={() => removeRow('slots', i)}>
                                 <X className="size-4" />

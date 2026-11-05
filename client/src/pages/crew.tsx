@@ -6,7 +6,8 @@ import { useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Person, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { api, useAction, useCrew, useMembers, useUser } from '@/lib/api';
 
 export function Crew() {
@@ -82,14 +83,7 @@ function AddMember({ crew }: { crew: CrewView }) {
 
     return (
         <div className="mt-4 flex gap-2">
-            <Select value={userId} onChange={(e) => setUserId(e.target.value)}>
-                <option value="">Add an edgerunner...</option>
-                {options.map((m) => (
-                    <option key={m.id} value={m.id}>
-                        {m.name}
-                    </option>
-                ))}
-            </Select>
+            <Select value={userId} onChange={setUserId} placeholder="Add an edgerunner..." options={options.map((m) => ({ value: m.id, label: m.name }))} />
             <Button disabled={!userId || add.isPending} onClick={() => add.mutate()}>
                 Add
             </Button>
@@ -123,13 +117,7 @@ function EditCrew({ crew, isAdmin }: { crew: CrewView; isAdmin: boolean }) {
                 {isAdmin && (
                     <div>
                         <Label htmlFor="owner">Owner</Label>
-                        <Select id="owner" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-                            {crew.members.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </Select>
+                        <Select id="owner" value={ownerId} onChange={setOwnerId} options={crew.members.map((m) => ({ value: m.id, label: m.name }))} />
                     </div>
                 )}
                 <Button type="submit" className="w-full" disabled={save.isPending || !name.trim()}>

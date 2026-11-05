@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { ConfirmButton, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { api, imageUrl, uploadImage, useAction, useLibrary, useUser } from '@/lib/api';
 
 export function LibraryPage() {
@@ -130,12 +131,12 @@ function NewRegion({ districts }: { districts: string[] }) {
                 </div>
                 <div className="min-w-48 flex-1">
                     <Label htmlFor="region-district">Part of</Label>
-                    <Select id="region-district" value={district} onChange={(e) => setDistrict(e.target.value)}>
-                        <option value="">Nothing (it's a district)</option>
-                        {districts.map((d) => (
-                            <option key={d}>{d}</option>
-                        ))}
-                    </Select>
+                    <Select
+                        id="region-district"
+                        value={district}
+                        onChange={setDistrict}
+                        options={[{ value: '', label: "Nothing (it's a district)" }, ...districts.map((d) => ({ value: d, label: d, hint: 'District' }))]}
+                    />
                 </div>
                 <Button type="submit" disabled={add.isPending || !name.trim()}>
                     <Plus className="size-4" /> Add

@@ -4,10 +4,11 @@ import { type FormEvent, useState } from 'react';
 import { Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { Select, type SelectOption } from '@/components/ui/select';
 import { api, useAction, useSettings, useUser } from '@/lib/api';
 
-const ROLES: { key: keyof Settings; label: string; hint: string }[] = [
+const ROLES: { key: 'adminRoleId' | 'fixerRoleId' | 'edgerunnerRoleId'; label: string; hint: string }[] = [
     { key: 'adminRoleId', label: 'Admin', hint: 'Approves and manages gigs and crews. People with Manage Server count too.' },
     { key: 'fixerRoleId', label: 'Fixer', hint: 'Submits gigs for approval.' },
     { key: 'edgerunnerRoleId', label: 'Edgerunner', hint: 'Takes gigs and runs crews. @everyone works.' },
@@ -50,11 +51,10 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                     <Select
                         value={form.guildId ?? ''}
                         disabled={!isOwner}
-                        onChange={(e) => set({ guildId: e.target.value || null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })}
-                    >
-                        <option value="">Pick a server</option>
-                        <Options list={view.guilds} />
-                    </Select>
+                        placeholder="Pick a server"
+                        options={toOptions(view.guilds)}
+                        onChange={(guildId) => set({ guildId: guildId || null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })}
+                    />
                 ) : (
                     <Say>the bot isn't in any server yet.</Say>
                 )}
@@ -72,10 +72,12 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                 <>
                     <Card className="space-y-3">
                         <CardTitle>Gig forum</CardTitle>
-                        <Select value={form.forumId ?? ''} onChange={(e) => set({ forumId: e.target.value || null })}>
-                            <option value="">Pick a forum</option>
-                            <Options list={options.forums} />
-                        </Select>
+                        <Select
+                            value={form.forumId ?? ''}
+                            placeholder="Pick a forum"
+                            options={toOptions(options.forums)}
+                            onChange={(forumId) => set({ forumId: forumId || null })}
+                        />
                         <p className="text-xs text-muted-foreground">
                             {options.forums.length
                                 ? 'Approved gigs get posted here. Live gigs move over on their next update if you change it.'
@@ -88,10 +90,12 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                         {ROLES.map((r) => (
                             <div key={r.key}>
                                 <Label htmlFor={r.key}>{r.label}</Label>
-                                <Select id={r.key} value={form[r.key] ?? ''} onChange={(e) => set({ [r.key]: e.target.value || null })}>
-                                    <option value="">Nobody</option>
-                                    <Options list={options.roles} />
-                                </Select>
+                                <Select
+                                    id={r.key}
+                                    value={form[r.key] ?? ''}
+                                    options={[{ value: '', label: 'Nobody' }, ...toOptions(options.roles)]}
+                                    onChange={(roleId) => set({ [r.key]: roleId || null })}
+                                />
                                 <p className="mt-1 text-xs text-muted-foreground">{r.hint}</p>
                             </div>
                         ))}
@@ -136,10 +140,4 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
     );
 }
 
-function Options({ list }: { list: Option[] }) {
-    return list.map((o) => (
-        <option key={o.id} value={o.id}>
-            {o.name}
-        </option>
-    ));
-}
+const toOptions = (list: Option[]): SelectOption[] => list.map((o) => ({ value: o.id, label: o.name, color: o.color }));

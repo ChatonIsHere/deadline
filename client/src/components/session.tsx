@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import { Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Input, Select } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { api, useAction, useMembers } from '@/lib/api';
 
 /** "Fri 3 Jan, 20:00" in the viewer's own timezone. */
@@ -121,14 +122,7 @@ export function AssignRunner({ gig }: { gig: GigView }) {
 
     return (
         <div className="mt-4 flex gap-2">
-            <Select value={userId} onChange={(e) => setUserId(e.target.value)}>
-                <option value="">Add an edgerunner...</option>
-                {options.map((m) => (
-                    <option key={m.id} value={m.id}>
-                        {m.name}
-                    </option>
-                ))}
-            </Select>
+            <Select value={userId} onChange={setUserId} placeholder="Add an edgerunner..." options={options.map((m) => ({ value: m.id, label: m.name }))} />
             <Button size="icon" className="mt-0.5 size-9" title="Add" disabled={!userId || assign.isPending} onClick={() => assign.mutate()}>
                 <UserPlus className="size-4" />
             </Button>
