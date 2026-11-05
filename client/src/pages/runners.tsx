@@ -2,6 +2,7 @@ import type { RunnerSummary } from '@shared/schemas';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { Help, LinkCard, Say } from '@/components/common';
+import { PageActions } from '@/components/page-actions';
 import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,16 +16,15 @@ export function RunnersPage() {
 
     return (
         <div className="space-y-5">
-            <div className="flex items-center gap-3">
-                <h1 className="flex flex-1 items-center gap-3 text-3xl text-primary">
-                    Runners <Help>player characters. a player can have several and picks one when signing up for a gig.</Help>
-                </h1>
+            <PageActions>
+                <Help>player characters. a player can have several and picks one when signing up for a gig.</Help>
                 <Button asChild size="sm">
-                    <Link to="/runners/new">
-                        <Plus className="size-4" /> New runner
+                    <Link to="/runners/new" aria-label="New runner">
+                        <Plus className="size-4" /> <span className="sm:hidden">New</span>
+                        <span className="hidden sm:inline">New runner</span>
                     </Link>
                 </Button>
-            </div>
+            </PageActions>
             <Tabs defaultValue="mine">
                 <TabsList>
                     <TabsTrigger value="mine">
@@ -52,18 +52,17 @@ export function FixersPage() {
 
     return (
         <div className="space-y-5">
-            <div className="flex items-center gap-3">
-                <h1 className="flex flex-1 items-center gap-3 text-3xl text-primary">
-                    Fixers <Help>runners with the Fixer role whose player has the fixer role in Discord, plus NPC fixers. rated by the runners who worked for them.</Help>
-                </h1>
+            <PageActions>
+                <Help>runners with the Fixer role whose player has the fixer role in Discord, plus NPC fixers. rated by the runners who worked for them.</Help>
                 {me.isAdmin && (
                     <Button asChild size="sm">
-                        <Link to="/runners/new?npc=1">
-                            <Plus className="size-4" /> NPC fixer
+                        <Link to="/runners/new?npc=1" aria-label="New NPC fixer">
+                            <Plus className="size-4" /> <span className="sm:hidden">NPC</span>
+                            <span className="hidden sm:inline">NPC fixer</span>
                         </Link>
                     </Button>
                 )}
-            </div>
+            </PageActions>
             {isPending ? (
                 <Say>pinging contacts...</Say>
             ) : fixers?.length ? (

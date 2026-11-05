@@ -13,7 +13,6 @@ const TABS = [
 export function SettingsTabs() {
     return (
         <div className="mb-5">
-            <h1 className="mb-3 text-3xl text-primary">Settings</h1>
             {/* Bottom line as an inset shadow so the tabs sit on it without hanging over (which made a scrollbar) */}
             <nav className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--color-border)] [scrollbar-width:none]">
                 {TABS.map((t) => (

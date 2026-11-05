@@ -23,7 +23,6 @@ export function GigEdit() {
 
     return (
         <div className="space-y-5">
-            <h1 className="text-3xl text-primary">{gig ? 'Edit gig' : 'New gig'}</h1>
             {!gig && !me.isAdmin && <Say>new gigs wait for an admin to approve them before they hit Discord.</Say>}
             {/* Keyed so going from one gig (or editing) to a new one starts a fresh form */}
             <GigForm key={gig?.id ?? 'new'} gig={gig} saving={save.isPending} onSave={(input) => save.mutate(input)} />

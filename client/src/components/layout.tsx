@@ -4,6 +4,7 @@ import { LogOut, Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
+import { PageActionsSlot } from '@/components/page-actions';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { api, useCrew, useGig, useGigs, useMe, useRunner, useSettings } from '@/lib/api';
@@ -46,6 +47,7 @@ export function Layout() {
     const { data: me, isPending, isError } = useMe();
     const { pathname } = useLocation();
     const [palette, setPalette] = useState(false);
+    const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -74,11 +76,13 @@ export function Layout() {
             <Rail channels={channels} />
 
             <div className="flex min-w-0 flex-col">
-                <PromptBar onOpen={() => setPalette(true)} />
+                <PromptBar onOpen={() => setPalette(true)} actionsRef={setActionsSlot} />
                 {/* Bottom padding on phones keeps content clear of the channel bar */}
                 <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-40 md:px-8 md:pb-10">
                     {me.isAdmin && <SetupReminder />}
-                    <Outlet />
+                    <PageActionsSlot.Provider value={actionsSlot}>
+                        <Outlet />
+                    </PageActionsSlot.Provider>
                 </main>
             </div>
 
@@ -189,28 +193,29 @@ function Readout() {
     );
 }
 
-/** Where you are, as a path the board's AI would print. Click it (or Ctrl+K) to jump anywhere. */
-function PromptBar({ onOpen }: { onOpen: () => void }) {
+/**
+ * Where you are, as a path the board's AI would print, in place of page titles. Click it
+ * (or Ctrl+K) to jump anywhere. The page's own buttons and help sit on the right.
+ */
+function PromptBar({ onOpen, actionsRef }: { onOpen: () => void; actionsRef: (el: HTMLElement | null) => void }) {
     const path = usePath();
     return (
-        <button
-            type="button"
-            onClick={onOpen}
-            className="sticky top-0 z-20 flex h-12 w-full cursor-text items-center gap-2 border-b border-primary/40 bg-background/95 px-4 text-left text-sm backdrop-blur md:px-8"
-            title="Jump to... (Ctrl+K)"
-        >
-            <img src="/logo.svg" alt="" className="size-5 md:hidden" />
-            <span className="text-primary">&gt;</span>
-            <span className="min-w-0 truncate">
-                <span className="text-muted-foreground">DEADLINE://</span>
-                {path}
-                <span className="blink ml-0.5 inline-block h-4 w-2 translate-y-0.5 bg-primary" />
-            </span>
-            <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
+        <div className="sticky top-0 z-20 flex h-12 w-full items-center gap-2 border-b border-primary/40 bg-background/95 px-4 text-sm backdrop-blur md:px-8">
+            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
+                <img src="/logo.svg" alt="" className="size-5 md:hidden" />
+                <span className="text-primary">&gt;</span>
+                <span className="min-w-0 truncate">
+                    <span className="text-muted-foreground">DEADLINE://</span>
+                    {path}
+                    <span className="blink ml-0.5 inline-block h-4 w-2 translate-y-0.5 bg-primary" />
+                </span>
+            </button>
+            <div ref={actionsRef} className="flex shrink-0 items-center gap-2" />
+            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex shrink-0 cursor-pointer items-center text-muted-foreground outline-none">
                 <Search className="size-4 md:hidden" />
                 <kbd className="cut hidden bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px] md:block">CTRL K</kbd>
-            </span>
-        </button>
+            </button>
+        </div>
     );
 }
 

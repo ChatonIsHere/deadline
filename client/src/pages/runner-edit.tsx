@@ -77,7 +77,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">
-            <h1 className="text-3xl text-primary">{runner ? `Edit ${runner.handle}` : isNpc ? 'New NPC fixer' : 'New runner'}</h1>
 
             {me.isAdmin && (
                 <Card className="space-y-2">

@@ -58,10 +58,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">
-            <div>
-                <h1 className="text-3xl text-primary">Debrief</h1>
-                <p className="text-muted-foreground">{gig.name}</p>
-            </div>
+            <h1 className="text-3xl text-primary">{gig.name}</h1>
             <Say>completing locks the post. everyone on the gig gets a DM with their payout and a way to rate the fixer.</Say>
 
             <Card className="space-y-2">
