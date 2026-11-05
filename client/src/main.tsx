@@ -12,6 +12,7 @@ import { Gig } from '@/pages/gig';
 import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
+import { MePage } from '@/pages/me';
 import { SettingsPage } from '@/pages/settings';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="crews" element={<Crews />} />
                         <Route path="crews/:id" element={<Crew />} />
                         <Route path="library" element={<LibraryPage />} />
+                        <Route path="me" element={<MePage />} />
                         <Route path="settings" element={<SettingsPage />} />
                     </Route>
                 </Routes>

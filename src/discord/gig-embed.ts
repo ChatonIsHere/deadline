@@ -87,8 +87,15 @@ const dropButton = (id: number) => new ButtonBuilder().setCustomId(`gig/leave/${
 /** Confirm / drop out buttons for asking runners about a session. */
 export const confirmButtons = (id: number) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
 
-/** The DM asking a runner to confirm the session time. */
-export function confirmMessage(gig: GigView & { sessionAt: number }, threadUrl: string) {
-    const row = confirmButtons(gig.id).addComponents(new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl));
-    return { content: voice.confirmAsk(gig.name, gig.sessionAt), components: [row] };
+const postButton = (threadUrl: string) => new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl);
+
+/** A DM asking a runner to confirm the session time (or nudging them to). */
+export function confirmMessage(gigId: number, content: string, threadUrl: string) {
+    return { content, components: [confirmButtons(gigId).addComponents(postButton(threadUrl))] };
+}
+
+/** A session reminder DM, with a way to turn reminders off. */
+export function reminderMessage(content: string, threadUrl: string) {
+    const stop = new ButtonBuilder().setCustomId('prefs/reminders/off').setLabel('Stop reminders').setStyle(ButtonStyle.Secondary);
+    return { content, components: [new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl), stop)] };
 }

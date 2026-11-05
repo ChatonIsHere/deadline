@@ -79,6 +79,9 @@ Each gig is one session.
 - When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time.
 - Admins can add edgerunners from the gig page. It works like them signing up, except they're asked to confirm a set time.
 - Runners can drop out after sign-ups lock. Only completing or cancelling the gig stops that.
+- Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.
+- Confirmed runners get a reminder DM 8 hours before (Settings) and 30 minutes before. They can turn reminders off from the DM or on the **Me** page. The thread gets a note too, without pings.
+- Admins and the gig's fixer can open a crew's reserved slots to anyone from the gig page. Reserves who now fit move up.
 
 ## Pictures
 

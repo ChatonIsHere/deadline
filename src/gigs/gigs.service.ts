@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Once } from 'necord';
-import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, count, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { PrefsService } from '../auth/prefs.service';
 import { DB, Db } from '../db/db';
 import { crewMembers, crews, gigObjectives, gigReserves, gigs, gigSlots } from '../db/schema';
 import { GigPostService } from '../discord/gig-post.service';
@@ -10,10 +11,18 @@ import { LibraryService } from '../library/library.service';
 import { canCreateGig, canDeleteGig, canEditGig, canRunGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
 import type { GigInput, GigStatus, GigView, Me, RunnerState } from '../shared/schemas';
 import { SettingsService } from '../settings/settings.service';
+import { confirmDeadline, sessionWork } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot } from './slots';
 
 const ACTIVE: GigStatus[] = ['open', 'closed'];
 const SWEEP_MS = 6 * 60 * 60 * 1000;
+/** How often reminders, nudges and no-response drops are checked. */
+const CLOCK_MS = 60 * 1000;
+
+/** A slot's fields for a runner who has just been asked to confirm. */
+const asked = () => ({ state: 'awaiting' as const, askedAt: new Date(), nudged: false });
+/** A slot's fields once its runner is gone. */
+const emptied = { userId: null, state: 'interested' as const, askedAt: null, nudged: false };
 const GIG_WITH = { objectives: true, slots: { with: { crew: true } }, reserves: true } as const;
 
 /** Every change to a gig goes through here, from the web and from Discord buttons. */
@@ -22,7 +31,7 @@ export class GigsService {
     private readonly logger = new Logger(GigsService.name);
     /** Post updates per gig, run one at a time so an older state never lands last. */
     private readonly postQueue = new Map<number, Promise<void>>();
-    private sweep: NodeJS.Timeout | null = null;
+    private readonly timers: NodeJS.Timeout[] = [];
 
     constructor(
         @Inject(DB) private readonly db: Db,
@@ -30,6 +39,7 @@ export class GigsService {
         private readonly posts: GigPostService,
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
+        private readonly prefs: PrefsService,
     ) {}
 
     list(user: Me): GigView[] {
@@ -153,7 +163,7 @@ export class GigsService {
 
         const freed = this.db
             .update(gigSlots)
-            .set({ userId: null, state: 'interested' })
+            .set(emptied)
             .where(and(eq(gigSlots.gigId, id), eq(gigSlots.userId, userId)))
             .run().changes;
         const unreserved = freed ? 0 : this.removeReserve(id, userId);
@@ -168,7 +178,7 @@ export class GigsService {
         const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.id, slotId), eq(gigSlots.gigId, id)) }).sync();
         if (!slot?.userId) throw new NotFoundException();
 
-        this.db.update(gigSlots).set({ userId: null, state: 'interested' }).where(eq(gigSlots.id, slotId)).run();
+        this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slotId)).run();
         this.afterRemoval(id, voice.runnerOut(slot.userId));
         return this.view(id);
     }
@@ -189,11 +199,11 @@ export class GigsService {
 
         const runners = this.db.transaction((tx) => {
             tx.update(gigs)
-                .set({ sessionAt: sessionAt ? new Date(sessionAt) : null })
+                .set({ sessionAt: sessionAt ? new Date(sessionAt) : null, remindedDay: false, remindedSoon: false })
                 .where(eq(gigs.id, id))
                 .run();
             const filled = and(eq(gigSlots.gigId, id), isNotNull(gigSlots.userId));
-            tx.update(gigSlots).set({ state: sessionAt ? 'awaiting' : 'interested' }).where(filled).run();
+            tx.update(gigSlots).set(sessionAt ? asked() : { state: 'interested', askedAt: null }).where(filled).run();
             return tx.select({ userId: gigSlots.userId }).from(gigSlots).where(filled).all().map((s) => s.userId!);
         });
 
@@ -218,7 +228,10 @@ export class GigsService {
             }
 
             const state: RunnerState = !gig.sessionAt ? 'interested' : assigned ? 'awaiting' : 'confirmed';
-            tx.update(gigSlots).set({ userId, state }).where(eq(gigSlots.id, slot.id)).run();
+            tx.update(gigSlots)
+                .set({ userId, ...(state === 'awaiting' ? asked() : { state }) })
+                .where(eq(gigSlots.id, slot.id))
+                .run();
             return { state, left: slots.filter((s) => s.userId === null).length - 1 };
         });
 
@@ -246,7 +259,7 @@ export class GigsService {
             );
             for (const { slotId, userId } of moves) {
                 tx.update(gigSlots)
-                    .set({ userId, state: gig.sessionAt ? 'awaiting' : 'interested' })
+                    .set({ userId, ...(gig.sessionAt ? asked() : { state: 'interested' }) })
                     .where(eq(gigSlots.id, slotId))
                     .run();
                 tx.delete(gigReserves)
@@ -303,10 +316,85 @@ export class GigsService {
     refreshAll() {
         const live = this.db.select({ id: gigs.id }).from(gigs).where(inArray(gigs.status, ACTIVE)).all();
         for (const { id } of live) this.queuePost(id);
-        if (!this.sweep) {
-            this.sweep = setInterval(() => this.refreshAll(), SWEEP_MS);
-            this.sweep.unref();
+        if (!this.timers.length) {
+            this.timers.push(setInterval(() => this.refreshAll(), SWEEP_MS), setInterval(() => this.tick(), CLOCK_MS));
+            this.timers.forEach((t) => t.unref());
+            this.tick();
         }
+    }
+
+    /** Sends whatever reminders, nudges and no-response drops are due. Runs every minute. */
+    tick(now = Date.now()) {
+        const { reminderHours, confirmHours } = this.settings.get();
+        const upcoming = this.db.query.gigs
+            .findMany({ where: and(inArray(gigs.status, ACTIVE), gt(gigs.sessionAt, new Date(now))), with: { slots: true } })
+            .sync();
+
+        for (const gig of upcoming) {
+            const sessionAt = gig.sessionAt!.getTime();
+            const awaiting = gig.slots.filter((s) => s.userId && s.state === 'awaiting');
+            const work = sessionWork({
+                now,
+                sessionAt,
+                reminderHours,
+                confirmHours,
+                remindedDay: gig.remindedDay,
+                remindedSoon: gig.remindedSoon,
+                awaiting: awaiting.map((s) => ({ userId: s.userId!, askedAt: s.askedAt?.getTime() ?? now, nudged: s.nudged })),
+            });
+
+            if (work.remind) {
+                this.db
+                    .update(gigs)
+                    .set(work.remind === 'soon' ? { remindedDay: true, remindedSoon: true } : { remindedDay: true })
+                    .where(eq(gigs.id, gig.id))
+                    .run();
+                const confirmed = gig.slots.filter((s) => s.userId && s.state === 'confirmed').map((s) => s.userId!);
+                const wanting = confirmed.filter((userId) => this.prefs.get(userId).reminders);
+                const kind = work.remind;
+                this.queuePost(gig.id, { after: (view, threadId) => this.posts.remind(view, threadId, wanting, kind) });
+            }
+
+            for (const userId of work.nudge) {
+                const slot = awaiting.find((s) => s.userId === userId)!;
+                this.db.update(gigSlots).set({ nudged: true }).where(eq(gigSlots.id, slot.id)).run();
+                const confirmBy = confirmDeadline(slot.askedAt?.getTime() ?? now, sessionAt, confirmHours);
+                this.queuePost(gig.id, { after: (view, threadId) => this.posts.askToConfirm(view, threadId, [userId], confirmBy, true) });
+            }
+
+            if (work.drop.length) {
+                this.db
+                    .update(gigSlots)
+                    .set(emptied)
+                    .where(and(eq(gigSlots.gigId, gig.id), inArray(gigSlots.userId, work.drop)))
+                    .run();
+                const promoted = this.promote(gig.id);
+                const dropped = work.drop;
+                this.queuePost(gig.id, {
+                    note: [voice.noAnswer(dropped), promoted.length ? voice.promoted(promoted) : ''].filter(Boolean).join('\n'),
+                    ask: promoted,
+                    after: (view) => this.posts.notifyDropped(view, dropped),
+                });
+            }
+        }
+    }
+
+    /** Lifts a crew's hold on its slots in this gig, so any edgerunner can take them. */
+    openCrewSlots(user: Me, id: number, crewId: number): GigView {
+        const gig = this.row(id);
+        if (!canRunGig(user, gig)) throw new ForbiddenException();
+        const crew = this.db.query.crews.findFirst({ where: eq(crews.id, crewId) }).sync();
+        const changed = this.db
+            .update(gigSlots)
+            .set({ crewId: null })
+            .where(and(eq(gigSlots.gigId, id), eq(gigSlots.crewId, crewId)))
+            .run().changes;
+        if (!changed) throw new NotFoundException();
+
+        const promoted = this.promote(id);
+        const note = [voice.slotsOpened(crew?.name ?? 'The crew'), promoted.length ? voice.promoted(promoted) : ''].filter(Boolean).join('\n');
+        this.queuePost(id, { note, ask: gig.sessionAt ? promoted : [] });
+        return this.view(id);
     }
 
     // Helpers
@@ -326,10 +414,10 @@ export class GigsService {
     }
 
     /**
-     * Updates the gig's post, then posts `note` in its thread and asks the `ask` runners
-     * to confirm the session time by DM.
+     * Updates the gig's post, then posts `note` in its thread, asks the `ask` runners to
+     * confirm the session time by DM, and runs `after` for anything else that needs the post.
      */
-    private queuePost(id: number, { note, ask = [] }: { note?: string; ask?: string[] } = {}) {
+    private queuePost(id: number, { note, ask = [], after }: { note?: string; ask?: string[]; after?: AfterPost } = {}) {
         const previous = this.postQueue.get(id) ?? Promise.resolve();
         const next = previous.then(async () => {
             try {
@@ -337,7 +425,12 @@ export class GigsService {
                 const view = this.view(id);
                 const threadId = await this.posts.sync(view, gig.threadId, note);
                 if (threadId !== gig.threadId) this.db.update(gigs).set({ threadId }).where(eq(gigs.id, id)).run();
-                if (ask.length && threadId) await this.posts.askToConfirm(view, threadId, ask);
+                if (!threadId) return;
+                if (ask.length && view.sessionAt) {
+                    const confirmBy = confirmDeadline(Date.now(), view.sessionAt, this.settings.get().confirmHours);
+                    await this.posts.askToConfirm(view, threadId, ask, confirmBy);
+                }
+                await after?.(view, threadId);
             } catch (err) {
                 this.logger.error(`Couldn't update the post for gig ${id}: ${err}`);
             }
@@ -360,6 +453,12 @@ export class GigsService {
         return this.toView(gig);
     }
 
+    /** When an awaiting runner gets dropped if they don't confirm. */
+    private confirmBy(slot: { state: RunnerState; askedAt: Date | null }, sessionAt: Date | null): number | null {
+        if (slot.state !== 'awaiting' || !sessionAt || !slot.askedAt) return null;
+        return confirmDeadline(slot.askedAt.getTime(), sessionAt.getTime(), this.settings.get().confirmHours);
+    }
+
     private toView(gig: GigRow): GigView {
         return {
             id: gig.id,
@@ -379,6 +478,7 @@ export class GigsService {
                     crew: s.crew ? { id: s.crew.id, name: s.crew.name } : null,
                     runner: s.userId ? this.members.member(s.userId) : null,
                     state: s.state,
+                    confirmBy: this.confirmBy(s, gig.sessionAt),
                 })),
             reserves: gig.reserves.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime()).map((r) => this.members.member(r.userId)),
             sessionAt: gig.sessionAt?.getTime() ?? null,
@@ -414,6 +514,7 @@ export class GigsService {
     }
 }
 
+type AfterPost = (view: GigView, threadId: string) => Promise<void>;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type GigRow = typeof gigs.$inferSelect & {
     objectives: (typeof gigObjectives.$inferSelect)[];

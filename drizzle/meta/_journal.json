@@ -22,6 +22,13 @@
       "when": 1793882914644,
       "tag": "0002_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793884273246,
+      "tag": "0003_reminders_deadlines",
+      "breakpoints": true
     }
   ]
 }

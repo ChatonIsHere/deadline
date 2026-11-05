@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
-import { gigInput, type GigInput, type Me, memberInput, sessionInput, statusInput, type StatusInput } from '../shared/schemas';
+import { gigInput, type GigInput, type Me, memberInput, openSlotsInput, sessionInput, statusInput, type StatusInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { GigsService } from './gigs.service';
 
@@ -74,6 +74,12 @@ export class GigsController {
     @Delete(':id/reserves/:userId')
     unreserve(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Param('userId') userId: string) {
         return this.gigs.unreserve(user, id, userId);
+    }
+
+    /** Lets any edgerunner take a crew's reserved slots. */
+    @Post(':id/open-slots')
+    openSlots(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(openSlotsInput)) body: { crewId: number }) {
+        return this.gigs.openCrewSlots(user, id, body.crewId);
     }
 
     /** Sets (or clears, with null) the session time. Runners get asked to confirm. */

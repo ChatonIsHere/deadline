@@ -2,6 +2,7 @@ import '../test-env';
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { CrewsService } from '../crews/crews.service';
+import { PrefsService } from '../auth/prefs.service';
 import { openDb } from '../db/db';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
@@ -31,15 +32,21 @@ const members = {
     fixers: () => [{ id: 'fixer', name: 'fixer', avatar: null }],
 } as unknown as MembersService;
 
-/** Who the service asked to confirm a session (DMs). */
+/** DMs the service sent, by kind. */
 let asked: string[] = [];
+let nudged: string[] = [];
+let dropped: string[] = [];
+let reminders: string[][] = [];
 const posts = {
     sync: async () => 'thread',
-    askToConfirm: async (_gig: unknown, _thread: string, ids: string[]) => asked.push(...ids),
+    askToConfirm: async (_gig: unknown, _thread: string, ids: string[], _by: number, nudge = false) => (nudge ? nudged : asked).push(...ids),
+    remind: async (_gig: unknown, _thread: string, ids: string[], kind: string) => reminders.push([kind, ...ids]),
+    notifyDropped: async (_gig: unknown, ids: string[]) => dropped.push(...ids),
 } as unknown as GigPostService;
 /** Post updates (and DMs) run in the background. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
-const settings = { get: () => ({ guildId: '1' }) } as unknown as SettingsService;
+const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
+const H = 3_600_000;
 const library = { exists: () => true, pick: () => null } as unknown as LibraryService;
 
 const input = (slots: GigInput['slots']): GigInput => ({
@@ -58,11 +65,71 @@ describe('GigsService', () => {
     let gigs: GigsService;
     let crews: CrewsService;
 
+    let prefs: PrefsService;
+
     beforeEach(() => {
         const db = openDb(':memory:');
-        gigs = new GigsService(db, members, posts, settings, library);
+        prefs = new PrefsService(db);
+        gigs = new GigsService(db, members, posts, settings, library, prefs);
         crews = new CrewsService(db, members, gigs);
         asked = [];
+        nudged = [];
+        dropped = [];
+        reminders = [];
+    });
+
+    it('reminds confirmed runners on the day and 30 minutes before, unless they opted out', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 2 }]));
+        await gigs.join('a', gig.id);
+        await gigs.join('b', gig.id);
+        const sessionAt = Date.now() + 20 * H;
+        gigs.setSession(admin, gig.id, sessionAt);
+        gigs.confirm('a', gig.id);
+        gigs.confirm('b', gig.id);
+        prefs.set('b', { reminders: false });
+
+        gigs.tick(sessionAt - 9 * H);
+        gigs.tick(sessionAt - 8 * H);
+        gigs.tick(sessionAt - 7 * H);
+        gigs.tick(sessionAt - 20 * 60_000);
+        await settle();
+        assert.deepEqual(reminders, [
+            ['day', 'a'],
+            ['soon', 'a'],
+        ]);
+    });
+
+    it('nudges runners who have not confirmed, then drops them and asks the next reserve', async () => {
+        const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+        await gigs.join('a', gig.id);
+        await gigs.join('b', gig.id);
+        const askedAt = Date.now();
+        gigs.setSession(admin, gig.id, askedAt + 100 * H);
+        await settle();
+        asked = [];
+
+        gigs.tick(askedAt + 37 * H);
+        gigs.tick(askedAt + 38 * H);
+        await settle();
+        assert.deepEqual(nudged, ['a']);
+
+        gigs.tick(askedAt + 49 * H);
+        await settle();
+        assert.deepEqual(dropped, ['a']);
+        assert.deepEqual(states(gig.id), [['b', 'awaiting']]);
+        assert.deepEqual(asked, ['b']);
+    });
+
+    it('opens crew slots to anyone and fills them from the reserves', async () => {
+        const crew = crews.create(people[2], { name: 'Moxes', tagline: '' });
+        const gig = gigs.create(admin, input([{ crewId: crew.id, count: 1 }]));
+        await gigs.join('c', gig.id);
+        const after = gigs.openCrewSlots(admin, gig.id, crew.id);
+        assert.deepEqual(
+            after.slots.map((s) => [s.crew, s.runner?.id]),
+            [[null, 'c']],
+        );
+        assert.throws(() => gigs.openCrewSlots(people[3], gig.id, crew.id), /Forbidden/);
     });
 
     const states = (id: number) => gigs.get(admin, id).slots.map((s) => [s.runner?.id ?? null, s.state]);

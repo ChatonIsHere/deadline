@@ -68,10 +68,10 @@ export function Layout() {
                                 </Link>
                             </Button>
                         )}
-                        <span className="flex items-center gap-2">
+                        <Link to="/me" className="flex items-center gap-2 hover:text-primary" title="Your settings">
                             <Avatar member={me} />
                             <span className="hidden sm:inline">{me.name}</span>
-                        </span>
+                        </Link>
                         <Button variant="ghost" size="icon" onClick={logout} title="Log out">
                             <LogOut className="size-4" />
                         </Button>

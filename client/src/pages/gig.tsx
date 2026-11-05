@@ -30,6 +30,7 @@ export function Gig() {
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'Status updated.');
     const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'Runner removed.');
     const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'Removed from reserves.');
+    const openCrew = useAction((crewId: number) => api(`${url}/open-slots`, 'POST', { crewId }), 'Slots opened to anyone.');
     const remove = useAction(() => api(url, 'DELETE'), () => navigate('/'));
 
     if (isError) return <Say>no such contract.</Say>;
@@ -130,6 +131,7 @@ export function Gig() {
                             gig={gig}
                             onKick={me.isAdmin ? (slotId) => kick.mutate(slotId) : undefined}
                             onUnreserve={me.isAdmin ? (userId) => unreserve.mutate(userId) : undefined}
+                            onOpenCrew={canRunGig(me, gig) && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
                         {gig.status === 'open' && <Say className="mt-4 text-xs">runners sign up from the Discord post.</Say>}

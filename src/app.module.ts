@@ -4,6 +4,7 @@ import { NecordModule } from 'necord';
 import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
+import { PrefsService } from './auth/prefs.service';
 import { config } from './config';
 import { CrewsController } from './crews/crews.controller';
 import { CrewsService } from './crews/crews.service';
@@ -32,6 +33,7 @@ import { LibraryService } from './library/library.service';
         { provide: DB, useFactory: () => openDb(config.DATABASE_PATH) },
         AuthService,
         AuthGuard,
+        PrefsService,
         SettingsService,
         LibraryService,
         MembersService,

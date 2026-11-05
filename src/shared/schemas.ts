@@ -51,6 +51,12 @@ export const memberInput = z.object({ userId: z.string().min(1) });
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
 
+export const prefsInput = z.object({ reminders: z.boolean() });
+export type Prefs = z.infer<typeof prefsInput>;
+
+/** Which crew's slots to open to anyone. */
+export const openSlotsInput = z.object({ crewId: z.number().int() });
+
 export const regionInput = z.object({
     name: text(40),
     district: z.string().trim().max(40).nullable(),
@@ -79,6 +85,8 @@ export const settingsInput = z.object({
     adminRoleId: snowflake,
     fixerRoleId: snowflake,
     edgerunnerRoleId: snowflake,
+    reminderHours: z.number().int().min(1).max(72),
+    confirmHours: z.number().int().min(1).max(168),
 });
 export type Settings = z.infer<typeof settingsInput>;
 
@@ -103,6 +111,8 @@ export interface SlotView {
     crew: { id: number; name: string } | null;
     runner: Member | null;
     state: RunnerState;
+    /** Unix ms. When an awaiting runner gets dropped if they haven't confirmed. */
+    confirmBy: number | null;
 }
 
 export interface GigView {

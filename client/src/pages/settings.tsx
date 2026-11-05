@@ -4,7 +4,7 @@ import { type FormEvent, useState } from 'react';
 import { Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Label, Select } from '@/components/ui/input';
+import { Input, Label, Select } from '@/components/ui/input';
 import { api, useAction, useSettings, useUser } from '@/lib/api';
 
 const ROLES: { key: keyof Settings; label: string; hint: string }[] = [
@@ -50,9 +50,7 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                     <Select
                         value={form.guildId ?? ''}
                         disabled={!isOwner}
-                        onChange={(e) =>
-                            setForm({ guildId: e.target.value || null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })
-                        }
+                        onChange={(e) => set({ guildId: e.target.value || null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })}
                     >
                         <option value="">Pick a server</option>
                         <Options list={view.guilds} />
@@ -100,6 +98,36 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                     </Card>
                 </>
             )}
+
+            <Card className="space-y-4">
+                <CardTitle>Sessions</CardTitle>
+                <div>
+                    <Label htmlFor="reminder-hours">Day-of reminder (hours before)</Label>
+                    <Input
+                        id="reminder-hours"
+                        type="number"
+                        min={1}
+                        max={72}
+                        value={form.reminderHours}
+                        onChange={(e) => set({ reminderHours: Number(e.target.value) })}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Confirmed runners also get one 30 minutes before. They can turn reminders off.</p>
+                </div>
+                <div>
+                    <Label htmlFor="confirm-hours">Time to confirm (hours)</Label>
+                    <Input
+                        id="confirm-hours"
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={form.confirmHours}
+                        onChange={(e) => set({ confirmHours: Number(e.target.value) })}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        After being asked. Ends an hour before the session if that's sooner. One nudge with 12 hours left, then their slot goes to the reserves.
+                    </p>
+                </div>
+            </Card>
 
             <Button type="submit" className="w-full" disabled={save.isPending}>
                 Save config

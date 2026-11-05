@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type ButtonInteraction, MessageFlags } from 'discord.js';
 import { Button, type ButtonContext, ComponentParam, Context, type ContextOf, On, SlashCommand, type SlashCommandContext } from 'necord';
+import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
 import { GigsService } from '../gigs/gigs.service';
 import { GigPostService } from './gig-post.service';
@@ -12,6 +13,7 @@ export class GigInteractions {
     constructor(
         private readonly gigs: GigsService,
         private readonly posts: GigPostService,
+        private readonly prefs: PrefsService,
     ) {}
 
     /** Live gig posts stay open. Discord archives quiet threads after a week, and people can close them by hand. */
@@ -35,6 +37,15 @@ export class GigInteractions {
         return this.answer(interaction, () => {
             this.gigs.leave(interaction.user.id, Number(id));
             return voice.left();
+        });
+    }
+
+    /** From a reminder DM. Turned back on from the web. */
+    @Button('prefs/reminders/off')
+    remindersOff(@Context() [interaction]: ButtonContext) {
+        return this.answer(interaction, () => {
+            this.prefs.set(interaction.user.id, { ...this.prefs.get(interaction.user.id), reminders: false });
+            return voice.remindersOff(config.PUBLIC_URL);
         });
     }
 

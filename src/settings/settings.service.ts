@@ -4,7 +4,15 @@ import { DB, Db } from '../db/db';
 import { settings } from '../db/schema';
 import type { GuildOptions, Me, Option, Settings } from '../shared/schemas';
 
-const EMPTY: Settings = { guildId: null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null };
+const EMPTY: Settings = {
+    guildId: null,
+    forumId: null,
+    adminRoleId: null,
+    fixerRoleId: null,
+    edgerunnerRoleId: null,
+    reminderHours: 8,
+    confirmHours: 48,
+};
 
 /** Which server, forum and roles Deadline uses. Kept in SQLite, changed on the web. */
 @Injectable()
@@ -36,7 +44,7 @@ export class SettingsService {
                 if (roleId && !roles.some((r) => r.id === roleId)) throw new BadRequestException('That role is not in this server.');
             }
         } else {
-            next = EMPTY;
+            next = { ...EMPTY, reminderHours: next.reminderHours, confirmHours: next.confirmHours };
         }
 
         this.db.insert(settings).values({ id: 1, ...next }).onConflictDoUpdate({ target: settings.id, set: next }).run();

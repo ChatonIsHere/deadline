@@ -1,11 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { isProd } from '../config';
 import { MembersService } from '../discord/members.service';
-import type { Me } from '../shared/schemas';
+import { type Me, type Prefs, prefsInput } from '../shared/schemas';
+import { ZodPipe } from '../zod.pipe';
 import { AuthGuard, CurrentUser, SESSION_COOKIE } from './auth.guard';
 import { AuthService, SESSION_DAYS } from './auth.service';
+import { PrefsService } from './prefs.service';
 
 const STATE_COOKIE = 'deadline_oauth_state';
 const cookie: CookieOptions = { httpOnly: true, sameSite: 'lax', secure: isProd, path: '/' };
@@ -17,7 +19,21 @@ export class AuthController {
     constructor(
         private readonly auth: AuthService,
         private readonly members: MembersService,
+        private readonly prefs: PrefsService,
     ) {}
+
+    @Get('api/prefs')
+    @UseGuards(AuthGuard)
+    getPrefs(@CurrentUser() user: Me) {
+        return this.prefs.get(user.id);
+    }
+
+    @Put('api/prefs')
+    @UseGuards(AuthGuard)
+    setPrefs(@CurrentUser() user: Me, @Body(new ZodPipe(prefsInput)) body: Prefs) {
+        this.prefs.set(user.id, body);
+        return this.prefs.get(user.id);
+    }
 
     @Get('auth/login')
     login(@Res() res: Response) {

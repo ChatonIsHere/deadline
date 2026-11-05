@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ChannelType, Client, ForumChannel, ForumLayoutType, ThreadAutoArchiveDuration } from 'discord.js';
+import { ChannelType, Client, ForumChannel, ForumLayoutType, type MessageCreateOptions, ThreadAutoArchiveDuration } from 'discord.js';
 import { Once } from 'necord';
 import { config } from '../config';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { EmojiService } from './emoji.service';
-import { confirmButtons, confirmMessage, gigMessage, openSlots } from './gig-embed';
+import { confirmButtons, confirmMessage, gigMessage, openSlots, reminderMessage } from './gig-embed';
 import { voice } from './voice';
 
 /** Tags the bot sets on posts. Moderated so only the bot and mods can apply them. */
@@ -127,19 +127,10 @@ export class GigPostService {
     }
 
     /** DMs runners to confirm the session. Anyone whose DMs are closed gets pinged in the thread instead. */
-    async askToConfirm(gig: GigView, threadId: string, userIds: string[]) {
+    async askToConfirm(gig: GigView, threadId: string, userIds: string[], confirmBy: number, nudge = false) {
         if (!gig.sessionAt) return;
-        const threadUrl = `https://discord.com/channels/${this.settings.get().guildId}/${threadId}`;
-        const message = confirmMessage({ ...gig, sessionAt: gig.sessionAt }, threadUrl);
-
-        const failed: string[] = [];
-        for (const id of userIds) {
-            try {
-                await (await this.client.users.fetch(id)).send(message);
-            } catch {
-                failed.push(id);
-            }
-        }
+        const content = (nudge ? voice.nudge : voice.confirmAsk)(gig.name, gig.sessionAt, confirmBy);
+        const failed = await this.dm(userIds, confirmMessage(gig.id, content, this.threadUrl(threadId)));
         if (!failed.length) return;
 
         const thread = await this.client.channels.fetch(threadId);
@@ -149,6 +140,38 @@ export class GigPostService {
             components: [confirmButtons(gig.id)],
             allowedMentions: { users: failed },
         });
+    }
+
+    /** Session reminder: DMs to confirmed runners who want them, and a note in the thread for everyone. */
+    async remind(gig: GigView, threadId: string, userIds: string[], kind: 'day' | 'soon') {
+        if (!gig.sessionAt) return;
+        const content = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
+        await this.dm(userIds, reminderMessage(content, this.threadUrl(threadId)));
+
+        const thread = await this.client.channels.fetch(threadId);
+        if (thread?.isThread()) await thread.send((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt));
+    }
+
+    /** Tells runners they were dropped for not confirming. */
+    async notifyDropped(gig: GigView, userIds: string[]) {
+        await this.dm(userIds, { content: voice.dropped(gig.name) });
+    }
+
+    /** Sends a DM to each person. Returns who couldn't be reached. */
+    private async dm(userIds: string[], message: MessageCreateOptions): Promise<string[]> {
+        const failed: string[] = [];
+        for (const id of userIds) {
+            try {
+                await (await this.client.users.fetch(id)).send(message);
+            } catch {
+                failed.push(id);
+            }
+        }
+        return failed;
+    }
+
+    private threadUrl(threadId: string) {
+        return `https://discord.com/channels/${this.settings.get().guildId}/${threadId}`;
     }
 
     /** Adds a "Fixer: Name" tag the first time a fixer posts, while the forum has room. */

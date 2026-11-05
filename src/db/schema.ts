@@ -15,6 +15,16 @@ export const settings = sqliteTable('settings', {
     adminRoleId: text(),
     fixerRoleId: text(),
     edgerunnerRoleId: text(),
+    // Day-of reminder, hours before a session
+    reminderHours: integer().notNull().default(8),
+    // How long runners get to confirm a session time
+    confirmHours: integer().notNull().default(48),
+});
+
+/** Per-person choices. No row means the defaults. */
+export const userPrefs = sqliteTable('user_prefs', {
+    userId: text().primaryKey(),
+    reminders: integer({ mode: 'boolean' }).notNull().default(true),
 });
 
 export const sessions = sqliteTable('sessions', {
@@ -59,6 +69,9 @@ export const gigs = sqliteTable('gigs', {
     threadId: text(),
     // When the session is played. Set by an admin. Until then runners are only "interested".
     sessionAt: integer({ mode: 'timestamp_ms' }),
+    // Reminders already sent for the current session time
+    remindedDay: integer({ mode: 'boolean' }).notNull().default(false),
+    remindedSoon: integer({ mode: 'boolean' }).notNull().default(false),
     createdAt: createdAt(),
 });
 
@@ -101,6 +114,9 @@ export const gigSlots = sqliteTable('gig_slots', {
     userId: text(),
     // Where the runner stands. Only meaningful while userId is set.
     state: text({ enum: RUNNER_STATES }).notNull().default('interested'),
+    // When an awaiting runner was asked to confirm, and whether they've been nudged since
+    askedAt: integer({ mode: 'timestamp_ms' }),
+    nudged: integer({ mode: 'boolean' }).notNull().default(false),
     position: integer().notNull(),
 });
 
