@@ -1,7 +1,7 @@
 import type { RunnerSummary } from '@shared/schemas';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router';
-import { LinkCard, Say } from '@/components/common';
+import { Help, LinkCard, Say } from '@/components/common';
 import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,7 +16,9 @@ export function RunnersPage() {
     return (
         <div className="space-y-5">
             <div className="flex items-center gap-3">
-                <h1 className="flex-1 text-3xl text-primary">Runners</h1>
+                <h1 className="flex flex-1 items-center gap-3 text-3xl text-primary">
+                    Runners <Help>player characters. a player can have several and picks one when signing up for a gig.</Help>
+                </h1>
                 <Button asChild size="sm">
                     <Link to="/runners/new">
                         <Plus className="size-4" /> New runner
@@ -51,7 +53,9 @@ export function FixersPage() {
     return (
         <div className="space-y-5">
             <div className="flex items-center gap-3">
-                <h1 className="flex-1 text-3xl text-primary">Fixers</h1>
+                <h1 className="flex flex-1 items-center gap-3 text-3xl text-primary">
+                    Fixers <Help>runners with the Fixer role whose player has the fixer role in Discord, plus NPC fixers. rated by the runners who worked for them.</Help>
+                </h1>
                 {me.isAdmin && (
                     <Button asChild size="sm">
                         <Link to="/runners/new?npc=1">

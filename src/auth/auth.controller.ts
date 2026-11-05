@@ -51,7 +51,7 @@ export class AuthController {
             const sessionId = await this.auth.start(await this.auth.discordUserId(code));
             if (!sessionId) return res.redirect('/login?error=denied');
             res.cookie(SESSION_COOKIE, sessionId, { ...cookie, maxAge: SESSION_DAYS * 86_400_000 });
-            res.redirect('/');
+            res.redirect('/gigs');
         } catch (err) {
             this.logger.warn(`Login failed: ${err}`);
             res.redirect('/login?error=failed');

@@ -34,7 +34,7 @@ export function Gig() {
     const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'Runner removed.');
     const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'Removed from reserves.');
     const openCrew = useAction((crewId: number) => api(`${url}/open-slots`, 'POST', { crewId }), 'Slots opened to anyone.');
-    const remove = useAction(() => api(url, 'DELETE'), () => navigate('/'));
+    const remove = useAction(() => api(url, 'DELETE'), () => navigate('/gigs'));
 
     if (isError) return <Say>no such contract.</Say>;
     if (!gig) return <Say>decrypting...</Say>;
@@ -143,7 +143,10 @@ export function Gig() {
                     {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={gig.sessionAt ?? 'none'} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle
+                            className="flex items-center gap-2"
+                            help="runners hold a slot while the session time is being sorted, then confirm once it's set. when the slots are full, sign-ups wait on the reserves in order."
+                        >
                             <Icon name="crew" /> Crew {gig.slots.filter((s) => s.runner).length}/{gig.slots.length}
                         </CardTitle>
                         <SlotList
@@ -158,7 +161,9 @@ export function Gig() {
 
                     {(nextStatuses.length > 0 || canDelete) && (
                         <Card className="flex flex-wrap gap-2">
-                            <CardTitle className="w-full">Manage</CardTitle>
+                            <CardTitle className="w-full" help="status changes are posted in the gig's thread. completing or cancelling locks the post.">
+                                Manage
+                            </CardTitle>
                             {nextStatuses.map((status) => {
                                 const action = STATUS_ACTIONS[status];
                                 // Completing has its own form for the debrief and rewards

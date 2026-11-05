@@ -15,7 +15,7 @@ export function DebriefCard({ gig }: { gig: GigView }) {
     if (!crew) return null;
     return (
         <Card className="space-y-4 [--frame:var(--color-success)]">
-            <CardTitle>Debrief</CardTitle>
+            <CardTitle help="the GM's wrap-up. everyone on the gig got their cut by DM.">Debrief</CardTitle>
             {gig.summary ? <Markdown text={gig.summary} /> : <Say>no summary filed.</Say>}
             <div>
                 <p className="mb-1 font-display text-xs tracking-widest text-muted-foreground uppercase">Crew rewards</p>
@@ -60,7 +60,7 @@ export function RateFixer({ gig }: { gig: GigView }) {
     const changed = stars !== (gig.myRating?.stars ?? null) || comment.trim() !== (gig.myRating?.comment ?? '');
     return (
         <Card className="space-y-3">
-            <CardTitle>Rate {gig.fixerName}</CardTitle>
+            <CardTitle help="anyone who had a runner on the gig can rate its fixer. the latest ratings show on their profile.">Rate {gig.fixerName}</CardTitle>
             <StarPicker value={stars} onPick={setStars} disabled={rate.isPending} />
             <Textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={300} placeholder="A note for the fixer's profile (optional)" />
             <div className="flex items-center gap-3">

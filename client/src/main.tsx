@@ -28,7 +28,9 @@ createRoot(document.getElementById('root')!).render(
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route element={<Layout />}>
-                        <Route index element={<Board />} />
+                        {/* Signed in, the root is the gig list */}
+                        <Route index element={<Navigate to="/gigs" replace />} />
+                        <Route path="gigs" element={<Board />} />
                         <Route path="gigs/new" element={<GigEdit />} />
                         <Route path="gigs/:id" element={<Gig />} />
                         <Route path="gigs/:id/edit" element={<GigEdit />} />

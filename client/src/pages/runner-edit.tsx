@@ -106,7 +106,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
             <div className="grid gap-5 sm:grid-cols-[12rem_1fr]">
                 <Card className="space-y-3">
-                    <CardTitle>Picture</CardTitle>
+                    <CardTitle help="a square picture, shown on gigs, crews and the runner's profile.">Picture</CardTitle>
                     <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
                     <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
                 </Card>
@@ -129,7 +129,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                         />
                     </div>
                     <div>
-                        <Label>Extra roles</Label>
+                        <Label help="other roles this runner has. Fixer gives them a fixer profile.">Extra roles</Label>
                         <div className="flex flex-wrap gap-1.5">
                             {roleList
                                 .filter((r) => r !== form.role)

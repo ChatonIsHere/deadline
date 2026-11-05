@@ -2,7 +2,7 @@ import { canCreateCrew } from '@shared/permissions';
 import type { CrewView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Icon, LinkCard, Say } from '@/components/common';
+import { Help, Icon, LinkCard, Say } from '@/components/common';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,9 @@ export function Crews() {
     return (
         <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
             <div>
-                <h1 className="mb-5 text-3xl text-primary">Crews</h1>
+                <h1 className="mb-5 flex items-center gap-3 text-3xl text-primary">
+                    Crews <Help>groups of runners with ranks. a gig can keep slots for a crew.</Help>
+                </h1>
                 {isPending ? (
                     <Say>scanning...</Say>
                 ) : crews?.length ? (
@@ -75,7 +77,7 @@ function NewCrew() {
 
     return (
         <Card className="h-fit">
-            <CardTitle>Register a crew</CardTitle>
+            <CardTitle help="the runner you pick becomes its Founder. invite others once it's made.">Register a crew</CardTitle>
             <form onSubmit={submit} className="space-y-4">
                 <div>
                     <Label htmlFor="crew-name">Name</Label>

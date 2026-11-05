@@ -94,7 +94,7 @@ function SettingsForm({ view, isOwner }: { view: SettingsView; isOwner: boolean 
                     </Card>
 
                     <Card className="space-y-4">
-                        <CardTitle>Roles</CardTitle>
+                        <CardTitle help="Discord roles that decide who can do what. admins run everything, fixers post gigs for approval, edgerunners take gigs and found crews.">Roles</CardTitle>
                         {ROLES.map((r) => (
                             <div key={r.key}>
                                 <Label htmlFor={r.key}>{r.label}</Label>

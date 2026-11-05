@@ -30,7 +30,7 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
 
     return (
         <Card className="space-y-3">
-            <CardTitle>Session</CardTitle>
+            <CardTitle help="the time the gig gets played, set by an admin. everyone on it is asked by DM to confirm, and confirmed runners get reminders.">Session</CardTitle>
             {gig.sessionAt ? (
                 <>
                     <p className="font-display text-lg text-primary">{formatSession(gig.sessionAt)}</p>
@@ -105,7 +105,7 @@ export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
 
     return (
         <Card className="space-y-3 [--frame:var(--color-primary)]">
-            <CardTitle>Your spot</CardTitle>
+            <CardTitle help="where your runner stands on this gig. you can pull out until it's completed or cancelled.">Your spot</CardTitle>
             <Say>{status}</Say>
             {canJoin && mine && mine.length > 1 && (
                 <Select value={picked} onChange={setPicked} placeholder="Which runner?" options={mine.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />

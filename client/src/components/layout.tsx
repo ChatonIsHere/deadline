@@ -62,7 +62,7 @@ export function Layout() {
     if (isPending) return <Say className="p-6">connecting to the board...</Say>;
 
     const channels: Channel[] = [
-        { to: '/', label: 'Board', short: 'BRD' },
+        { to: '/gigs', label: 'Gigs', short: 'GIG' },
         { to: '/runners', label: 'Runners', short: 'RNS' },
         { to: '/fixers', label: 'Fixers', short: 'FIX' },
         { to: '/crews', label: 'Crews', short: 'CRW' },
@@ -116,12 +116,12 @@ function Rail({ channels }: { channels: Channel[] }) {
     if (!me) return null;
     return (
         <aside className="sticky top-0 hidden h-screen flex-col border-r border-primary/40 bg-card/60 md:flex">
-            <Link to="/" className="flex h-12 items-center gap-2 border-b border-primary/40 px-4">
+            <Link to="/gigs" className="flex h-12 items-center gap-2 border-b border-primary/40 px-4">
                 <img src="/logo.svg" alt="" className="size-6" />
                 <span className="font-display text-lg font-bold tracking-[0.2em] text-primary">DEADLINE</span>
             </Link>
 
-            <p className="px-4 pt-5 pb-2 text-[10px] tracking-widest text-muted-foreground">// CHANNELS</p>
+            <p className="px-4 pt-5 pb-2 text-xs tracking-widest text-muted-foreground">// CHANNELS</p>
             <nav className="flex flex-col">
                 {channels.map((c, i) => (
                     <NavLink
@@ -152,7 +152,7 @@ function Rail({ channels }: { channels: Channel[] }) {
             )}
 
             <div className="mt-auto space-y-3 border-t border-primary/40 px-4 py-4">
-                <p className="text-[10px] tracking-widest text-muted-foreground">// STATUS</p>
+                <p className="text-xs tracking-widest text-muted-foreground">// STATUS</p>
                 <Readout />
                 <div className="flex items-center gap-2">
                     <Link to="/me" className="flex min-w-0 flex-1 items-center gap-2 hover:text-primary" title="Your settings">
@@ -168,7 +168,7 @@ function Rail({ channels }: { channels: Channel[] }) {
     );
 }
 
-/** Live gigs, the time in Night City and whether the browser is online. */
+/** Live gigs, the time in Night City (Los Angeles time) and whether the browser is online. */
 function Readout() {
     const gigs = useGigs().data ?? [];
     const live = gigs.filter((g) => isLive(g.status)).length;
@@ -182,13 +182,10 @@ function Readout() {
             <dd className="text-primary tabular-nums">
                 {live} contract{live === 1 ? '' : 's'}
             </dd>
-            <dt className="text-muted-foreground">NC</dt>
+            <dt className="text-muted-foreground">NC TIME</dt>
             <dd className="tabular-nums">{ncTime}</dd>
             <dt className="text-muted-foreground">LINK</dt>
-            <dd className={cn('flex items-center gap-1.5', online ? 'text-success' : 'text-destructive')}>
-                <span className={cn('size-1.5', online ? 'animate-pulse bg-success' : 'bg-destructive')} />
-                {online ? 'uplink stable' : 'no signal'}
-            </dd>
+            <dd className={online ? 'text-success' : 'text-destructive'}>{online ? 'uplink stable' : 'no signal'}</dd>
         </dl>
     );
 }
@@ -212,7 +209,7 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
             </span>
             <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
                 <Search className="size-4 md:hidden" />
-                <kbd className="cut hidden bg-muted px-2 py-0.5 text-[10px] tracking-widest [--cut:4px] md:block">CTRL K</kbd>
+                <kbd className="cut hidden bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px] md:block">CTRL K</kbd>
             </span>
         </button>
     );
@@ -235,7 +232,6 @@ function usePath(): string {
     const runner = useRunner((kind === 'runners' || kind === 'fixers') && numeric ? id : undefined).data;
     const crew = useCrew(kind === 'crews' && numeric ? id : undefined).data;
     const name = gig ? slug(gig.name) : (runner?.slug ?? crew?.slug);
-    if (!parts.length) return 'board';
     if (numeric && name) parts[1] = name;
     return parts.join('/');
 }
@@ -278,9 +274,9 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
                 )
             }
         >
-            {number && <span className="font-display text-[10px] tracking-widest opacity-60">{channelNo(number)}</span>}
+            {number && <span className="font-display text-xs tracking-widest">{channelNo(number)}</span>}
             {children}
-            {!number && <span className="font-display text-[10px] tracking-widest">YOU</span>}
+            {!number && <span className="font-display text-xs tracking-widest">YOU</span>}
         </NavLink>
     );
 }

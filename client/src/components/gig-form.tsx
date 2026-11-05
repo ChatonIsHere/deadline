@@ -140,14 +140,14 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <Input id="name" value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={100} />
                     </div>
                     <div>
-                        <Label>Brief</Label>
+                        <Label help="the post's description in Discord, up to 4,000 characters. bold, italic, lists, links and quotes carry over.">Brief</Label>
                         <MarkdownEditor value={form.objective} onChange={(objective) => set({ objective })} />
                         <p className={cn('mt-1 text-right text-xs', form.objective.length > 4000 ? 'text-destructive' : 'text-muted-foreground')}>{form.objective.length} / 4000</p>
                     </div>
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle>Secondary objectives</CardTitle>
+                    <CardTitle help="optional extras, one line each. a bonus is paid on top of the pay when the crew pulls one off.">Secondary objectives</CardTitle>
                     {form.objectives.map((o, i) => (
                         // Text on its own line on phones, bonus beside it on wider screens
                         <div key={i} className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
@@ -180,7 +180,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
 
             <div className="space-y-5">
                 <Card className="space-y-3">
-                    <CardTitle>Picture</CardTitle>
+                    <CardTitle help="every post gets a picture. one is picked from the library for the location. shuffle for another, or upload your own.">Picture</CardTitle>
                     {form.imageId ? (
                         <img src={imageUrl(form.imageId)} alt="" className="aspect-video w-full object-cover" />
                     ) : (
@@ -208,7 +208,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 <Card className="space-y-4">
                     <CardTitle>Details</CardTitle>
                     <div>
-                        <Label htmlFor="fixer">Fixer</Label>
+                        <Label htmlFor="fixer" help="who's putting the job out. a fixer character links the gig to their profile and ratings.">Fixer</Label>
                         {me.isAdmin ? (
                             // Typing a fixer's handle links the gig to them. Anything else is a one-off NPC.
                             <Combobox
@@ -246,7 +246,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         {me.isAdmin && form.fixerRunnerId && <p className="mt-1 text-xs text-accent">Linked to their fixer profile.</p>}
                     </div>
                     <div>
-                        <Label htmlFor="location">Location</Label>
+                        <Label htmlFor="location" help="a Night City district, or anywhere else. districts also pick the post's picture.">Location</Label>
                         <Combobox
                             id="location"
                             value={form.location}
@@ -256,11 +256,11 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         />
                     </div>
                     <div>
-                        <Label htmlFor="type">Type (optional)</Label>
+                        <Label htmlFor="type" help="if a forum tag has the same name, the post gets that tag.">Type (optional)</Label>
                         <Combobox id="type" value={form.type} onChange={(type) => set({ type })} suggestions={types.map((t) => ({ value: t }))} maxLength={40} />
                     </div>
                     <div>
-                        <Label htmlFor="pay">Pay</Label>
+                        <Label htmlFor="pay" help="the base pay for the job, in eb. secondary objective bonuses come on top.">Pay</Label>
                         <div className="relative">
                             <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
                             <Input id="pay" className="pl-8" type="number" min={0} value={form.pay} onChange={(e) => set({ pay: e.target.value })} />
@@ -269,7 +269,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle>
+                    <CardTitle help="one runner per slot. crew slots are kept for that crew's runners until an admin opens them up. full gigs still take sign-ups as reserves.">
                         Slots {totalSlots}/{MAX_SLOTS}
                     </CardTitle>
                     {form.slots.map((s, i) => (

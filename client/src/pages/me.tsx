@@ -56,7 +56,7 @@ function CrewInvites() {
 
     return (
         <Card className="space-y-3 [--frame:var(--color-accent)]">
-            <CardTitle>Crew invites</CardTitle>
+            <CardTitle help="a crew wants one of your runners. these come by DM too.">Crew invites</CardTitle>
             <ul className="space-y-3">
                 {invites.map((i) => {
                     const ids = { crewId: i.crew.id, runnerId: i.runner.id };

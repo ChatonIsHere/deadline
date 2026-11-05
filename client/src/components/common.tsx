@@ -110,7 +110,6 @@ export function Help({ children, label = 'What is this?' }: { children: string; 
                 <button
                     type="button"
                     aria-label={label}
-                    title={label}
                     className="cut inline-grid size-5 shrink-0 cursor-pointer place-items-center bg-accent font-display text-xs leading-none font-bold text-accent-foreground outline-none [--cut:5px] hover:bg-accent/80 focus-visible:shadow-[inset_0_0_0_2px_var(--color-background)]"
                 >
                     ?
