@@ -75,7 +75,7 @@ Server, forum and roles live in the database and are set on the Settings page.
 | `/fixer handle` | A fixer's profile and rating |
 | `/newrunner handle role` | Makes a runner. Add a picture and extra roles on the web (private) |
 | `/mygigs` | Live gigs your runners are on, and what you still need to confirm (private) |
-| `/reminders on|off` | Session reminder DMs (private) |
+| `/reminders set` | Session reminder DMs on or off (private) |
 
 Gig posts have **Take the job** and **Pull out** buttons.
 
