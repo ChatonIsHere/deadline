@@ -151,10 +151,13 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 <Card className="space-y-3">
                     <CardTitle>Secondary objectives</CardTitle>
                     {form.objectives.map((o, i) => (
-                        <div key={i} className="flex items-end gap-2">
-                            <MarkdownEditor singleLine value={o.text} onChange={(text) => setRow('objectives', i, { text })} />
-                            <div className="relative w-32 shrink-0">
-                                <Icon name="eb" className="absolute top-2.5 left-2" />
+                        // Text on its own line on phones, bonus beside it on wider screens
+                        <div key={i} className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
+                            <div className="w-full sm:w-auto sm:flex-1">
+                                <MarkdownEditor singleLine value={o.text} onChange={(text) => setRow('objectives', i, { text })} />
+                            </div>
+                            <div className="relative flex-1 sm:w-32 sm:flex-none">
+                                <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
                                 <Input
                                     className="pl-8"
                                     type="number"
@@ -238,7 +241,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     <div>
                         <Label htmlFor="pay">Pay</Label>
                         <div className="relative">
-                            <Icon name="eb" className="absolute top-2.5 left-2" />
+                            <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
                             <Input id="pay" className="pl-8" type="number" min={0} value={form.pay} onChange={(e) => set({ pay: e.target.value })} />
                         </div>
                     </div>

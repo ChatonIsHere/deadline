@@ -1,6 +1,6 @@
 import type { RegionView } from '@shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Upload, X } from 'lucide-react';
+import { Plus, Trash2, Upload, X } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmButton, Say } from '@/components/common';
@@ -81,8 +81,8 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
                 <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={upload} />
                 {region && (
                     <ConfirmButton
-                        size="sm"
-                        label="Delete"
+                        size="icon"
+                        label={<Trash2 className="size-4" />}
                         title={`Delete ${region.name}?`}
                         description="Its pictures move to the general pool."
                         onConfirm={() => removeRegion.mutate()}

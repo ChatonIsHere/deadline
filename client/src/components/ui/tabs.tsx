@@ -13,7 +13,7 @@ export function TabsTrigger({ className, ...props }: ComponentProps<typeof T.Tri
     return (
         <T.Trigger
             className={cn(
-                '-mb-px cursor-pointer border-b-2 border-transparent px-3 py-2 font-display text-sm tracking-wider text-muted-foreground uppercase hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-primary',
+                '-mb-px cursor-pointer border-b-2 whitespace-nowrap border-transparent px-3 py-2 font-display text-sm tracking-wider text-muted-foreground uppercase hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-primary',
                 className,
             )}
             {...props}
