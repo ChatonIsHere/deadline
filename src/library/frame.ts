@@ -96,7 +96,7 @@ ${solid ? `<path fill="${BG}" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z ${inner}"
 ${bars}
 </svg>`;
 
-    // The picture shows inside the cut shape, plus half the edge line so it isn't left floating
-    const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><path fill="#fff" stroke="#fff" stroke-width="${Math.max(1, n(8))}" d="${inner}"/></svg>`;
+    // The picture is cut exactly at the edge line; nothing shows outside it
+    const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><path fill="#fff" d="${inner}"/></svg>`;
     return { overlay, mask };
 }

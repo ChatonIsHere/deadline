@@ -3,7 +3,7 @@
  * so Discord (which caches by URL) picks up the new look, and missing framed files get
  * rebuilt on startup. Old ones are kept because finished Discord posts still link to them.
  */
-export const FRAME_VERSION = 5;
+export const FRAME_VERSION = 6;
 
 /** File names under /images. Everything is WebP. */
 export const plainFile = (id: number) => `${id}.webp`;
