@@ -1,12 +1,12 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, avg, count, eq, inArray, isNotNull } from 'drizzle-orm';
 import { DB, Db } from '../db/db';
-import { crewMembers, crews, fixerRatings, gigs, gigSlots, runners } from '../db/schema';
+import { crewMembers, crews, fixerRatings, gigReserves, gigs, gigSlots, runners } from '../db/schema';
 import { MembersService } from '../discord/members.service';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
-import { canSeeGig } from '../shared/permissions';
+import { canLogIn, canSeeGig } from '../shared/permissions';
 import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RunnerCard, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
 
 type Runner = typeof runners.$inferSelect;
@@ -93,30 +93,74 @@ export class RunnersService {
         };
     }
 
-    /** Anyone signed in can make runners. Only admins can make NPC fixers (no player). */
-    create(user: Me, input: RunnerInput): RunnerView {
-        if (input.npc && !user.isAdmin) throw new ForbiddenException();
+    /**
+     * Anyone signed in can make runners for themselves. On the web, admins can also make
+     * them for any player, or NPC fixers with no player.
+     */
+    async create(user: Me, input: RunnerInput): Promise<RunnerView> {
+        const { ownerId: requested, ...fields } = input;
+        const ownerId = requested === undefined ? user.id : requested;
+        await this.checkOwner(user, ownerId, input);
         this.check(input);
-        if (input.npc && input.role !== FIXER_ROLE && !input.extraRoles.includes(FIXER_ROLE)) {
-            throw new BadRequestException('An NPC fixer needs the Fixer role.');
-        }
-        const { npc, ...fields } = input;
         const [row] = this.db
             .insert(runners)
-            .values({ ...fields, ownerId: npc ? null : user.id })
+            .values({ ...fields, ownerId })
             .returning({ id: runners.id })
             .all();
         return this.get(user, row.id);
     }
 
-    update(user: Me, id: number, input: RunnerInput): RunnerView {
+    /** Players edit their own runners. Admins edit any, and can hand a runner to another player. */
+    async update(user: Me, id: number, input: RunnerInput): Promise<RunnerView> {
         const r = this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
+        const { ownerId: requested, ...fields } = input;
+        const ownerId = requested === undefined ? r.ownerId : requested;
+        if (ownerId !== r.ownerId) {
+            await this.checkOwner(user, ownerId, input);
+            // Moving a runner mid-gig could give their new player two runners on it
+            if (this.onLiveGigs(id)) throw new BadRequestException('Take this runner off their live gigs before giving them to another player.');
+        } else if (!ownerId && !hasFixerRole(input)) {
+            throw new BadRequestException('An NPC needs the Fixer role.');
+        }
         this.check(input, r);
-        const { npc: _, ...fields } = input;
-        this.db.update(runners).set(fields).where(eq(runners.id, id)).run();
+        this.db
+            .update(runners)
+            .set({ ...fields, ownerId })
+            .where(eq(runners.id, id))
+            .run();
         this.gigs.refresh(this.liveGigs(id));
         return this.get(user, id);
+    }
+
+    /** Only admins pick someone else (or nobody) as the player. Players must be on the server with a role. */
+    private async checkOwner(user: Me, ownerId: string | null, input: RunnerInput) {
+        if (ownerId === user.id) return;
+        if (!user.isAdmin) throw new ForbiddenException();
+        if (ownerId === null) {
+            if (!hasFixerRole(input)) throw new BadRequestException('An NPC needs the Fixer role.');
+            return;
+        }
+        const player = await this.members.me(ownerId);
+        if (!player || !canLogIn(player)) throw new BadRequestException("That person isn't on the server with a role.");
+    }
+
+    /** In a slot or on the reserves of a gig that isn't finished. */
+    private onLiveGigs(id: number): boolean {
+        const live = ['pending', 'open', 'closed'] as const;
+        const inSlot = this.db
+            .select({ id: gigSlots.id })
+            .from(gigSlots)
+            .innerJoin(gigs, eq(gigs.id, gigSlots.gigId))
+            .where(and(eq(gigSlots.runnerId, id), inArray(gigs.status, [...live])))
+            .get();
+        const reserved = this.db
+            .select({ id: gigReserves.gigId })
+            .from(gigReserves)
+            .innerJoin(gigs, eq(gigs.id, gigReserves.gigId))
+            .where(and(eq(gigReserves.runnerId, id), inArray(gigs.status, [...live])))
+            .get();
+        return !!inSlot || !!reserved;
     }
 
     delete(user: Me, id: number) {
@@ -176,3 +220,5 @@ export class RunnersService {
         return r;
     }
 }
+
+const hasFixerRole = (r: { role: string; extraRoles: string[] }) => r.role === FIXER_ROLE || r.extraRoles.includes(FIXER_ROLE);

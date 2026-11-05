@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { MembersService } from '../discord/members.service';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { type Me, runnerInput, type RunnerInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
@@ -7,7 +8,10 @@ import { RunnersService } from './runners.service';
 @Controller('api')
 @UseGuards(AuthGuard)
 export class RunnersController {
-    constructor(private readonly runners: RunnersService) {}
+    constructor(
+        private readonly runners: RunnersService,
+        private readonly members: MembersService,
+    ) {}
 
     @Get('runners')
     list() {
@@ -39,6 +43,13 @@ export class RunnersController {
     @HttpCode(204)
     delete(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
         this.runners.delete(user, id);
+    }
+
+    /** People who can be given a runner. Admins only. */
+    @Get('players')
+    players(@CurrentUser() user: Me) {
+        if (!user.isAdmin) throw new ForbiddenException();
+        return this.members.players();
     }
 
     @Get('fixers')

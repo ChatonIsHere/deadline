@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewView, FixerSummary, GigView, LibraryView, Me, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import type { CrewView, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { framedFile, plainFile } from '@shared/images';
 import { toast } from 'sonner';
 
@@ -53,6 +53,8 @@ export const useRunner = (id: string | undefined) =>
     useQuery({ queryKey: ['runners', id], queryFn: () => api<RunnerView>(`/api/runners/${id}`), enabled: !!id });
 export const useFixers = () => useQuery({ queryKey: ['fixers'], queryFn: () => api<FixerSummary[]>('/api/fixers') });
 export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api<string[]>('/api/roles') });
+/** Everyone who can be given a runner. Admins only. */
+export const usePlayers = (enabled: boolean) => useQuery({ queryKey: ['players'], queryFn: () => api<Member[]>('/api/players'), enabled });
 
 /** Uploads a picture and returns its ID. `avatar` makes a square runner picture. */
 export async function uploadImage(file: File, opts: { library?: boolean; regionId?: number | null; kind?: 'gig' | 'avatar' } = {}): Promise<number> {

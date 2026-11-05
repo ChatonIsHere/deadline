@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { api, uploadImage, useAction, useRoles, useRunner, useUser } from '@/lib/api';
+import { api, uploadImage, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-/** New runner, or editing one. `?npc=1` (admins) makes an NPC fixer with no player. */
+/**
+ * New runner, or editing one. Admins pick who plays the runner (or nobody, for an NPC
+ * fixer). `?npc=1` starts a new one as an NPC fixer.
+ */
 export function RunnerEdit() {
     const { id } = useParams();
     const { data: runner } = useRunner(id);
@@ -27,6 +30,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
     const [params] = useSearchParams();
     const npc = !runner && me.isAdmin && params.get('npc') === '1';
     const roles = useRoles().data ?? [];
+    const players = usePlayers(me.isAdmin).data ?? [];
     const fileInput = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
@@ -39,8 +43,10 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         specialties: runner?.specialties ?? null,
         contact: runner?.contact ?? null,
         bio: runner?.bio ?? null,
-        npc,
+        // Only admins send a player. Everyone else's runners are their own.
+        ownerId: me.isAdmin ? (runner ? runner.ownerId : npc ? null : me.id) : undefined,
     }));
+    const isNpc = form.ownerId === null;
     const set = (patch: Partial<RunnerInput>) => setForm((f) => ({ ...f, ...patch }));
 
     const save = useAction(
@@ -82,8 +88,29 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">
-            <h1 className="text-3xl text-primary">{runner ? `Edit ${runner.handle}` : npc ? 'New NPC fixer' : 'New runner'}</h1>
-            {npc && <Say>an NPC fixer has no player. they show on the Fixers tab and can be picked for gigs.</Say>}
+            <h1 className="text-3xl text-primary">{runner ? `Edit ${runner.handle}` : isNpc ? 'New NPC fixer' : 'New runner'}</h1>
+
+            {me.isAdmin && (
+                <Card className="space-y-2">
+                    <CardTitle>Player</CardTitle>
+                    <Select
+                        id="player"
+                        value={form.ownerId ?? ''}
+                        onChange={(ownerId) => set({ ownerId: ownerId || null, ...(!ownerId && !isFixer ? { role: FIXER_ROLE } : {}) })}
+                        options={[
+                            { value: '', label: 'Nobody (NPC fixer)' },
+                            ...players.map((p) => ({ value: p.id, label: p.name, hint: p.id === me.id ? 'you' : undefined })),
+                            // Someone who has left the server still shows as the current player
+                            ...(form.ownerId && !players.some((p) => p.id === form.ownerId) ? [{ value: form.ownerId, label: runner?.owner?.name ?? 'Unknown player' }] : []),
+                        ]}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        {isNpc
+                            ? 'An NPC fixer has no player. They show on the Fixers tab and can be picked for gigs.'
+                            : 'The runner shows under their Runners tab and they can sign them up for gigs.'}
+                    </p>
+                </Card>
+            )}
 
             <div className="grid gap-5 sm:grid-cols-[12rem_1fr]">
                 <Card className="space-y-3">

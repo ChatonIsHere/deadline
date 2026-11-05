@@ -85,8 +85,12 @@ export const runnerInput = z.object({
     specialties: optionalText(150),
     contact: optionalText(150),
     bio: optionalText(2000),
-    /** Admins only: an NPC fixer with no player. */
-    npc: z.boolean().optional(),
+    /** Admins only: who plays this runner. null makes an NPC fixer. Left out means the person saving it (new) or no change (edit). */
+    ownerId: z
+        .string()
+        .regex(/^\d+$/)
+        .nullable()
+        .optional(),
 });
 export type RunnerInput = z.infer<typeof runnerInput>;
 

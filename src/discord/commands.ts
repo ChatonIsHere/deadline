@@ -156,7 +156,7 @@ export class Commands {
         const me = await this.members.me(interaction.user.id);
         if (!me || !canLogIn(me)) return this.oops(interaction, 'you need a role on the server to make a runner.');
         try {
-            const runner = this.runners.create(me, {
+            const runner = await this.runners.create(me, {
                 handle,
                 role: role.trim(),
                 extraRoles: [],

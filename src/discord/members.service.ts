@@ -65,6 +65,16 @@ export class MembersService {
         return member ? toMember(member) : { id, name: 'Unknown player', avatar: null };
     }
 
+    /** Everyone who can sign in (admin, fixer or edgerunner role, or Manage Server). For admins giving out runners. */
+    players(): Member[] {
+        const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();
+        const roles = [adminRoleId, fixerRoleId, edgerunnerRoleId].filter((r): r is string => !!r);
+        return [...(this.guild?.members.cache.values() ?? [])]
+            .filter((m) => !m.user.bot && (roles.some((r) => m.roles.cache.has(r)) || m.permissions.has(PermissionFlagsBits.ManageGuild)))
+            .map(toMember)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     /**
      * Whether a runner counts as a fixer: it has the Fixer role, and it's an NPC (no player)
      * or its player has the Discord fixer role.
