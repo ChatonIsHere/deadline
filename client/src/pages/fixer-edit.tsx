@@ -7,7 +7,6 @@ import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import { SlugField } from '@/components/slug-field';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
 import { firstIssue } from '@/lib/utils';
@@ -77,7 +76,6 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
                         <Label htmlFor="handle">Name</Label>
                         <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
                     </div>
-                    {!fixer && <SlugField id="slug" name={form.handle} base="fixers" value={form.slug} onChange={(slug) => set({ slug })} />}
                     <div>
                         <Label htmlFor="office">Office location</Label>
                         <Input id="office" value={form.officeLocation ?? ''} onChange={(e) => set({ officeLocation: e.target.value })} maxLength={100} />

@@ -10,7 +10,7 @@ export function GigCard({ gig }: { gig: GigView }) {
     // frame: 72 + 2 x 4 margin at 1280 wide, so 6.25% of the card's width (cqw of the wrapper)
     return (
         <div className="@container">
-            <LinkCard to={`/gigs/${gig.id}`} className={gig.imageId ? '[--cut:6.25cqw]' : undefined}>
+            <LinkCard to={`/gigs/${gig.ref}`} className={gig.imageId ? '[--cut:6.25cqw]' : undefined}>
                 {gig.imageId && <img src={mediumUrl(gig.imageId)} alt="" loading="lazy" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" />}
                 <div className="mb-2 flex items-center gap-2">
                     <StatusBadge status={gig.status} />

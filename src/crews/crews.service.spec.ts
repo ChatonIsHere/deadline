@@ -149,17 +149,27 @@ describe('CrewsService', () => {
         assert.deepEqual(ranks(crew.id), [['b', 'Founder'], ['c', 'Member']]);
     });
 
-    it('gives crews a typed ID, made from the name unless one is picked', () => {
+    it('links crews by name, UUID or old numeric ID', () => {
         const crew = make();
         assert.equal(crew.slug, 'moxes');
         assert.equal(crews.resolve('moxes'), crew.id);
         assert.equal(crews.resolve('MOXES'), crew.id);
+        assert.equal(crews.resolve(crew.uuid), crew.id);
+        assert.equal(crews.resolve(crew.uuid.toUpperCase()), crew.id);
         assert.equal(crews.resolve(String(crew.id)), crew.id);
         assert.throws(() => crews.resolve('nobody'), /No such crew/);
+    });
 
-        // Taken names get a number, reserved words a prefix, picked ones are checked
-        assert.equal(crews.create(b, { name: 'Moxes!', tagline: '', runnerId: ids.b }).slug, 'moxes-2');
-        assert.equal(crews.create(c, { name: 'New', tagline: '', runnerId: ids.c }).slug, 'crew-new');
-        assert.throws(() => crews.create(admin, { name: 'Other', slug: 'moxes', tagline: '', runnerId: ids.a }), /ID is taken/);
+    it('keeps crew names one of a kind, as links compare them', () => {
+        make();
+        assert.throws(() => crews.create(b, { name: 'Moxes!', tagline: '', runnerId: ids.b }), /taken/);
+        assert.throws(() => crews.create(c, { name: 'New', tagline: '', runnerId: ids.c }), /can't be used/);
+    });
+
+    it('moves the link when a crew is renamed', () => {
+        const crew = make();
+        const renamed = crews.update(a, crew.id, { name: 'The Moxes', tagline: '', ranks: crew.ranks.map((name) => ({ name, was: name })) });
+        assert.equal(renamed.slug, 'the-moxes');
+        assert.equal(crews.resolve('the-moxes'), crew.id);
     });
 });

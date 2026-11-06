@@ -85,7 +85,7 @@ describe('GigsService', () => {
         ids[handle] = r.id;
         return r.id;
     };
-    const states = (id: number) => gigs.get(admin, id).slots.map((s) => [s.runner?.handle ?? null, s.state]);
+    const states = (id: number) => gigs.get(admin, String(id)).slots.map((s) => [s.runner?.handle ?? null, s.state]);
 
     beforeEach(() => {
         db = openDb(':memory:');
@@ -178,6 +178,23 @@ describe('GigsService', () => {
         });
     });
 
+    describe('links', () => {
+        it('gives a gig a link from its UUID start and name', () => {
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }], { name: 'Overzealous Squanch!' }));
+            assert.equal(gig.ref, `${gig.uuid.slice(0, 8)}-overzealous-squanch`);
+        });
+
+        it('finds a gig by link, UUID or old numeric ID, and old links survive a rename', () => {
+            const gig = gigs.create(admin, input([{ crewId: null, count: 1 }]));
+            assert.equal(gigs.resolve(gig.ref), gig.id);
+            assert.equal(gigs.resolve(gig.ref.toUpperCase()), gig.id);
+            assert.equal(gigs.resolve(gig.uuid), gig.id);
+            assert.equal(gigs.resolve(String(gig.id)), gig.id);
+            assert.equal(gigs.resolve(`${gig.uuid.slice(0, 8)}-some-old-name`), gig.id);
+            assert.throws(() => gigs.resolve('nothing-here'), /No such gig/);
+        });
+    });
+
     describe('signing up', () => {
         it('uses a player’s only runner, and asks which when they have several', async () => {
             const gig = gigs.create(admin, input([{ crewId: null, count: 2 }]));
@@ -208,7 +225,7 @@ describe('GigsService', () => {
             await gigs.join('b', gig.id);
             await gigs.join('a', gig.id);
             assert.deepEqual(
-                gigs.get(admin, gig.id).slots.map((s) => [s.crew?.name ?? null, s.runner?.handle]),
+                gigs.get(admin, String(gig.id)).slots.map((s) => [s.crew?.name ?? null, s.runner?.handle]),
                 [['Moxes', 'b'], [null, 'a']],
             );
             assert.match(await gigs.join('c', gig.id), /reserve #1/);
@@ -235,7 +252,7 @@ describe('GigsService', () => {
             const crew = crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.b });
             const gig = gigs.create(admin, input([{ crewId: crew.id, count: 1 }]));
             crews.delete(admin, crew.id);
-            assert.equal(gigs.get(admin, gig.id).slots[0].crew, null);
+            assert.equal(gigs.get(admin, String(gig.id)).slots[0].crew, null);
         });
 
         it('opens crew slots to anyone and fills them from the reserves', async () => {
@@ -321,7 +338,7 @@ describe('GigsService', () => {
             gigs.leave('a', gig.id);
             await settle();
             assert.deepEqual(states(gig.id), [['b', 'awaiting']]);
-            assert.deepEqual(gigs.get(admin, gig.id).reserves.map((r) => r.handle), ['c']);
+            assert.deepEqual(gigs.get(admin, String(gig.id)).reserves.map((r) => r.handle), ['c']);
             assert.deepEqual(asked, ['b']);
         });
 
@@ -377,7 +394,7 @@ describe('GigsService', () => {
             await gigs.join('b', gig.id);
             gigs.setSession(admin, gig.id, Date.now() + H);
             db.update(gigsTable).set({ sessionAt: new Date(Date.now() - H) }).run(); // the session has happened
-            const slotId = gigs.get(admin, gig.id).slots[0].id;
+            const slotId = gigs.get(admin, String(gig.id)).slots[0].id;
             gigs.kick(admin, gig.id, slotId);
             assert.deepEqual(states(gig.id), [[null, 'interested']]);
         });
@@ -387,7 +404,7 @@ describe('GigsService', () => {
             await gigs.join('a', gig.id);
             await gigs.join('b', gig.id);
             debrief.complete(admin, gig.id, { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] });
-            assert.equal(gigs.get(admin, gig.id).reserves.length, 0);
+            assert.equal(gigs.get(admin, String(gig.id)).reserves.length, 0);
         });
 
         it("lets a fixer's player rate their fixer when they went as a runner", async () => {
@@ -399,11 +416,11 @@ describe('GigsService', () => {
             db.update(gigsTable).set({ fixerRunnerId: ids['Fixer Two'], fixerId: 'both' }).run();
             await gigs.join('both', gig.id, ids['Solo Two']);
             debrief.complete(admin, gig.id, { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] });
-            assert.equal(gigs.get(person('both'), gig.id).canRate, true);
+            assert.equal(gigs.get(person('both'), String(gig.id)).canRate, true);
             debrief.rate('both', gig.id, 4, 'Paid on time.');
             // Rating again from the DM menu (no comment given) keeps the comment
             debrief.rate('both', gig.id, 5);
-            assert.deepEqual(gigs.get(person('both'), gig.id).myRating, { stars: 5, comment: 'Paid on time.' });
+            assert.deepEqual(gigs.get(person('both'), String(gig.id)).myRating, { stars: 5, comment: 'Paid on time.' });
             people.pop();
         });
 
@@ -449,7 +466,7 @@ describe('GigsService', () => {
             debrief.complete(admin, gig.id, { ...crewRewards, runners: [] });
             debrief.rate('a', gig.id, 3);
             debrief.rate('a', gig.id, 5);
-            assert.deepEqual(gigs.get(people[2], gig.id).myRating, { stars: 5, comment: null });
+            assert.deepEqual(gigs.get(people[2], String(gig.id)).myRating, { stars: 5, comment: null });
             assert.throws(() => debrief.rate('b', gig.id, 1), /only runners on the gig/);
         });
     });

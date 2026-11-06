@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { SlugField } from '@/components/slug-field';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
 import { cn, firstIssue } from '@/lib/utils';
@@ -105,7 +104,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                         <Label htmlFor="handle">Handle</Label>
                         <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
                     </div>
-                    {!runner && <SlugField id="slug" name={form.handle} base={isFixer ? 'fixers' : 'runners'} value={form.slug} onChange={(slug) => set({ slug })} />}
                     <div>
                         <Label htmlFor="role">Role</Label>
                         <Select

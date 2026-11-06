@@ -1,6 +1,17 @@
+import { randomUUID } from 'node:crypto';
 import { relations } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { CORE_ROLES, GIG_STATUSES, RUNNER_STATES } from '../shared/schemas';
+
+/**
+ * Public ID, usable in any URL (/gigs/<uuid>). The numeric id stays the internal key: Discord
+ * buttons on old posts and picture files use it.
+ */
+const publicId = () =>
+    text()
+        .notNull()
+        .unique()
+        .$defaultFn(() => randomUUID());
 
 const createdAt = () =>
     integer({ mode: 'timestamp_ms' })
@@ -40,6 +51,7 @@ export const sessions = sqliteTable('sessions', {
 /** A crew of runners. Whoever holds its top rank (Founder by default) runs it. */
 export const crews = sqliteTable('crews', {
     id: integer().primaryKey({ autoIncrement: true }),
+    uuid: publicId(),
     name: text().notNull().unique(),
     // Typed ID for URLs (/crews/static-wolves). Set when the crew is made. See shared/slug.ts.
     slug: text().unique(),
@@ -105,6 +117,7 @@ export const crewInvites = sqliteTable(
  */
 export const runners = sqliteTable('runners', {
     id: integer().primaryKey({ autoIncrement: true }),
+    uuid: publicId(),
     // The player. Empty for NPC fixers.
     ownerId: text(),
     handle: text().notNull(),
@@ -123,6 +136,7 @@ export const runners = sqliteTable('runners', {
 
 export const gigs = sqliteTable('gigs', {
     id: integer().primaryKey({ autoIncrement: true }),
+    uuid: publicId(),
     name: text().notNull(),
     fixerName: text().notNull(),
     // The fixer character, if there is one. Admins can also type a name for a one-off NPC.

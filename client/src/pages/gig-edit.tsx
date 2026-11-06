@@ -12,9 +12,11 @@ export function GigEdit() {
     const { data: gig, isError } = useGig(id);
 
     const save = useAction(
-        (input: GigInput) => (id ? api<GigView>(`/api/gigs/${id}`, 'PATCH', input) : api<GigView>('/api/gigs', 'POST', input)),
+        // The address bar holds the gig's link; saving goes to its numeric ID
+        (input: GigInput) => (gig ? api<GigView>(`/api/gigs/${gig.id}`, 'PATCH', input) : api<GigView>('/api/gigs', 'POST', input)),
         (saved) => (id ? 'contract updated.' : saved.status === 'pending' ? 'contract submitted. waiting on an admin.' : 'contract posted.'),
-        (saved) => navigate(`/gigs/${saved.id}`),
+        // A rename changes the link, so go by the saved one
+        (saved) => navigate(`/gigs/${saved.ref}`),
     );
 
     if (isError) return <Say>no such contract.</Say>;

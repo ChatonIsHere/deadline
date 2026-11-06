@@ -64,7 +64,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                             </Group>
                             <Group heading="Gigs">
                                 {sortedGigs.map((g) => (
-                                    <Item key={g.id} value={`gig ${g.id} ${g.name} ${g.fixerName} ${g.location}`} tag={g.status.toUpperCase()} onSelect={() => go(`/gigs/${g.id}`)}>
+                                    <Item key={g.id} value={`gig ${g.ref} ${g.name} ${g.fixerName} ${g.location}`} tag={g.status.toUpperCase()} onSelect={() => go(`/gigs/${g.ref}`)}>
                                         {g.name}
                                     </Item>
                                 ))}

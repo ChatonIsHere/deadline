@@ -16,7 +16,7 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
     const embed = new EmbedBuilder()
         .setColor(COLOURS[gig.status])
         .setTitle(gig.name)
-        .setURL(`${boardUrl}/gigs/${gig.id}`)
+        .setURL(`${boardUrl}/gigs/${gig.ref}`)
         .setDescription(cut(gig.brief, 300))
         .addFields(
             { name: 'Fixer', value: gig.fixerName, inline: true },
@@ -30,7 +30,7 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
 
     const buttons = new ActionRowBuilder<ButtonBuilder>();
     if (gig.threadUrl) buttons.addComponents(link('Forum post', gig.threadUrl));
-    buttons.addComponents(link('Open on board', `${boardUrl}/gigs/${gig.id}`));
+    buttons.addComponents(link('Open on board', `${boardUrl}/gigs/${gig.ref}`));
     return { embeds: [embed], components: [buttons] };
 }
 
@@ -52,14 +52,14 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
         );
         if (runner.reviews.length) {
             const review = (r: Review) =>
-                `${stars(r.stars)} [${r.gig.name}](${boardUrl}/gigs/${r.gig.id})${r.by ? ` · ${r.by.handle}` : ''}${r.comment ? `\n> ${cut(r.comment, 150)}` : ''}`;
+                `${stars(r.stars)} [${r.gig.name}](${boardUrl}/gigs/${r.gig.ref})${r.by ? ` · ${r.by.handle}` : ''}${r.comment ? `\n> ${cut(r.comment, 150)}` : ''}`;
             fields.push({ name: 'Latest ratings', value: cut(runner.reviews.slice(0, 3).map(review).join('\n'), 1024), inline: false });
         }
     }
     if (recent.length) {
         fields.push({
             name: runner.isFixer ? 'Recent gigs put out' : 'Recent gigs',
-            value: recent.map((g) => `[${g.name}](${boardUrl}/gigs/${g.id}) · ${g.status}`).join('\n'),
+            value: recent.map((g) => `[${g.name}](${boardUrl}/gigs/${g.ref}) · ${g.status}`).join('\n'),
             inline: false,
         });
     }
@@ -85,7 +85,7 @@ export function myGigsCard(gigs: GigView[], userId: string, boardUrl: string) {
         else if (slot?.state === 'awaiting') where = `**confirm${slot.confirmBy ? ` by <t:${Math.floor(slot.confirmBy / 1000)}:f>` : ''}**`;
         else where = slot?.state ?? '';
         const when = g.sessionAt ? `<t:${Math.floor(g.sessionAt / 1000)}:f>` : 'no time yet';
-        const title = g.threadUrl ? `[${g.name}](${g.threadUrl})` : `[${g.name}](${boardUrl}/gigs/${g.id})`;
+        const title = g.threadUrl ? `[${g.name}](${g.threadUrl})` : `[${g.name}](${boardUrl}/gigs/${g.ref})`;
         return `${title}\n${who} · ${where} · ${when}`;
     });
     const embed = new EmbedBuilder()

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, count, desc, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNotNull, isNull, like } from 'drizzle-orm';
+import { gigRef, gigRefPrefix, isNumericId, isUuid } from '../shared/slug';
 import { Once } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
@@ -68,8 +69,21 @@ export class GigsService {
             .sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    get(user: Me, id: number): GigView {
-        const gig = this.view(id, user);
+    /**
+     * A gig's numeric ID from a URL part: its UUID, its link ("3f2a9c1b-overzealous-squanch",
+     * matched on the UUID start, so renames don't break old links), or the old numeric ID.
+     */
+    resolve(ref: string): number {
+        if (isNumericId(ref)) return Number(ref);
+        const prefix = gigRefPrefix(ref);
+        const where = isUuid(ref) ? eq(gigs.uuid, ref.toLowerCase()) : prefix ? like(gigs.uuid, `${prefix}%`) : undefined;
+        const gig = where && this.db.select({ id: gigs.id }).from(gigs).where(where).get();
+        if (!gig) throw new NotFoundException('No such gig.');
+        return gig.id;
+    }
+
+    get(user: Me, ref: string): GigView {
+        const gig = this.view(this.resolve(ref), user);
         if (!canSeeGig(user, { ...gig, createdBy: gig.createdBy.id })) throw new NotFoundException();
         return gig;
     }
@@ -635,6 +649,8 @@ export class GigsService {
 
         return {
             id: gig.id,
+            uuid: gig.uuid,
+            ref: gigRef(gig),
             name: gig.name,
             fixerName: fixer?.handle ?? gig.fixerName,
             fixerRunnerId: gig.fixerRunnerId,

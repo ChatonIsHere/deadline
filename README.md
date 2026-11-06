@@ -35,9 +35,14 @@ A crew is a group of runners with ranks. A gig can hold slots for a crew, and on
 - **Allies** are runners (or NPC fixers) the crew knows and trusts without them being members. Founders can invite an ally to join from the list.
 - Renaming a rank keeps its runners. Runners in a removed rank drop to the bottom one.
 
-## Typed IDs
+## Links
 
-Runners (and so fixers) and crews get a typed ID when they're made, used in links: `/runners/vex`, `/fixers/rogue`, `/crews/static-wolves`. It's made from the name unless one is typed in, and can't be changed later. Letters, numbers, `_` and `-` only, with at least one letter. The numeric URLs (`/crews/3`) keep working.
+Every gig, runner (and so fixer) and crew has a UUID, and `/gigs/<uuid>`, `/runners/<uuid>`, `/fixers/<uuid>` and `/crews/<uuid>` always work. The links the site uses are readable:
+
+- Gigs: the first part of the UUID and the name, `/gigs/3f2a9c1b-overzealous-squanch`. The deadline:// bar shows it in capitals. Only the UUID part is matched, so links from before a rename still work.
+- Runners and fixers: the handle, `/runners/vex`. Crews: the name, `/crews/static-wolves`. These follow renames.
+
+Handles and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist. They need a letter, and can't be `new`, `edit`, `mine` or `invites`. The old numeric links (`/gigs/3`) still work, so older Discord posts don't break. Inside the database the numeric IDs are still the keys: Discord buttons and picture files use them.
 
 ## Sessions
 

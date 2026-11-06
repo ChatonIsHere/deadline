@@ -54,9 +54,30 @@ describe('RunnersService', () => {
 
     it('lets admins make runners for a player, or NPC fixers', async () => {
         assert.equal((await runners.create(admin, input({ ownerId: 'b' }))).ownerId, 'b');
-        assert.equal((await runners.create(admin, input({ ownerId: null, role: 'Fixer' }))).ownerId, null);
-        await assert.rejects(runners.create(admin, input({ ownerId: null })), /NPC needs the Fixer role/);
-        await assert.rejects(runners.create(admin, input({ ownerId: 'stranger' })), /isn't on the server/);
+        assert.equal((await runners.create(admin, input({ ownerId: null, role: 'Fixer', handle: 'Mr Blue' }))).ownerId, null);
+        await assert.rejects(runners.create(admin, input({ ownerId: null, handle: 'Mr Green' })), /NPC needs the Fixer role/);
+        await assert.rejects(runners.create(admin, input({ ownerId: 'stranger', handle: 'Mr Red' })), /isn't on the server/);
+    });
+
+    it('keeps handles one of a kind, as links compare them', async () => {
+        await runners.create(players[1], input({ handle: 'Mr. B' }));
+        await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: 'mr b' })), /taken/);
+        await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: '2077' })), /can't be used/);
+        // One letter is fine
+        assert.equal((await runners.create(admin, input({ ownerId: 'b', handle: 'V' }))).slug, 'v');
+    });
+
+    it('finds runners by handle, UUID or old numeric ID, and moves the link on a rename', async () => {
+        const vex = await runners.create(players[1], input({ handle: 'Vex' }));
+        assert.equal(runners.resolve('vex'), vex.id);
+        assert.equal(runners.resolve('VEX'), vex.id);
+        assert.equal(runners.resolve(vex.uuid), vex.id);
+        assert.equal(runners.resolve(String(vex.id)), vex.id);
+        const renamed = await runners.update(players[1], vex.id, input({ handle: 'Vex Prime' }));
+        assert.equal(renamed.slug, 'vex-prime');
+        assert.equal(runners.resolve('vex-prime'), vex.id);
+        // Saving without a rename keeps the handle and link it already has
+        assert.equal((await runners.update(players[1], vex.id, input({ handle: 'Vex Prime' }))).slug, 'vex-prime');
     });
 
     it("won't let players make runners for someone else", async () => {

@@ -85,26 +85,30 @@ export function Layout() {
                   : null;
 
     return (
-        // Phones: a column exactly the visible screen's height, with the page scrolling inside it and
-        // the channel bar as its last row. Nothing is fixed to the screen, so browser toolbars that
-        // slide away on scroll (Firefox) can't make the bar jump. Desktop scrolls the page as normal.
+        // Phones: a column exactly the visible screen's height. The page scrolls inside it, with the
+        // prompt bar and channel bar as its last rows. Nothing is fixed to the screen, so browser
+        // toolbars that slide away on scroll (Firefox) can't move them. Desktop scrolls the page,
+        // and the prompt bar sticks to the bottom of the window, like a terminal's command line.
         <div className="flex h-dvh flex-col md:grid md:h-auto md:min-h-screen md:grid-cols-[13rem_1fr]">
             <Rail channels={channels} />
 
-            <div ref={scroller} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto md:overflow-visible">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col md:min-h-screen">
+                <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-visible">
+                    {/* Bottom padding keeps content clear of the corner + */}
+                    <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8">
+                        {me.isAdmin && <SetupReminder />}
+                        <Outlet />
+                    </main>
+                </div>
                 <PromptBar onOpen={() => setPalette(true)} />
-                {/* Bottom padding on phones keeps content clear of the corner + */}
-                <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10">
-                    {me.isAdmin && <SetupReminder />}
-                    <Outlet />
-                </main>
             </div>
 
             {fab && (
                 <Button
                     asChild
                     size="icon"
-                    className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 size-14 [--cut:12px] md:right-8 md:bottom-8"
+                    // Above the prompt bar (3rem), and on phones the channel bar too
+                    className="fixed right-4 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
                 >
                     <Link to={fab.to} aria-label={fab.label} title={fab.label}>
                         <Plus className="size-6" />
@@ -209,7 +213,7 @@ function Readout() {
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
-        <div className="sticky top-0 z-20 flex h-12 w-full shrink-0 items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:px-8">
+        <div className="sticky bottom-0 z-20 flex h-12 w-full shrink-0 items-center gap-2 border-t border-primary/40 bg-background px-4 text-sm md:px-8">
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
                 <img src="/logo.svg" alt="" className="size-5 md:hidden" />
                 <span className="text-primary">&gt;</span>
@@ -227,24 +231,22 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
     );
 }
 
-const slug = (name: string) =>
-    name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_|_$/g, '');
-
-/** The current path. Numeric IDs show as the runner's or crew's typed ID, or the gig's name, once loaded. */
+/**
+ * The current path, with a record's readable link in place of whatever got you there (UUID,
+ * link or old numeric ID) once it's loaded. Gig links show in capitals:
+ * gigs/3F2A9C1B-OVERZEALOUS-SQUANCH.
+ */
 function usePath(): string {
     const { pathname } = useLocation();
     const parts = pathname.split('/').filter(Boolean);
     const [kind, id] = parts;
-    const numeric = !!id && /^\d+$/.test(id);
+    const record = !!id && id !== 'new';
     // Same queries as the pages, so these come from the cache
-    const gig = useGig(kind === 'gigs' && numeric ? id : undefined).data;
-    const runner = useRunner((kind === 'runners' || kind === 'fixers') && numeric ? id : undefined).data;
-    const crew = useCrew(kind === 'crews' && numeric ? id : undefined).data;
-    const name = gig ? slug(gig.name) : (runner?.slug ?? crew?.slug);
-    if (numeric && name) parts[1] = name;
+    const gig = useGig(kind === 'gigs' && record ? id : undefined).data;
+    const runner = useRunner((kind === 'runners' || kind === 'fixers') && record ? id : undefined).data;
+    const crew = useCrew(kind === 'crews' && record ? id : undefined).data;
+    const name = gig ? gig.ref.toUpperCase() : (runner?.slug ?? crew?.slug);
+    if (record && name) parts[1] = name;
     return parts.join('/');
 }
 

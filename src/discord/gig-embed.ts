@@ -108,7 +108,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
     const head: APIEmbed = {
         ...colour,
         title: gig.name,
-        url: `${boardUrl}/gigs/${gig.id}`,
+        url: `${boardUrl}/gigs/${gig.ref}`,
         description: gig.brief,
         // Footers can't hold links, so the link to the board goes on the author line, which can
         author: { name: 'DEADLINE // GIG BOARD', url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
@@ -127,7 +127,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
             .setDisabled(gig.status !== 'open'),
         ...(gig.sessionAt ? [confirmButton(gig.id).setDisabled(!active)] : []),
         dropButton(gig.id).setDisabled(!active),
-        new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/gigs/${gig.id}`),
+        new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/gigs/${gig.ref}`),
     );
 
     return { first: { embeds, components: [buttons] }, more: more.map((embeds) => ({ embeds })) };

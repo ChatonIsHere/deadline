@@ -2,8 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { config } from '../config';
 import { DB, Db } from '../db/db';
-import { freeSlug } from '../db/slugs';
-import { isNumericId } from '../shared/slug';
+import { isFreeSlugWord, isNumericId, isUuid, toSlug } from '../shared/slug';
 import { crewAllies, crewInvites, crewMembers, crews, runners } from '../db/schema';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
@@ -26,17 +25,19 @@ export class CrewsService implements OnModuleInit {
         private readonly gigs: GigsService,
     ) {}
 
-    /** Crews from before typed IDs get one made from their name. */
+    /** Links follow names. Crews from before (custom typed IDs) get theirs from the name, where it's free. */
     onModuleInit() {
-        for (const c of this.db.select().from(crews).where(isNull(crews.slug)).all()) {
-            this.db.update(crews).set({ slug: this.newSlug(c.name) }).where(eq(crews.id, c.id)).run();
+        for (const c of this.db.select().from(crews).all()) {
+            const slug = toSlug(c.name);
+            if (c.slug !== slug && isFreeSlugWord(slug) && !this.slugTaken(slug, c.id)) this.db.update(crews).set({ slug }).where(eq(crews.id, c.id)).run();
         }
     }
 
-    /** A crew's numeric ID from a URL part: the ID itself or a typed one. */
+    /** A crew's numeric ID from a URL part: its UUID, its link (the name), or the old numeric ID. */
     resolve(ref: string): number {
         if (isNumericId(ref)) return Number(ref);
-        const crew = this.db.query.crews.findFirst({ where: eq(crews.slug, ref.toLowerCase()) }).sync();
+        const where = isUuid(ref) ? eq(crews.uuid, ref.toLowerCase()) : eq(crews.slug, toSlug(ref));
+        const crew = this.db.query.crews.findFirst({ where }).sync();
         if (!crew) throw new NotFoundException('No such crew.');
         return crew.id;
     }
@@ -57,11 +58,9 @@ export class CrewsService implements OnModuleInit {
     /** The founding runner gets the founder rank. Players found crews with their own runners. */
     create(user: Me, input: NewCrewInput): CrewView {
         if (!canCreateCrew(user)) throw new ForbiddenException();
-        this.checkName(input.name);
+        const slug = this.nameSlug(input.name);
         const runner = this.runner(input.runnerId);
         if (!runner.ownerId || (!user.isAdmin && runner.ownerId !== user.id)) throw new BadRequestException('Found the crew with one of your own runners.');
-        if (input.slug && this.slugTaken(input.slug)) throw new ConflictException('That ID is taken.');
-        const slug = input.slug ?? this.newSlug(input.name);
 
         const id = this.db.transaction((tx) => {
             const [crew] = tx.insert(crews).values({ name: input.name, slug, tagline: input.tagline, ownerId: runner.ownerId!, ranks: DEFAULT_RANKS }).returning().all();
@@ -74,14 +73,15 @@ export class CrewsService implements OnModuleInit {
     /** Name, tagline and ranks. Renamed ranks keep their runners. Runners in a removed rank drop to the lowest. */
     update(user: Me, id: number, input: CrewInput): CrewView {
         const crew = this.manage(user, id);
-        this.checkName(input.name, id);
+        // A new name means a new link
+        const slug = this.nameSlug(input.name, id);
         if (input.ranks[0].was !== crew.ranks[0]) throw new BadRequestException(`${crew.ranks[0]} stays the top rank. You can rename it.`);
 
         const ranks = input.ranks.map((r) => r.name);
         const renamed = new Map(input.ranks.filter((r) => r.was).map((r) => [r.was!, r.name]));
         const lowest = ranks[ranks.length - 1];
         this.db.transaction((tx) => {
-            tx.update(crews).set({ name: input.name, tagline: input.tagline, ranks }).where(eq(crews.id, id)).run();
+            tx.update(crews).set({ name: input.name, slug, tagline: input.tagline, ranks }).where(eq(crews.id, id)).run();
             for (const m of crew.members) {
                 const rank = renamed.get(m.rank) ?? lowest;
                 if (rank !== m.rank) tx.update(crewMembers).set({ rank }).where(and(eq(crewMembers.crewId, id), eq(crewMembers.runnerId, m.id))).run();
@@ -276,17 +276,20 @@ export class CrewsService implements OnModuleInit {
         return runner;
     }
 
-    private slugTaken(slug: string) {
-        return !!this.db.query.crews.findFirst({ where: eq(crews.slug, slug) }).sync();
+    private slugTaken(slug: string, except?: number) {
+        const other = this.db.query.crews.findFirst({ where: eq(crews.slug, slug) }).sync();
+        return !!other && other.id !== except;
     }
 
-    private newSlug(name: string) {
-        return freeSlug(name, 'crew', (s) => this.slugTaken(s));
-    }
-
-    private checkName(name: string, id?: number) {
-        const taken = this.db.query.crews.findFirst({ where: eq(crews.name, name) }).sync();
-        if (taken && taken.id !== id) throw new ConflictException('That name is taken.');
+    /**
+     * A crew name's link. Names are one of a kind, so two that would make the same link
+     * ("Static Wolves" and "static wolves!") can't both exist. `except` is the crew being renamed.
+     */
+    private nameSlug(name: string, except?: number) {
+        const slug = toSlug(name);
+        if (!isFreeSlugWord(slug)) throw new BadRequestException("That name can't be used. It needs a letter in it, and can't be new, edit, mine or invites.");
+        if (this.slugTaken(slug, except)) throw new ConflictException("That name's taken. Crew names are one of a kind.");
+        return slug;
     }
 
     private toView(crew: CrewRow): CrewView {
@@ -299,6 +302,7 @@ export class CrewsService implements OnModuleInit {
 
         return {
             id: crew.id,
+            uuid: crew.uuid,
             slug: crew.slug ?? String(crew.id),
             name: crew.name,
             tagline: crew.tagline,

@@ -1,14 +1,16 @@
-// Typed IDs for runners and crews, used in URLs next to the numeric ones: /runners/vex, /crews/static-wolves.
+// Links to records. Every gig, runner and crew has a UUID that works in any URL. The links
+// people see are readable: gigs are the first part of their UUID and their name
+// (/gigs/3f2a9c1b-overzealous-squanch), runners and crews their handle or name (/runners/vex,
+// /crews/static-wolves). Handles and crew names are one of a kind, so those links are too.
 
-/** Lowercase letters, numbers, _ and -, with at least one letter so it can't be mistaken for a numeric ID. */
-export const SLUG = /^(?=.*[a-z])[a-z0-9_-]{2,40}$/;
-export const SLUG_HINT = '2 to 40 letters, numbers, _ or -, with at least one letter';
+/** What a handle or name's link has to look like: has a letter (so it's never a numeric ID), 1 to 40 long. */
+export const SLUG = /^(?=.*[a-z])[a-z0-9_-]{1,40}$/;
 
 /** Words the routes already use (/runners/new, /api/runners/mine, /api/crews/invites). */
 export const RESERVED_SLUGS = ['new', 'mine', 'invites', 'edit'];
 export const isFreeSlugWord = (slug: string) => SLUG.test(slug) && !RESERVED_SLUGS.includes(slug);
 
-/** A suggestion from a name: "Static Wolves!" becomes "static-wolves". May still need fixing up (see SLUG). */
+/** A name as it appears in links: "Static Wolves!" becomes "static-wolves". */
 export function toSlug(name: string): string {
     return name
         .toLowerCase()
@@ -19,5 +21,13 @@ export function toSlug(name: string): string {
         .slice(0, 40);
 }
 
-/** Whether a URL part is a numeric ID rather than a typed one. */
+/** Whether a URL part is a numeric ID (old links) rather than a readable one. */
 export const isNumericId = (ref: string) => /^\d+$/.test(ref);
+
+export const isUuid = (ref: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+
+/** A gig's link: "3f2a9c1b-overzealous-squanch". The deadline:// bar shows it in capitals. */
+export const gigRef = (gig: { uuid: string; name: string }) => [gig.uuid.slice(0, 8), toSlug(gig.name)].filter(Boolean).join('-');
+
+/** The UUID start in a gig link ("3f2a9c1b" from "3f2a9c1b-overzealous-squanch"), or null if it isn't one. */
+export const gigRefPrefix = (ref: string) => /^([0-9a-f]{8})(?:-|$)/i.exec(ref)?.[1].toLowerCase() ?? null;

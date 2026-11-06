@@ -41,9 +41,10 @@ export class GigsController {
         return this.posts.types().catch(() => []);
     }
 
+    /** By UUID, gig link or numeric ID. */
     @Get(':id')
-    get(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
-        return this.gigs.get(user, id);
+    get(@CurrentUser() user: Me, @Param('id') ref: string) {
+        return this.gigs.get(user, ref);
     }
 
     @Post()

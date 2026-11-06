@@ -7,7 +7,6 @@ import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import { SlugField } from '@/components/slug-field';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
 
@@ -63,10 +62,9 @@ function NewCrew() {
     const [name, setName] = useState('');
     const [tagline, setTagline] = useState('');
     const [picked, setPicked] = useState('');
-    const [slug, setSlug] = useState<string>();
     // One runner of your own needs no picking
     const runnerId = picked || (mine.length === 1 ? String(mine[0].id) : '');
-    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, slug, tagline, runnerId: Number(runnerId) }), 'crew registered.', (crew) => navigate(`/crews/${crew.slug}`));
+    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, tagline, runnerId: Number(runnerId) }), 'crew registered.', (crew) => navigate(`/crews/${crew.slug}`));
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -81,7 +79,6 @@ function NewCrew() {
                     <Label htmlFor="crew-name">Name</Label>
                     <Input id="crew-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} />
                 </div>
-                <SlugField id="crew-slug" name={name} base="crews" value={slug} onChange={setSlug} />
                 <div>
                     <Label htmlFor="crew-tagline">Tagline</Label>
                     <Input id="crew-tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={120} />

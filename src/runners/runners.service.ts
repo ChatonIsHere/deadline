@@ -2,8 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { and, avg, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { CrewsService } from '../crews/crews.service';
 import { DB, Db } from '../db/db';
-import { freeSlug } from '../db/slugs';
-import { isNumericId } from '../shared/slug';
+import { gigRef, isFreeSlugWord, isNumericId, isUuid, toSlug } from '../shared/slug';
 import { crewMembers, crews, fixerRatings, gigReserves, gigs, gigSlots, runners } from '../db/schema';
 import { MembersService } from '../discord/members.service';
 import { GigsService, toCard } from '../gigs/gigs.service';
@@ -26,17 +25,19 @@ export class RunnersService implements OnModuleInit {
         private readonly crews: CrewsService,
     ) {}
 
-    /** Runners from before typed IDs get one made from their handle. */
+    /** Links follow handles. Runners from before (custom typed IDs) get theirs from the handle, where it's free. */
     onModuleInit() {
-        for (const r of this.db.select().from(runners).where(isNull(runners.slug)).all()) {
-            this.db.update(runners).set({ slug: this.newSlug(r.handle) }).where(eq(runners.id, r.id)).run();
+        for (const r of this.db.select().from(runners).all()) {
+            const slug = toSlug(r.handle);
+            if (r.slug !== slug && isFreeSlugWord(slug) && !this.slugTaken(slug, r.id)) this.db.update(runners).set({ slug }).where(eq(runners.id, r.id)).run();
         }
     }
 
-    /** A runner's numeric ID from a URL part: the ID itself or a typed one. */
+    /** A runner's numeric ID from a URL part: its UUID, its link (the handle), or the old numeric ID. */
     resolve(ref: string): number {
         if (isNumericId(ref)) return Number(ref);
-        const r = this.db.query.runners.findFirst({ where: eq(runners.slug, ref.toLowerCase()) }).sync();
+        const where = isUuid(ref) ? eq(runners.uuid, ref.toLowerCase()) : eq(runners.slug, toSlug(ref));
+        const r = this.db.query.runners.findFirst({ where }).sync();
         if (!r) throw new NotFoundException('No such runner.');
         return r.id;
     }
@@ -86,7 +87,7 @@ export class RunnersService implements OnModuleInit {
     get(user: Me, id: number): RunnerView {
         const r = this.row(id);
         const visible = (gig: typeof gigs.$inferSelect) => canSeeGig(user, gig);
-        const link = (g: typeof gigs.$inferSelect): GigLink => ({ id: g.id, name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null });
+        const link = (g: typeof gigs.$inferSelect): GigLink => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null });
 
         const gigIds = this.db
             .selectDistinct({ id: gigSlots.gigId })
@@ -101,6 +102,7 @@ export class RunnersService implements OnModuleInit {
 
         return {
             ...this.summary(r),
+            uuid: r.uuid,
             officeLocation: r.officeLocation,
             specialties: r.specialties,
             contact: r.contact,
@@ -118,12 +120,11 @@ export class RunnersService implements OnModuleInit {
      * them for any player, or NPC fixers with no player.
      */
     async create(user: Me, input: RunnerInput): Promise<RunnerView> {
-        const { ownerId: requested, slug: wanted, ...fields } = input;
+        const { ownerId: requested, ...fields } = input;
         const ownerId = requested === undefined ? user.id : requested;
         await this.checkOwner(user, ownerId, input);
         this.check(input);
-        if (wanted && this.slugTaken(wanted)) throw new ConflictException('That ID is taken.');
-        const slug = wanted ?? this.newSlug(input.handle);
+        const slug = this.handleSlug(input.handle);
         const [row] = this.db
             .insert(runners)
             .values({ ...fields, ownerId, slug })
@@ -136,8 +137,7 @@ export class RunnersService implements OnModuleInit {
     async update(user: Me, id: number, input: RunnerInput): Promise<RunnerView> {
         const r = this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
-        // The typed ID is set when the runner is made and stays
-        const { ownerId: requested, slug: _slug, ...fields } = input;
+        const { ownerId: requested, ...fields } = input;
         const ownerId = requested === undefined ? r.ownerId : requested;
         if (ownerId !== r.ownerId) {
             await this.checkOwner(user, ownerId, input);
@@ -147,9 +147,11 @@ export class RunnersService implements OnModuleInit {
             throw new BadRequestException('An NPC needs the Fixer role.');
         }
         this.check(input, r);
+        // A new handle means a new link
+        const slug = this.handleSlug(input.handle, id);
         this.db
             .update(runners)
-            .set({ ...fields, ownerId })
+            .set({ ...fields, ownerId, slug })
             .where(eq(runners.id, id))
             .run();
         // A fixer character's gigs follow it to its new player
@@ -224,7 +226,7 @@ export class RunnersService implements OnModuleInit {
     /** The fixer's latest five ratings, newest first, with the runner each rater had on the gig. */
     private reviews(fixerId: number): Review[] {
         const rows = this.db
-            .select({ stars: fixerRatings.stars, comment: fixerRatings.comment, at: fixerRatings.ratedAt, userId: fixerRatings.userId, gigId: gigs.id, gigName: gigs.name })
+            .select({ stars: fixerRatings.stars, comment: fixerRatings.comment, at: fixerRatings.ratedAt, userId: fixerRatings.userId, gigId: gigs.id, gigUuid: gigs.uuid, gigName: gigs.name })
             .from(fixerRatings)
             .innerJoin(gigs, eq(gigs.id, fixerRatings.gigId))
             .where(eq(gigs.fixerRunnerId, fixerId))
@@ -234,7 +236,7 @@ export class RunnersService implements OnModuleInit {
         return rows.map((r) => {
             const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, r.gigId), eq(gigSlots.userId, r.userId)) }).sync();
             const by = slot?.runnerId ? this.db.query.runners.findFirst({ where: eq(runners.id, slot.runnerId) }).sync() : undefined;
-            return { stars: r.stars, comment: r.comment, gig: { id: r.gigId, name: r.gigName }, by: by ? toCard(by) : null, at: r.at?.getTime() ?? null };
+            return { stars: r.stars, comment: r.comment, gig: { id: r.gigId, ref: gigRef({ uuid: r.gigUuid, name: r.gigName }), name: r.gigName }, by: by ? toCard(by) : null, at: r.at?.getTime() ?? null };
         });
     }
 
@@ -263,12 +265,20 @@ export class RunnersService implements OnModuleInit {
         return [...new Set([...asRunner, ...asFixer].map((g) => g.id))];
     }
 
-    private slugTaken(slug: string) {
-        return !!this.db.query.runners.findFirst({ where: eq(runners.slug, slug) }).sync();
+    private slugTaken(slug: string, except?: number) {
+        const other = this.db.query.runners.findFirst({ where: eq(runners.slug, slug) }).sync();
+        return !!other && other.id !== except;
     }
 
-    private newSlug(handle: string) {
-        return freeSlug(handle, 'runner', (s) => this.slugTaken(s));
+    /**
+     * A handle's link. Handles are one of a kind in Night City, so two that would make the same
+     * link ("Mr. B" and "Mr B") can't both exist. `except` is the runner being renamed.
+     */
+    private handleSlug(handle: string, except?: number) {
+        const slug = toSlug(handle);
+        if (!isFreeSlugWord(slug)) throw new BadRequestException("That handle can't be used. It needs a letter in it, and can't be new, edit, mine or invites.");
+        if (this.slugTaken(slug, except)) throw new ConflictException("That handle's taken. Handles are one of a kind in Night City.");
+        return slug;
     }
 
     private row(id: number): Runner {

@@ -27,7 +27,8 @@ export function Gig() {
     const navigate = useNavigate();
     const { data: gig, isError } = useGig(id);
 
-    const url = `/api/gigs/${id}`;
+    // The address bar holds the gig's link (or UUID); changes go to its numeric ID
+    const url = `/api/gigs/${gig?.id}`;
     const approve = useAction(() => api(`${url}/approve`, 'POST'), 'approved. posting to discord.');
     const reject = useAction(() => api(`${url}/reject`, 'POST'), 'contract rejected.');
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'status updated.');
@@ -64,7 +65,7 @@ export function Gig() {
                     )}
                     {canEditGig(me, owner) && (
                         <Button asChild variant="outline">
-                            <Link to={`/gigs/${gig.id}/edit`}>Edit</Link>
+                            <Link to={`/gigs/${gig.ref}/edit`}>Edit</Link>
                         </Button>
                     )}
                 </div>
@@ -201,7 +202,7 @@ export function Gig() {
                                 if (status === 'completed') {
                                     return (
                                         <Button key={status} asChild size="sm">
-                                            <Link to={`/gigs/${gig.id}/complete`}>{action.label}</Link>
+                                            <Link to={`/gigs/${gig.ref}/complete`}>{action.label}</Link>
                                         </Button>
                                     );
                                 }

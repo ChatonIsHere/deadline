@@ -105,7 +105,7 @@ function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]; empty
                     {gigs.map((g) => (
                         <li key={g.id} className="flex flex-wrap items-center gap-2">
                             <StatusBadge status={g.status} />
-                            <Link to={`/gigs/${g.id}`} className="hover:text-primary">
+                            <Link to={`/gigs/${g.ref}`} className="hover:text-primary">
                                 {g.name}
                             </Link>
                             {g.sessionAt && <span className="ml-auto text-xs text-muted-foreground">{formatSession(g.sessionAt)}</span>}
@@ -129,7 +129,7 @@ function Reviews({ reviews }: { reviews: Review[] }) {
                     <li key={r.gig.id + (r.by?.handle ?? '')} className="space-y-1">
                         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <Stars value={r.stars} />
-                            <Link to={`/gigs/${r.gig.id}`} className="hover:text-primary">
+                            <Link to={`/gigs/${r.gig.ref}`} className="hover:text-primary">
                                 {r.gig.name}
                             </Link>
                             {r.by && <RunnerChip runner={r.by} />}

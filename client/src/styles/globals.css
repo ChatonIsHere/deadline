@@ -26,7 +26,8 @@
 
 @layer base {
     body {
-        @apply min-h-screen bg-background font-mono text-sm text-foreground antialiased;
+        /* dvh, not vh: on phones vh counts the space the browser toolbar can take, which made the page taller than the screen */
+        @apply min-h-dvh bg-background font-mono text-sm text-foreground antialiased;
         /* faint scanlines */
         background-image: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(255 255 255 / 0.018) 2px 3px);
     }

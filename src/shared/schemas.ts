@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { RESERVED_SLUGS, SLUG, SLUG_HINT } from './slug';
 
 // Shared by the server (request validation) and the client (forms).
 
@@ -39,14 +38,6 @@ const optionalText = (max: number) =>
         .nullable()
         .transform((s) => s || null);
 const optionalAmount = z.number().int().min(0).nullable();
-/** A typed ID (see slug.ts). Left out, one is made from the name. */
-const slug = z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(SLUG, SLUG_HINT)
-    .refine((s) => !RESERVED_SLUGS.includes(s), 'That word is used by the site. Pick another.')
-    .optional();
 
 export const gigInput = z.object({
     name: text(100),
@@ -104,9 +95,8 @@ export const joinInput = z.object({ runnerId: z.number().int().optional() });
 export const runnerRefInput = z.object({ runnerId: z.number().int() });
 
 export const runnerInput = z.object({
+    /** One of a kind: it's the runner's link (/runners/vex). */
     handle: text(40),
-    /** Only used when the runner is made. */
-    slug,
     role: text(30),
     extraRoles: z.array(text(30)).max(9),
     imageId: z.number().int().nullable(),
@@ -125,8 +115,8 @@ export const runnerInput = z.object({
 export type RunnerInput = z.infer<typeof runnerInput>;
 
 export const newCrewInput = z.object({
+    /** One of a kind: it's the crew's link (/crews/static-wolves). */
     name: text(50),
-    slug,
     tagline: z.string().trim().max(120),
     /** The runner founding it. Your own, or anyone's for admins. */
     runnerId: z.number().int(),
@@ -229,7 +219,7 @@ export interface Me extends Member {
 /** A runner as shown in lists and slots. */
 export interface RunnerCard {
     id: number;
-    /** Typed ID for URLs. */
+    /** The runner's link, made from the handle. */
     slug: string;
     handle: string;
     role: string;
@@ -262,12 +252,14 @@ export interface Rating {
 
 export interface GigLink {
     id: number;
+    ref: string;
     name: string;
     status: GigStatus;
     sessionAt: number | null;
 }
 
 export interface RunnerView extends RunnerSummary {
+    uuid: string;
     officeLocation: string | null;
     specialties: string | null;
     contact: string | null;
@@ -285,7 +277,7 @@ export interface RunnerView extends RunnerSummary {
 export interface Review {
     stars: number;
     comment: string | null;
-    gig: { id: number; name: string };
+    gig: { id: number; ref: string; name: string };
     /** The runner the rater had on the gig. */
     by: RunnerCard | null;
     /** Unix ms. Missing on ratings from before comments. */
@@ -309,6 +301,9 @@ export interface Rewards {
 
 export interface GigView {
     id: number;
+    uuid: string;
+    /** The gig's link: UUID start and name (see shared/slug.ts). */
+    ref: string;
     name: string;
     /** The fixer's name: their character's handle, or what an admin typed. */
     fixerName: string;
@@ -376,7 +371,8 @@ export interface CrewMember extends RunnerCard {
 
 export interface CrewView {
     id: number;
-    /** Typed ID for URLs. */
+    uuid: string;
+    /** The crew's link, made from the name. */
     slug: string;
     name: string;
     tagline: string;
