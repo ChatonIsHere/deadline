@@ -115,33 +115,44 @@ export interface Weekly {
     hours: number[];
 }
 
-const WEEK_MINUTES = WEEK_HOURS * 60;
-
-/** How far ahead of UTC a zone is right now (or at an instant), in minutes. */
-export const offsetMinutes = (tz: string, at = Date.now()) => Math.round(offset(at, tz) / 60_000);
-
-/**
- * Where a minute of the viewer's week lands on someone else's clock, given how far apart the
- * two zones are. Wraps round the week, so late Sunday for one can be Monday for the other.
- */
-export const shiftMinute = (minute: number, by: number) => (((minute + by) % WEEK_MINUTES) + WEEK_MINUTES) % WEEK_MINUTES;
+/** Which hour of the week (0 to 167) an instant is in, on a clock in `tz`. */
+export function weekHour(ms: number, tz: string): number {
+    const w = wallTime(ms, tz);
+    return w.weekday * 24 + w.hour;
+}
 
 export interface HeatCell {
+    /** The next time this hour comes round on the viewer's clock */
+    start: number;
+    /** The viewer's clocks skip this hour (going forward) this time round */
+    skipped: boolean;
     /** Indexes into the people given, of who's free */
     free: number[];
 }
 
 /**
- * A usual week of hours on the viewer's clock, with who's free in each. Not tied to dates:
- * each person's hours are moved by the gap between their zone and the viewer's as it is at
- * `now`. In a zone with a half-hour offset an hour spans two of theirs, and both have to be
- * free. Returns 168 cells, day by day.
+ * A usual week of hours on the viewer's clock, with who's free in each. Each hour is the next
+ * time it comes round (from the start of the current hour), and each person's hours are read
+ * on their own clock at that moment. So when clocks change in the coming week, in one country
+ * or several, every hour on either side of the change lines up as it really will. In a zone
+ * with a half-hour offset an hour spans two of theirs, and both have to be free. Returns 168
+ * cells, Monday 00:00 first.
  */
 export function heatmap(people: Weekly[], viewerTz: string, now = Date.now()): HeatCell[] {
-    const viewer = offsetMinutes(viewerTz, now);
-    const placed = people.map((p) => ({ free: new Set(p.hours), by: offsetMinutes(p.timezone, now) - viewer }));
-    const hourAt = (minute: number) => Math.floor(minute / 60);
-    return Array.from({ length: WEEK_HOURS }, (_, h) => ({
-        free: placed.flatMap((p, i) => (p.free.has(hourAt(shiftMinute(h * 60, p.by))) && p.free.has(hourAt(shiftMinute(h * 60 + 59, p.by))) ? [i] : [])),
-    }));
+    const sets = people.map((p) => new Set(p.hours));
+    const today = wallTime(now, viewerTz);
+    return Array.from({ length: WEEK_HOURS }, (_, i) => {
+        const day = Math.floor(i / 24);
+        const hour = i % 24;
+        // Days until that weekday comes round; a week on if this hour has already gone today
+        let ahead = (day - today.weekday + 7) % 7;
+        if (ahead === 0 && hour < today.hour) ahead = 7;
+        const date = new Date(Date.UTC(today.year, today.month - 1, today.day + ahead));
+        const start = fromWallTime({ year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour, minute: 0 }, viewerTz);
+        const skipped = wallTime(start, viewerTz).hour !== hour;
+        const free = skipped
+            ? []
+            : people.flatMap((p, n) => (sets[n].has(weekHour(start, p.timezone)) && sets[n].has(weekHour(start + 59 * 60_000, p.timezone)) ? [n] : []));
+        return { start, skipped, free };
+    });
 }

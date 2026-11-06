@@ -1,75 +1,87 @@
 import { isLive, type PlayerAvailability } from '@shared/schemas';
-import { DAYS, heatmap, offsetMinutes, shiftMinute } from '@shared/time';
+import { DAYS, heatmap, wallTime } from '@shared/time';
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { Heatmap } from '@/components/availability';
 import { Avatar, Say } from '@/components/common';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Select } from '@/components/ui/select';
+import { type Tag, TagInput } from '@/components/ui/tag-input';
 import { useAvailability, useCrews, useGigs, useUser } from '@/lib/api';
 import { useTimeZone, zoneOffset } from '@/lib/time';
 
 type Placed = PlayerAvailability & { timezone: string };
 
+/** What can be picked, and how each shows in the address: ?crew=<slug>&gig=<ref>&player=<id>, any number of each. */
+const KINDS = ['crew', 'gig', 'player'] as const;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
 /**
  * When everyone can usually play, for admins picking a session time. Each player's usual week
- * is moved onto the admin's clock. Narrow it to a crew, a gig's runners or one player.
+ * is shown on the admin's clock. Narrow it to any mix of crews, live gigs (everyone signed up
+ * or interested, reserves too) and players; nothing picked shows everyone.
  */
 export function AvailabilityPage() {
     const me = useUser();
     const tz = useTimeZone();
     const everyone = useAvailability(me.isAdmin).data;
-    const crews = useCrews().data ?? [];
-    const gigs = (useGigs().data ?? []).filter((g) => isLive(g.status));
+    const crews = useCrews().data;
+    const allGigs = useGigs().data;
     const [params, setParams] = useSearchParams();
     const [picked, setPicked] = useState<number | null>(null);
 
-    // ?crew=<slug>, ?gig=<ref> or neither; ?player=<id> narrows further
-    const crew = crews.find((c) => c.slug === params.get('crew'));
-    const gig = gigs.find((g) => g.ref === params.get('gig') || g.id === params.get('gig'));
-    const group = crew ? `crew:${crew.slug}` : gig ? `gig:${gig.ref}` : '';
-    const playerId = params.get('player') ?? '';
+    const gigs = useMemo(() => (allGigs ?? []).filter((g) => isLive(g.status)), [allGigs]);
+    const tags = useMemo(
+        (): Tag[] => [
+            ...(crews ?? []).map((c) => ({ key: `crew:${c.slug}`, label: c.name, kind: 'crew' })),
+            ...gigs.map((g) => ({ key: `gig:${g.ref}`, label: g.name, kind: 'gig' })),
+            ...(everyone ?? []).map((p) => ({ key: `player:${p.member.id}`, label: p.member.name, kind: 'player', icon: <Avatar member={p.member} className="size-4 [--cut:2px]" /> })),
+        ],
+        [crews, gigs, everyone],
+    );
 
-    const setFilter = (key: 'group' | 'player', value: string) => {
-        const next = new URLSearchParams(params);
-        if (key === 'group') {
-            next.delete('crew');
-            next.delete('gig');
-            next.delete('player');
-            const [kind, ref] = value.split(':');
-            if (kind && ref) next.set(kind, ref);
-        } else if (value) next.set('player', value);
-        else next.delete('player');
+    const selected = KINDS.flatMap((kind) => params.getAll(kind).map((ref) => `${kind}:${ref}`));
+    const selectedKey = selected.join(',');
+    const setSelected = (keys: string[]) => {
+        const next = new URLSearchParams();
+        for (const key of keys) {
+            const at = key.indexOf(':');
+            next.append(key.slice(0, at), key.slice(at + 1));
+        }
         setParams(next, { replace: true });
     };
 
-    const inGroup = useMemo(() => {
-        const all = everyone ?? [];
-        if (crew) return all.filter((p) => p.crewIds.includes(crew.id));
-        if (gig) {
-            const on = new Set([...gig.slots.map((s) => s.runner?.ownerId), ...gig.reserves.map((r) => r.ownerId)]);
-            return all.filter((p) => on.has(p.member.id));
-        }
-        return all;
-    }, [everyone, crew, gig]);
     // Memoised so pointing at hours doesn't redo the whole week
     const { placed, unset } = useMemo(() => {
-        const shown = playerId ? inGroup.filter((p) => p.member.id === playerId) : inGroup;
+        const all = everyone ?? [];
+        const keys = selectedKey ? selectedKey.split(',') : [];
+        let shown = all;
+        if (keys.length) {
+            const ids = new Set<string>();
+            for (const key of keys) {
+                const [kind, ref] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+                if (kind === 'player') ids.add(ref);
+                if (kind === 'crew') {
+                    const crew = crews?.find((c) => c.slug === ref);
+                    if (crew) for (const p of all) if (p.crewIds.includes(crew.id)) ids.add(p.member.id);
+                }
+                if (kind === 'gig') {
+                    const gig = gigs.find((g) => g.ref === ref || g.id === ref);
+                    for (const s of gig?.slots ?? []) if (s.runner?.ownerId) ids.add(s.runner.ownerId);
+                    for (const r of gig?.reserves ?? []) if (r.ownerId) ids.add(r.ownerId);
+                }
+            }
+            shown = all.filter((p) => ids.has(p.member.id));
+        }
         const isPlaced = (p: PlayerAvailability): p is Placed => !!p.timezone && p.hours.length > 0;
         return { placed: shown.filter(isPlaced), unset: shown.filter((p) => !isPlaced(p)) };
-    }, [inGroup, playerId]);
+    }, [everyone, crews, gigs, selectedKey]);
 
     const cells = useMemo(() => heatmap(placed, tz), [placed, tz]);
     const cell = picked === null ? null : cells[picked];
 
     if (!me.isAdmin) return <Navigate to="/gigs" replace />;
 
-    const groupOptions = [
-        { value: '', label: 'Everyone' },
-        ...crews.map((c) => ({ value: `crew:${c.slug}`, label: c.name, hint: 'crew' })),
-        ...gigs.map((g) => ({ value: `gig:${g.ref}`, label: g.name, hint: 'gig' })),
-    ];
-    const playerOptions = [{ value: '', label: inGroup.length ? 'All of them' : 'Nobody here' }, ...inGroup.map((p) => ({ value: p.member.id, label: p.member.name }))];
     const free = cell ? cell.free.map((i) => placed[i]) : [];
     const busy = cell ? placed.filter((_, i) => !cell.free.includes(i)) : [];
 
@@ -77,14 +89,11 @@ export function AvailabilityPage() {
         <div className="space-y-5">
             <h1 className="text-3xl text-primary">Availability</h1>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-                <Select value={group} onChange={(v) => setFilter('group', v)} options={groupOptions} placeholder="Everyone" />
-                <Select value={playerId} onChange={(v) => setFilter('player', v)} options={playerOptions} placeholder="All of them" />
-            </div>
+            <TagInput id="availability-filter" options={tags} value={selected} onChange={setSelected} placeholder="Everyone. Type a crew, gig or player to narrow it..." />
 
             <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
                 <Card className="space-y-3">
-                    <CardTitle help="everyone's usual week, moved onto your clock using today's time differences. when the clocks change in one place and not another, it can be an hour out for a week or two.">
+                    <CardTitle help="everyone's usual week on your clock. each hour is the next time it comes round, so clock changes coming up this week, in any country, are placed right.">
                         Usual week
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
@@ -95,16 +104,18 @@ export function AvailabilityPage() {
 
                 <div className="space-y-5">
                     <Card className="space-y-3">
-                        <CardTitle>{picked !== null ? weekTime(picked * 60) : 'Pick an hour'}</CardTitle>
-                        {!cell || picked === null ? (
+                        <CardTitle>{picked !== null ? `${DAYS[Math.floor(picked / 24)]} ${pad(picked % 24)}:00` : 'Pick an hour'}</CardTitle>
+                        {!cell ? (
                             <Say>point at an hour to see who's free.</Say>
+                        ) : cell.skipped ? (
+                            <Say>your clocks skip this hour this week.</Say>
                         ) : (
                             <>
                                 <p>
                                     <span className="text-primary">{free.length}</span> of {placed.length} free
                                 </p>
-                                <People title="Free" people={free} minute={picked * 60} viewerTz={tz} />
-                                <People title="Busy" people={busy} minute={picked * 60} viewerTz={tz} muted />
+                                <People title="Free" people={free} at={cell.start} />
+                                <People title="Busy" people={busy} at={cell.start} muted />
                             </>
                         )}
                     </Card>
@@ -128,28 +139,25 @@ export function AvailabilityPage() {
     );
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/** A minute of the week as "Tue 01:30". */
-const weekTime = (minute: number) => `${DAYS[Math.floor(minute / 1440)]} ${pad(Math.floor((minute % 1440) / 60))}:${pad(minute % 60)}`;
-
-/** Who's free or busy at an hour of the viewer's week, with the time on their own clock. */
-function People({ title, people, minute, viewerTz, muted }: { title: string; people: Placed[]; minute: number; viewerTz: string; muted?: boolean }) {
+/** Who's free or busy at an hour, with the day and time on their own clock. */
+function People({ title, people, at, muted }: { title: string; people: Placed[]; at: number; muted?: boolean }) {
     if (!people.length) return null;
-    const viewer = offsetMinutes(viewerTz);
     return (
         <div className="space-y-2">
             <p className="text-xs tracking-widest text-muted-foreground uppercase">{title}</p>
             <ul className="space-y-2">
-                {people.map((p) => (
-                    <li key={p.member.id} className={muted ? 'flex items-center gap-2 text-muted-foreground' : 'flex items-center gap-2'}>
-                        <Avatar member={p.member} />
-                        <span className="min-w-0 flex-1 truncate">{p.member.name}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums" title={p.timezone}>
-                            {weekTime(shiftMinute(minute, offsetMinutes(p.timezone) - viewer))} theirs
-                        </span>
-                    </li>
-                ))}
+                {people.map((p) => {
+                    const w = wallTime(at, p.timezone);
+                    return (
+                        <li key={p.member.id} className={muted ? 'flex items-center gap-2 text-muted-foreground' : 'flex items-center gap-2'}>
+                            <Avatar member={p.member} />
+                            <span className="min-w-0 flex-1 truncate">{p.member.name}</span>
+                            <span className="text-xs text-muted-foreground tabular-nums" title={p.timezone}>
+                                {DAYS[w.weekday]} {pad(w.hour)}:{pad(w.minute)} theirs
+                            </span>
+                        </li>
+                    );
+                })}
             </ul>
         </div>
     );

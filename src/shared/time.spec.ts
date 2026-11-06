@@ -25,6 +25,7 @@ describe('fromWallTime', () => {
 });
 
 describe('heatmap', () => {
+    // Monday 9 Nov 2026, midday
     const NOV = at('2026-11-09T12:00Z');
 
     it('shows each player on the viewer’s clock', () => {
@@ -34,21 +35,33 @@ describe('heatmap', () => {
         assert.equal(cells.filter((c) => c.free.length).length, 1);
     });
 
-    it('uses the gap between the zones as it is today', () => {
-        // Between the UK and US clock changes the gap is 7 hours, not 8
-        const cells = heatmap([{ timezone: LA, hours: [11] }], LONDON, at('2026-10-28T12:00Z'));
-        assert.deepEqual(cells[18].free, [0]);
-    });
-
     it('wraps round the end of the week', () => {
+        // 01:00 Monday in UTC+2 is 23:00 Sunday in UTC+0
+        assert.deepEqual(heatmap([{ timezone: 'Etc/GMT-2', hours: [1] }], 'UTC', NOV)[6 * 24 + 23].free, [0]);
         // 22:00 Sunday in Los Angeles is 06:00 Monday in London
         assert.deepEqual(heatmap([{ timezone: LA, hours: [6 * 24 + 22] }], LONDON, NOV)[6].free, [0]);
+    });
+
+    it('follows clock changes coming up in the week, per country', () => {
+        // Wednesday 21 Oct: the UK changes on Sunday 25th, the US on Sunday 1 Nov.
+        // This Wednesday the gap is 8 hours; by Monday the 26th it's 7.
+        const cells = heatmap([{ timezone: LA, hours: [2 * 24 + 11, 11] }], LONDON, at('2026-10-21T12:00Z'));
+        assert.deepEqual(cells[2 * 24 + 19].free, [0]);
+        assert.deepEqual(cells[18].free, [0]);
+        assert.deepEqual(cells[19].free, []);
     });
 
     it('needs both halves of an hour in a half-hour zone', () => {
         // 19:00 London is 00:30 to 01:30 in Kolkata on Tuesday
         assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24] }], LONDON, NOV)[19].free, []);
         assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24, 25] }], LONDON, NOV)[19].free, [0]);
+    });
+
+    it('marks the hour the viewer’s clocks skip', () => {
+        // UK clocks jump from 01:00 to 02:00 on Sunday 28 Mar 2027
+        const cells = heatmap([{ timezone: LONDON, hours: Array.from({ length: 168 }, (_, i) => i) }], LONDON, at('2027-03-24T12:00Z'));
+        assert.equal(cells[6 * 24 + 1].skipped, true);
+        assert.equal(cells.filter((c) => c.skipped).length, 1);
     });
 });
 
