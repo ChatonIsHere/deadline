@@ -94,23 +94,21 @@
 }
 
 /*
- * Cut corners with a 1px border. clip-path drops borders on the diagonals, so the
- * element is painted the border colour (--frame) and ::before fills the inside (--fill).
+ * Cut corners with a 1px border (--frame) around a fill (--fill). The straight edges are a
+ * real border, which browsers always draw at least a pixel wide. (An inset layer over a
+ * frame-coloured box lost its top line at some zoom levels: both edges rounded to the same
+ * pixel.) clip-path cuts the border off the two corners, so gradients draw those diagonals:
+ * fill on the inside of each corner square, frame from the diagonal out.
  */
 @utility cut-frame {
     @apply cut;
     position: relative;
-    isolation: isolate;
-    background: var(--frame, var(--color-border));
-
-    &::before {
-        @apply cut;
-        content: '';
-        position: absolute;
-        inset: 1px;
-        z-index: -1;
-        background: var(--fill, var(--color-card));
-    }
+    --cut-frame-bg:
+        linear-gradient(to top right, transparent calc(50% - 1px), var(--frame, var(--color-border)) calc(50% - 1px)) top right / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        linear-gradient(to bottom left, transparent calc(50% - 1px), var(--frame, var(--color-border)) calc(50% - 1px)) bottom left / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        var(--fill, var(--color-card));
+    border: 1px solid var(--frame, var(--color-border));
+    background: var(--cut-frame-bg);
 }
 
 /* A terminal cursor. Holds still for people who turn motion off. */
@@ -222,4 +220,10 @@
     :is(aside nav, nav.shrink-0 > div) > :nth-child(4) { animation-delay: 120ms; }
     :is(aside nav, nav.shrink-0 > div) > :nth-child(5) { animation-delay: 160ms; }
     :is(aside nav, nav.shrink-0 > div) > :nth-child(6) { animation-delay: 200ms; }
+}
+
+/* Sonner styles its notifications outside any layer, which beats the cut-frame utility */
+[data-sonner-toast].cut-frame {
+    border: 1px solid var(--frame) !important;
+    background: var(--cut-frame-bg) !important;
 }

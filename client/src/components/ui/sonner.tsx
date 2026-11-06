@@ -21,7 +21,7 @@ export function Toaster() {
             mobileOffset={{ bottom: '5rem' }}
             toastOptions={{
                 classNames: {
-                    toast: 'group cut-frame !rounded-none !border-0 !bg-[var(--frame)] !shadow-none !px-4 !py-3 font-mono !text-sm !text-muted-foreground [--fill:var(--color-background)] [--frame:var(--color-accent)]',
+                    toast: 'group cut-frame !rounded-none !shadow-none !px-4 !py-3 font-mono !text-sm !text-muted-foreground [--fill:var(--color-background)] [--frame:var(--color-accent)]',
                     icon: '!hidden',
                     title: cn(
                         '!font-normal motion-safe:animate-[type-in_300ms_steps(16,end)_backwards_120ms]',
