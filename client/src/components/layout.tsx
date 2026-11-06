@@ -109,7 +109,7 @@ export function Layout() {
                     asChild
                     size="icon"
                     // Above the prompt bar (3rem), and on phones the channel bar too
-                    className="fixed right-4 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
+                    className="fixed right-4 bottom-32 z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
                 >
                     <Link to={fab.to} aria-label={fab.label} title={fab.label}>
                         <Plus className="size-6" />
@@ -117,7 +117,7 @@ export function Layout() {
                 </Button>
             )}
 
-            <nav className="shrink-0 border-t border-primary/40 bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+            <nav className="shrink-0 border-t border-primary/40 bg-background md:hidden">
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
@@ -332,6 +332,9 @@ function ViewportReadout() {
         ['100svh', unit('100svh')],
         ['100lvh', unit('100lvh')],
         ['screen', `${window.screen.height} @${window.devicePixelRatio}`],
+        ['safe bottom', unit('env(safe-area-inset-bottom, 0px)')],
+        ['app bottom', Math.round(document.querySelector('nav.shrink-0')?.parentElement?.getBoundingClientRect().bottom ?? 0)],
+        ['bar bottom', Math.round(document.querySelector('nav.shrink-0')?.getBoundingClientRect().bottom ?? 0)],
     ];
     return (
         <pre className="fixed top-2 left-2 z-50 bg-background/90 p-2 text-xs text-accent">{rows.map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>

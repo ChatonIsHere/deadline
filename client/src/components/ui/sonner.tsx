@@ -13,7 +13,7 @@ export function Toaster() {
             duration={10_000}
             // Clear the prompt bar, and on phones the channel bar too
             offset={{ bottom: '4rem' }}
-            mobileOffset={{ bottom: 'calc(8rem + env(safe-area-inset-bottom))' }}
+            mobileOffset={{ bottom: '8rem' }}
             toastOptions={{
                 classNames: {
                     toast: 'group cut-frame !rounded-none !border-0 !bg-[var(--frame)] !shadow-none !px-4 !py-3 font-mono !text-sm !text-muted-foreground [--fill:var(--color-background)] [--frame:var(--color-accent)]',
