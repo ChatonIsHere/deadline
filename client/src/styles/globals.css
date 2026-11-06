@@ -187,7 +187,9 @@
     :is(.grid, [class*='space-y-']) > :nth-child(7) { --d: 210ms; }
     :is(.grid, [class*='space-y-']) > :nth-child(n + 8) { --d: 245ms; }
 
-    .cut-frame {
+    /* Not notifications: Sonner measures their height as they appear, and a squashed frame
+       measured as nothing, which piled them on top of each other. They slide in instead. */
+    .cut-frame:not([data-sonner-toast]) {
         animation: power-on 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
         animation-delay: var(--d, 0ms);
     }

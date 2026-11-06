@@ -11,6 +11,11 @@ export function Toaster() {
             position="bottom-right"
             // Lives outside the pages, so a message stays up when the page changes; it fades after this
             duration={10_000}
+            // Listed one above another like lines in a log, not stacked behind each other: a
+            // stacked one peeked out above the newest as a dark sliver with odd bits of frame
+            expand
+            visibleToasts={3}
+            gap={8}
             // Clear the prompt bar on desktop, and the channel bar on phones
             offset={{ bottom: '4rem' }}
             mobileOffset={{ bottom: '5rem' }}
