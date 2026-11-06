@@ -164,7 +164,7 @@ export function Heatmap({ cells, total, picked, onPick }: { cells: HeatCell[]; t
                                     'h-5 cursor-pointer text-center text-[10px] leading-5 tabular-nums outline-none',
                                     cell.skipped && 'bg-[repeating-linear-gradient(45deg,var(--color-muted)_0_3px,transparent_3px_6px)]',
                                     share > 0.5 ? 'text-primary-foreground' : 'text-muted-foreground',
-                                    everyone && 'shadow-[inset_0_0_0_1px_var(--color-accent)]',
+                                    everyone && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',
                                     picked === i && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',
                                 )}
                             >

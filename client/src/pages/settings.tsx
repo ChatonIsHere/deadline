@@ -1,6 +1,6 @@
-import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
+import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView, settingsInput } from '@shared/schemas';
 import { useQuery } from '@tanstack/react-query';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type ComponentProps, type FormEvent, type ReactNode, useState } from 'react';
 import { Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
@@ -32,22 +32,39 @@ function Shell({ children }: { children: (view: SettingsView, isOwner: boolean) 
     );
 }
 
-/** The config being edited on a tab. Saving sends all of it, so other tabs' values go back unchanged. */
+/**
+ * The config being edited on a tab. Saving sends all of it, so other tabs' values go back unchanged.
+ * `changed` compares it with the saved config; `invalid` holds the fields the server would refuse.
+ */
 function useConfig(view: SettingsView) {
     const [form, setForm] = useState(view.settings);
     const set = (patch: Partial<Settings>) => setForm((f) => ({ ...f, ...patch }));
+    const changed = JSON.stringify(form) !== JSON.stringify(view.settings);
+    const check = settingsInput.safeParse(form);
+    const invalid = new Set(check.success ? [] : check.error.issues.map((i) => String(i.path[0])));
     const save = useAction(() => api('/api/settings', 'PUT', form), 'config saved.');
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        save.mutate();
+        if (changed && !invalid.size) save.mutate();
     };
-    return { form, set, save, submit };
+    return { form, set, save, submit, changed, invalid };
 }
 
-function SaveButton({ pending }: { pending: boolean }) {
+/**
+ * Grey until something changes, dim red while a change is invalid (the field is marked red too),
+ * then the usual colour once it can be saved.
+ */
+function SaveButton({ pending, changed, invalid, label = 'Save config', ...props }: ComponentProps<'button'> & { pending: boolean; changed: boolean; invalid: boolean; label?: string }) {
     return (
-        <Button type="submit" className="w-full" disabled={pending}>
-            Save config
+        <Button
+            type="submit"
+            {...props}
+            className="enter w-full disabled:opacity-100 data-[state=clean]:bg-muted data-[state=clean]:text-muted-foreground data-[state=invalid]:bg-destructive/20 data-[state=invalid]:text-destructive/80"
+            data-state={!changed ? 'clean' : invalid ? 'invalid' : 'ready'}
+            title={!changed ? 'Nothing to save yet' : invalid ? 'Fix the fields marked in red first' : undefined}
+            disabled={pending || !changed || invalid}
+        >
+            {pending ? 'Saving' : label}
         </Button>
     );
 }
@@ -58,7 +75,7 @@ export function SettingsPage() {
 }
 
 function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }) {
-    const { form, set, save, submit } = useConfig(view);
+    const { form, set, save, submit, changed, invalid } = useConfig(view);
 
     // Forums and roles come with the saved server. Picking another one loads its own.
     const sameGuild = form.guildId === view.settings.guildId;
@@ -122,7 +139,7 @@ function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }
                 </>
             )}
 
-            <SaveButton pending={save.isPending} />
+            <SaveButton pending={save.isPending} changed={changed} invalid={invalid.size > 0} />
         </form>
     );
 }
@@ -133,23 +150,41 @@ export function SchedulingSettings() {
 }
 
 function SchedulingForm({ view }: { view: SettingsView }) {
-    const { form, set, save, submit } = useConfig(view);
+    const { form, set, save, submit, changed, invalid } = useConfig(view);
     return (
         <form onSubmit={submit} className="space-y-5">
             <Card className="space-y-4">
                 <CardTitle>Gig scheduling</CardTitle>
                 <div>
                     <Label htmlFor="reminder-hours">Day-of reminder (hours before)</Label>
-                    <Input id="reminder-hours" type="number" min={1} max={72} value={form.reminderHours} onChange={(e) => set({ reminderHours: Number(e.target.value) })} />
+                    <Input
+                        id="reminder-hours"
+                        type="number"
+                        min={1}
+                        max={72}
+                        value={form.reminderHours}
+                        aria-invalid={invalid.has('reminderHours') || undefined}
+                        onChange={(e) => set({ reminderHours: Number(e.target.value) })}
+                    />
+                    {invalid.has('reminderHours') && <p className="mt-1 text-xs text-destructive">Whole hours, 1 to 72.</p>}
                     <p className="mt-1 text-xs text-muted-foreground">A second one goes out 30 minutes before.</p>
                 </div>
                 <div>
                     <Label htmlFor="confirm-hours">Time to confirm (hours)</Label>
-                    <Input id="confirm-hours" type="number" min={1} max={168} value={form.confirmHours} onChange={(e) => set({ confirmHours: Number(e.target.value) })} />
+                    <Input
+                        id="confirm-hours"
+                        type="number"
+                        min={1}
+                        max={168}
+                        value={form.confirmHours}
+                        aria-invalid={invalid.has('confirmHours') || undefined}
+                        onChange={(e) => set({ confirmHours: Number(e.target.value) })}
+                    />
+                    {invalid.has('confirmHours') && <p className="mt-1 text-xs text-destructive">Whole hours, 1 to 168.</p>}
                     <p className="mt-1 text-xs text-muted-foreground">Ends an hour before the session if that's sooner. One nudge with 12 hours left, then the slot goes to the reserves.</p>
                 </div>
             </Card>
-            <SaveButton pending={save.isPending} />
+            <SaveButton pending={save.isPending} changed={changed} invalid={invalid.size > 0} />
         </form>
     );
 }
@@ -160,7 +195,7 @@ export function RoleSettings() {
 }
 
 function RolesForm({ view }: { view: SettingsView }) {
-    const { form, set, save, submit } = useConfig(view);
+    const { form, set, save, submit, changed, invalid } = useConfig(view);
     const [adding, setAdding] = useState('');
     const roles = form.runnerRoles;
     const add = () => {
@@ -210,7 +245,7 @@ function RolesForm({ view }: { view: SettingsView }) {
                     </Button>
                 </div>
             </Card>
-            <SaveButton pending={save.isPending} />
+            <SaveButton pending={save.isPending} changed={changed} invalid={invalid.size > 0} />
         </form>
     );
 }
@@ -229,6 +264,8 @@ function BotProfileCard() {
     const [bannerImageId, setBannerImageId] = useState<string | null>(null);
     const save = useAction(() => api('/api/settings/bot-profile', 'PUT', { about: about ?? profile?.about ?? '', bannerImageId }), 'bot profile updated.', () => setBannerImageId(null));
 
+    // About me can't be over the limit: the field stops at 400.
+    const changed = !!profile && (bannerImageId !== null || (about !== null && about !== profile.about));
     const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
 
     return (
@@ -255,9 +292,7 @@ function BotProfileCard() {
                 <Label htmlFor="about">About me</Label>
                 <Input id="about" value={about ?? profile?.about ?? ''} onChange={(e) => setAbout(e.target.value)} maxLength={400} />
             </div>
-            <Button type="button" className="w-full" disabled={save.isPending || !profile} onClick={() => save.mutate()}>
-                {save.isPending ? 'Updating' : 'Update bot profile'}
-            </Button>
+            <SaveButton type="button" label="Update bot profile" pending={save.isPending} changed={changed} invalid={false} onClick={() => save.mutate()} />
         </Card>
     );
 }

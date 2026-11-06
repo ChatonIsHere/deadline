@@ -137,7 +137,7 @@ function Reviews({ reviews }: { reviews: Review[] }) {
                             {r.by && <RunnerChip runner={r.by} />}
                             {r.at && <span className="ml-auto text-xs text-muted-foreground">{new Date(r.at).toLocaleDateString('en-GB', { timeZone: tz })}</span>}
                         </p>
-                        {r.comment && <p className="border-l-2 border-accent pl-3 text-muted-foreground italic">{r.comment}</p>}
+                        {r.comment && <p className="border-l-3 border-accent pl-3 text-muted-foreground italic">{r.comment}</p>}
                     </li>
                 ))}
             </ul>

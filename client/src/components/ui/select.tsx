@@ -13,7 +13,7 @@ export interface SelectOption {
 }
 
 /** The dropdown panel and its rows. Shared with Combobox so both look the same. */
-// The padding keeps rows inside the 1px frame and clear of the cut corners
+// The padding keeps rows inside the frame and clear of the cut corners
 export const panelClass = 'cut-frame px-1 py-2 [--cut:8px] [--frame:var(--color-primary)]';
 export const optionClass =
     'group flex cursor-pointer items-center gap-2 px-3 py-1.5 outline-none data-highlighted:bg-primary data-highlighted:text-primary-foreground! aria-selected:bg-primary aria-selected:text-primary-foreground!';

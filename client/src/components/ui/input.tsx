@@ -3,7 +3,7 @@ import { Help } from '@/components/common';
 import { cn } from '@/lib/utils';
 
 export const fieldClass =
-    'cut w-full border-b-2 border-input bg-muted px-3 text-sm outline-none [--cut:8px] placeholder:text-muted-foreground focus:border-primary';
+    'cut w-full border-b-3 border-input bg-muted px-3 text-sm outline-none [--cut:8px] placeholder:text-muted-foreground focus:border-primary aria-invalid:border-destructive aria-invalid:shadow-[inset_0_0_0_2px_var(--color-destructive)]';
 
 /** Limits only show once you're close: within the last 10%. */
 const nearLimit = (length: number, max?: number) => !!max && length >= max * 0.9;

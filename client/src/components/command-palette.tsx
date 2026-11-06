@@ -54,7 +54,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                     <D.Title className="sr-only">Jump to</D.Title>
                     {/* The mouse highlights with CSS hover; only the keyboard moves the selection, so hovering costs nothing */}
                     <Command loop disablePointerSelection className="flex max-h-[70vh] flex-col">
-                        <div className="flex items-center gap-2 border-b border-border px-4">
+                        <div className="flex items-center gap-2 border-b-2 border-border px-4">
                             <span className="font-display text-primary">&gt;</span>
                             <Command.Input autoFocus placeholder="jump to..." className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
                             <kbd className="hidden text-xs text-muted-foreground sm:block">esc</kbd>

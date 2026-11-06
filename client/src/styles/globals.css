@@ -73,7 +73,7 @@
             @apply bg-muted px-1 text-primary;
         }
         & blockquote {
-            @apply border-l-2 border-accent pl-3 text-muted-foreground;
+            @apply border-l-3 border-accent pl-3 text-muted-foreground;
         }
         & strong {
             @apply font-bold text-foreground;
@@ -81,33 +81,39 @@
     }
 }
 
-/* Corners cut off top right and bottom left. Set --cut to change the size. */
+/*
+ * Corners cut off top right and bottom left. Set --cut to change the size.
+ * The straight edges of the polygon sit 4px outside the box and the diagonals run along
+ * the same lines as before, extended. A clip exactly on the box edge shaved off borders
+ * that the browser had snapped to the next pixel, so a frame lost its bottom or top line
+ * at some sizes and zoom levels. Nothing paints outside the box, so the margin shows nothing.
+ */
 @utility cut {
     clip-path: polygon(
-        0 0,
-        calc(100% - var(--cut, 12px)) 0,
-        100% var(--cut, 12px),
-        100% 100%,
-        var(--cut, 12px) 100%,
-        0 calc(100% - var(--cut, 12px))
+        -4px -4px,
+        calc(100% - var(--cut, 12px) - 4px) -4px,
+        calc(100% + 4px) calc(var(--cut, 12px) + 4px),
+        calc(100% + 4px) calc(100% + 4px),
+        calc(var(--cut, 12px) + 4px) calc(100% + 4px),
+        -4px calc(100% - var(--cut, 12px) - 4px)
     );
 }
 
 /*
- * Cut corners with a 1px border (--frame) around a fill (--fill). The straight edges are a
- * real border, which browsers always draw at least a pixel wide. (An inset layer over a
+ * Cut corners with a border (--frame, --frame-w wide, 2px by default) around a fill (--fill).
+ * The straight edges are a real border, which browsers always draw. (An inset layer over a
  * frame-coloured box lost its top line at some zoom levels: both edges rounded to the same
- * pixel.) clip-path cuts the border off the two corners, so gradients draw those diagonals:
- * fill on the inside of each corner square, frame from the diagonal out.
+ * pixel.) clip-path cuts the border off the two corners, so gradients draw those diagonals
+ * the same width: fill on the inside of each corner square, frame from the diagonal out.
  */
 @utility cut-frame {
     @apply cut;
     position: relative;
     --cut-frame-bg:
-        linear-gradient(to top right, transparent calc(50% - 1px), var(--frame, var(--color-border)) calc(50% - 1px)) top right / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
-        linear-gradient(to bottom left, transparent calc(50% - 1px), var(--frame, var(--color-border)) calc(50% - 1px)) bottom left / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        linear-gradient(to top right, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) top right / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        linear-gradient(to bottom left, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) bottom left / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
         var(--fill, var(--color-card));
-    border: 1px solid var(--frame, var(--color-border));
+    border: var(--frame-w, 2px) solid var(--frame, var(--color-border));
     background: var(--cut-frame-bg);
 }
 
@@ -187,7 +193,9 @@
 
     /* Not notifications: Sonner measures their height as they appear, and a squashed frame
        measured as nothing, which piled them on top of each other. They slide in instead. */
-    .cut-frame:not([data-sonner-toast]) {
+    /* .enter: anything else that should open like a panel, such as a form's save button */
+    .cut-frame:not([data-sonner-toast]),
+    .enter {
         animation: power-on 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
         animation-delay: var(--d, 0ms);
     }
@@ -224,6 +232,6 @@
 
 /* Sonner styles its notifications outside any layer, which beats the cut-frame utility */
 [data-sonner-toast].cut-frame {
-    border: 1px solid var(--frame) !important;
+    border: var(--frame-w, 2px) solid var(--frame) !important;
     background: var(--cut-frame-bg) !important;
 }

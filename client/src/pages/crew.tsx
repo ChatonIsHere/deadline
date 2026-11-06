@@ -176,7 +176,7 @@ function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: bo
     const options = runners.filter((r) => !taken.has(r.id));
 
     return (
-        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        <div className="flex flex-wrap gap-2 border-t-2 border-border pt-4">
             <Select
                 className="min-w-48 flex-1"
                 value={runnerId}

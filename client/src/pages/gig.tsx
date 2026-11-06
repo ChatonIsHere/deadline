@@ -183,7 +183,7 @@ export function Gig() {
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
                         {/* Your own place on it, and signing up, under the list */}
                         {me.isEdgerunner && active ? (
-                            <div className="mt-4 border-t border-border pt-4">
+                            <div className="mt-4 border-t-2 border-border pt-4">
                                 <SignUp gig={gig} userId={me.id} />
                             </div>
                         ) : (

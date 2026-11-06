@@ -131,7 +131,7 @@ export function Layout() {
                 </Button>
             )}
 
-            <nav className="shrink-0 border-t border-primary/40 bg-background md:hidden">
+            <nav className="shrink-0 border-t-2 border-primary/40 bg-background md:hidden">
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
@@ -156,8 +156,8 @@ function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
     return (
-        <aside className="sticky top-0 hidden h-screen flex-col border-r border-primary/40 bg-card/60 md:flex">
-            <Link to="/gigs" className="flex h-12 items-center gap-2 border-b border-primary/40 px-4">
+        <aside className="sticky top-0 hidden h-screen flex-col border-r-2 border-primary/40 bg-card/60 md:flex">
+            <Link to="/gigs" className="flex h-12 items-center gap-2 border-b-2 border-primary/40 px-4">
                 <img src="/logo.svg" alt="" className="size-6" />
                 <span className="font-display text-lg font-bold tracking-[0.2em] text-primary">DEADLINE</span>
             </Link>
@@ -171,7 +171,7 @@ function Rail({ channels }: { channels: Channel[] }) {
                         end={c.to === '/'}
                         className={({ isActive }) =>
                             cn(
-                                'flex items-center gap-3 border-l-2 px-4 py-2 font-display tracking-wider uppercase',
+                                'flex items-center gap-3 border-l-3 px-4 py-2 font-display tracking-wider uppercase',
                                 isActive ? 'border-primary bg-primary/20 text-primary' : 'border-transparent text-muted-foreground hover:border-primary/60 hover:bg-muted hover:text-foreground',
                             )
                         }
@@ -183,7 +183,7 @@ function Rail({ channels }: { channels: Channel[] }) {
             </nav>
 
 
-            <div className="mt-auto space-y-3 border-t border-primary/40 px-4 py-4">
+            <div className="mt-auto space-y-3 border-t-2 border-primary/40 px-4 py-4">
                 <p className="text-xs tracking-widest text-muted-foreground">// STATUS</p>
                 <Readout />
                 <div className="flex items-center gap-2">
@@ -229,7 +229,7 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
         // Phones: the first row, under the browser bar. Desktop: stuck to the bottom of the window.
-        <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
+        <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
                 <img src="/logo.svg" alt="" className="size-5 md:hidden" />
                 <span className="text-primary">&gt;</span>
@@ -309,7 +309,7 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
             title={label}
             className={({ isActive }) =>
                 cn(
-                    'flex h-16 flex-1 flex-col items-center justify-center gap-1 border-t-2',
+                    'flex h-16 flex-1 flex-col items-center justify-center gap-1 border-t-3',
                     isActive ? 'border-primary bg-primary/20 text-primary' : 'border-transparent text-muted-foreground',
                 )
             }

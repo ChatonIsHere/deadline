@@ -85,7 +85,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
                 {runners.map((r) => {
                     const a = extra[r.id] ?? blank;
                     return (
-                        <div key={r.id} className="space-y-2 border-b border-border pb-4 last:border-0 last:pb-0">
+                        <div key={r.id} className="space-y-2 border-b-2 border-border pb-4 last:border-0 last:pb-0">
                             <RunnerChip runner={r} />
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[8rem_6rem_1fr]">
                                 <Amount id={`eb-${r.id}`} label="Pay" icon value={a.eb} onChange={(eb) => setRunner(r.id, { eb })} />
