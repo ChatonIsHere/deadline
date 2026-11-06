@@ -11,7 +11,7 @@ import { CrewsController } from './crews/crews.controller';
 import { CrewsService } from './crews/crews.service';
 import { CacheService } from './cache/cache.service';
 import { CleanupService } from './library/cleanup.service';
-import { ImagesController } from './library/images.controller';
+import { ConfigController, ImagesController } from './library/images.controller';
 import { PrismaService } from './prisma/prisma.service';
 import { StorageService } from './storage/storage.service';
 import { EmojiService } from './discord/emoji.service';
@@ -40,7 +40,7 @@ import { DebriefService } from './gigs/debrief.service';
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController],
+    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController],
     providers: [
         PrismaService,
         // No arguments: they connect to REDIS_URL and S3 from the config (tests pass their own)

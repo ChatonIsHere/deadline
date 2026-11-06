@@ -3,9 +3,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import sharp from 'sharp';
-import { config } from '../config';
 import { type Db, PrismaService } from '../prisma/prisma.service';
-import { cardFile, FRAME_VERSION, framedFile, imagePrefix, keyUrl, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
+import { cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
 import { StorageService } from '../storage/storage.service';
 import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
@@ -160,7 +159,7 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
 
     /** Public URL of an image with its frame, for Discord. */
     url(id: string): string {
-        return `${config.PUBLIC_URL}${keyUrl(framedFile(id))}`;
+        return this.storage.url(framedFile(id));
     }
 
     /**
@@ -179,7 +178,7 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
             await this.prisma.gig.update({ where: { id: gig.id }, data: { cardKey: key } });
             if (gig.cardKey) await this.prisma.staleObject.upsert({ where: { key: gig.cardKey }, create: { key: gig.cardKey }, update: {} });
         }
-        return `${config.PUBLIC_URL}${keyUrl(key)}`;
+        return this.storage.url(key);
     }
 
     /** A stored picture's bytes (the bot banner uses the plain one). */

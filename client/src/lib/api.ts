@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { keyUrl, mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
+import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -69,11 +69,22 @@ export async function uploadImage(file: File, opts: UploadOptions = {}): Promise
 }
 
 /** The framed picture for the web (frame to the edge), or the plain one. Discord gets a padded copy. */
-export const imageUrl = (id: string) => keyUrl(webFile(id));
-export const plainImageUrl = (id: string) => keyUrl(plainFile(id));
+/**
+ * Where pictures live: the S3 bucket (linked directly), or this server in local dev. Set once
+ * from /api/config before the app starts (see main.tsx).
+ */
+let imageBase = '/';
+export async function loadConfig() {
+    const res = await fetch('/api/config').catch(() => null);
+    if (res?.ok) imageBase = ((await res.json()) as { imageBase: string }).imageBase;
+}
+const stored = (key: string) => `${imageBase}${key}`;
+
+export const imageUrl = (id: string) => stored(webFile(id));
+export const plainImageUrl = (id: string) => stored(plainFile(id));
 /** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
-export const thumbUrl = (id: string) => keyUrl(thumbFile(id));
-export const mediumUrl = (id: string) => keyUrl(mediumFile(id));
+export const thumbUrl = (id: string) => stored(thumbFile(id));
+export const mediumUrl = (id: string) => stored(mediumFile(id));
 
 /**
  * A change sent to the server. Every one says what happened, as a notification from the

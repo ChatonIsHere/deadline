@@ -43,8 +43,8 @@ class RedisStore implements Store {
 }
 
 /**
- * Short-lived data: sessions, sign-in state, signed-in users' roles, Discord lookups and
- * recently served pictures. Keys are prefixed "deadline:" (Redis is shared with other apps,
+ * Short-lived data: sessions, signed-in users' roles and Discord lookups. Keys are prefixed
+ * "deadline:" (Redis is shared with other apps,
  * though each has its own database index). Never the only copy of anything that matters,
  * except sessions, which just mean signing in again if lost.
  */

@@ -99,8 +99,8 @@ Without S3 settings, pictures are kept in `./data/objects`. Without `REDIS_URL`,
 | `PORT` | HTTP port, default 3003 |
 | `PUBLIC_URL` | Where the web UI lives. Used for OAuth and links in posts |
 | `DATABASE_URL` | Postgres |
-| `REDIS_URL` | Redis, for sessions (30 days), signed-in users' roles (a minute), Discord lookups and recently served pictures. Optional |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Where pictures are stored. The bucket stays private. Optional |
+| `REDIS_URL` | Redis, for sessions (30 days), signed-in users' roles (a minute) and Discord lookups. Optional |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Where pictures are stored. Objects are public and linked directly. Optional |
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_CLIENT_SECRET` | OAuth secret. The client ID is the bot's application ID |
 
@@ -137,7 +137,7 @@ Every gig has a picture, framed in the board's colours. There are six frame vari
 
 Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 
-Pictures are stored under `images/<id>/` (S3, or `./data/objects` locally) and served at the same path from `/images/`. The bucket stays private: Deadline fetches from it, keeping pictures up to 512 KB in Redis for 6 hours, and sends them with one-year cache headers. A changed picture always gets a new file name, since names carry the frame version or a hash.
+Pictures are stored under `images/<id>/` and linked straight from the bucket (`<endpoint>/<bucket>/images/...`), like the api's avatars: they're only character art and location shots, so the objects are public. They go up with one-year cache headers; a changed picture always gets a new file name, since names carry the frame version or a hash. The web app reads the bucket's address from `/api/config` when it loads. Locally, without S3, they're kept in `./data/objects` and served at `/images/`; with S3 that route only redirects to the bucket.
 
 **Cleanup:** a picture nothing uses any more (no gig, finished ones included, no runner, not in the library) is deleted 30 days later. So are files left behind by a replaced gig card or an older frame version. It runs daily at 04:30 (`src/library/cleanup.service.ts`).
 

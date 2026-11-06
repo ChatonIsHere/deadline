@@ -11,16 +11,24 @@ export interface Storage {
     /** Every key starting with `prefix`. */
     list(prefix: string): Promise<string[]>;
     delete(keys: string[]): Promise<void>;
+    /** Where a key can be fetched from: the base URL, ending in "/", that keys are added to. */
+    readonly base: string;
 }
 
-/** The bucket. Private: files are only reached through Deadline's /images route. */
+/**
+ * The bucket. Files are public (it's only character art and location shots) and linked
+ * directly, like the api's avatars: `<endpoint>/<bucket>/<key>`. A key never changes content
+ * (versions and hashes are in the names), so they're cached for a year.
+ */
 class S3Storage implements Storage {
     private readonly client: S3Client;
+    readonly base: string;
 
     constructor(
         endpoint: string,
         private readonly bucket: string,
     ) {
+        this.base = `${endpoint.replace(/\/$/, '')}/${bucket}/`;
         this.client = new S3Client({
             endpoint,
             region: config.S3_REGION,
@@ -30,7 +38,16 @@ class S3Storage implements Storage {
     }
 
     async put(key: string, data: Buffer, contentType: string) {
-        await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: data, ContentType: contentType }));
+        await this.client.send(
+            new PutObjectCommand({
+                Bucket: this.bucket,
+                Key: key,
+                Body: data,
+                ContentType: contentType,
+                ACL: 'public-read',
+                CacheControl: 'public, max-age=31536000, immutable',
+            }),
+        );
     }
 
     async get(key: string) {
@@ -65,7 +82,10 @@ class S3Storage implements Storage {
 
 /** A folder, for local dev and tests, so neither needs S3 credentials. */
 export class DiskStorage implements Storage {
-    constructor(private readonly root: string) {}
+    /** Served by Deadline itself at /images/ (keys start with "images/"). */
+    readonly base = `${config.PUBLIC_URL}/`;
+
+    constructor(readonly root: string) {}
 
     private path(key: string) {
         if (key.includes('..')) throw new Error(`Bad key: ${key}`);
@@ -103,6 +123,20 @@ export class DiskStorage implements Storage {
 export class StorageService implements Storage {
     private readonly logger = new Logger(StorageService.name);
     private readonly store: Storage;
+
+    get base() {
+        return this.store.base;
+    }
+
+    /** True for the bucket, false for the local folder (which Deadline serves itself). */
+    get remote() {
+        return !(this.store instanceof DiskStorage);
+    }
+
+    /** A stored file's full address, for the web and Discord. */
+    url(key: string) {
+        return `${this.store.base}${key}`;
+    }
 
     /** Tests pass their own store. */
     constructor(store?: Storage) {

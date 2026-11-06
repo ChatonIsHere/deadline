@@ -21,7 +21,8 @@ async function bootstrap() {
             contentSecurityPolicy: isProd && {
                 directives: {
                     defaultSrc: ["'self'"],
-                    imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com'],
+                    // Pictures come straight from the bucket
+                    imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', ...(config.S3_ENDPOINT ? [new URL(config.S3_ENDPOINT).origin] : [])],
                     styleSrc: ["'self'", "'unsafe-inline'"],
                 },
             },

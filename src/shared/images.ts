@@ -5,8 +5,8 @@
  */
 export const FRAME_VERSION = 6;
 
-// Stored files, by key. The /images route serves a key at the same path:
-// "images/<id>/web-v6.webp" is /images/<id>/web-v6.webp. Everything is WebP but the gig cards.
+// Stored files, by key, linked straight from the bucket: <endpoint>/<bucket>/images/<id>/web-v6.webp
+// (or this server's /images/ in local dev). Everything is WebP but the gig cards.
 
 /** Everything belonging to one picture. */
 export const imagePrefix = (id: string) => `images/${id}/`;
@@ -20,9 +20,6 @@ export const thumbFile = (id: string) => `images/${id}/thumb-v${FRAME_VERSION}.w
 export const mediumFile = (id: string) => `images/${id}/medium-v${FRAME_VERSION}.webp`;
 /** A gig's Discord card (its picture with the name on it), one per name and picture. */
 export const cardFile = (gigId: string, hash: string) => `images/cards/${gigId}/${hash}.png`;
-
-/** A stored key's address, from the site root. */
-export const keyUrl = (key: string) => `/${key}`;
 
 /** Gig pictures are 16:9, which suits Discord's gallery view. Runner pictures are square. */
 export const SIZES = {
