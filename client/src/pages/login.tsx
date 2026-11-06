@@ -11,8 +11,10 @@ const ERRORS: Record<string, string> = {
 export function Login() {
     const error = useSearchParams()[0].get('error');
     return (
-        <div className="grid min-h-screen place-items-center p-4">
-            <div className="cut-frame w-full max-w-md space-y-6 p-8 [--frame:var(--color-primary)]">
+        // A fixed distance from the top rather than centred: centring can put the box's top edge on
+        // part of a pixel, and Firefox on phones can drop a 1px line there
+        <div className="flex min-h-dvh justify-center px-4 pt-24 pb-4 md:pt-40">
+            <div className="cut-frame h-fit w-full max-w-md space-y-6 p-8 [--frame:var(--color-primary)]">
                 <div className="flex items-center gap-3">
                     <img src="/logo.svg" alt="" className="size-12" />
                     <h1 className="text-3xl tracking-[0.25em] text-primary">Deadline</h1>
