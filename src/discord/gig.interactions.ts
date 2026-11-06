@@ -108,7 +108,7 @@ export class GigInteractions {
     @Button('prefs/reminders/off')
     remindersOff(@Context() [interaction]: ButtonContext) {
         return this.answer(interaction, async () => {
-            await this.prefs.set(interaction.user.id, { ...(await this.prefs.get(interaction.user.id)), reminders: false });
+            await this.prefs.set(interaction.user.id, { reminders: false });
             return voice.remindersOff(config.PUBLIC_URL);
         });
     }

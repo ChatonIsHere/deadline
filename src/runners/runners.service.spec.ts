@@ -11,7 +11,7 @@ import type { SettingsService } from '../settings/settings.service';
 import { CORE_ROLES, type Me, type RunnerInput } from '../shared/schemas';
 import { RunnersService } from './runners.service';
 
-const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, ...roles });
+const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, timezone: null, needsSetup: false, ...roles });
 const admin = person('admin', { isAdmin: true, isEdgerunner: false });
 const players = [admin, person('a'), person('b')];
 

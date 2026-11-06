@@ -11,7 +11,7 @@ import type { Me } from '../shared/schemas';
 import { toSlug } from '../shared/slug';
 import { CrewsService } from './crews.service';
 
-const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, ...roles });
+const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, timezone: null, needsSetup: false, ...roles });
 const admin = person('admin', { isAdmin: true, isEdgerunner: false });
 const [a, b, c] = [person('a'), person('b'), person('c')];
 

@@ -60,10 +60,16 @@ model Settings {
 
 /// Per-person choices. No row means the defaults.
 model UserPrefs {
-  userId     String  @id @map("user_id")
-  reminders  Boolean @default(true)
+  userId       String    @id @map("user_id")
+  reminders    Boolean   @default(true)
   /// The bot owner browsing as a normal player, admin powers hidden
-  playerView Boolean @default(false) @map("player_view")
+  playerView   Boolean   @default(false) @map("player_view")
+  /// Their timezone, e.g. "Europe/London". Times on the web show in it.
+  timezone     String?
+  /// Hours of the week they can usually play (number[], 0 to 167, 0 is Monday 00:00), on their own clock
+  availability Json      @default("[]")
+  /// When they finished first-time setup (a runner, a timezone, reminders or not)
+  setupAt      DateTime? @map("setup_at") @db.Timestamptz
 
   @@map("user_prefs")
 }

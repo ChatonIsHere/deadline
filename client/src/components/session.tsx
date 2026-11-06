@@ -8,20 +8,12 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useMyRunners, useRunners } from '@/lib/api';
+import { formatSession, fromInput, toInput, useTimeZone, zoneOffset } from '@/lib/time';
 
-/** "Fri 3 Jan, 20:00" in the viewer's own timezone. */
-export const formatSession = (ms: number) =>
-    new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
-/** What a datetime-local input wants: local time, no seconds or zone. */
-function toInput(ms: number): string {
-    const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60_000);
-    return d.toISOString().slice(0, 16);
-}
-
-/** The session time. Admins set it here, which asks everyone on the gig to confirm. */
+/** The session time, in the viewer's timezone. Admins set it here, which asks everyone on the gig to confirm. */
 export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) {
-    const [value, setValue] = useState(gig.sessionAt ? toInput(gig.sessionAt) : '');
+    const tz = useTimeZone();
+    const [value, setValue] = useState(gig.sessionAt ? toInput(gig.sessionAt, tz) : '');
     const save = useAction((sessionAt: number | null) => api(`/api/gigs/${gig.id}/session`, 'POST', { sessionAt }), 'session time updated.');
 
     const filled = gig.slots.filter((s) => s.runner);
@@ -32,7 +24,7 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
             <CardTitle help="the time the gig gets played, set by an admin. everyone on it is asked by DM to confirm, and confirmed runners get reminders.">Session</CardTitle>
             {gig.sessionAt ? (
                 <>
-                    <p className="font-display text-lg text-primary">{formatSession(gig.sessionAt)}</p>
+                    <p className="font-display text-lg text-primary">{formatSession(gig.sessionAt, tz)}</p>
                     <p className="text-xs text-muted-foreground">
                         {confirmed}/{filled.length} confirmed
                     </p>
@@ -45,11 +37,15 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
                 <>
                     <div className="flex gap-2">
                         <Input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} />
-                        <Button size="sm" className="mt-1" disabled={!value || save.isPending} onClick={() => save.mutate(new Date(value).getTime())}>
+                        <Button size="sm" className="mt-1" disabled={!value || save.isPending} onClick={() => save.mutate(fromInput(value, tz))}>
                             Set
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
+                        Your time ({tz}, {zoneOffset(tz)}).{' '}
+                        <Link to={`/availability?gig=${gig.ref}`} className="text-accent hover:underline">
+                            Who's free?
+                        </Link>{' '}
                         Setting or changing the time DMs everyone on the gig to confirm or drop out.
                         {gig.sessionAt && (
                             <>

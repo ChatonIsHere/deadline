@@ -1,10 +1,11 @@
 import type { GigView } from '@shared/schemas';
 import { Icon, LinkCard, Pay, StatusBadge } from '@/components/common';
-import { formatSession } from '@/components/session';
+import { useFormatSession } from '@/lib/time';
 import { mediumUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export function GigCard({ gig }: { gig: GigView }) {
+    const formatSession = useFormatSession();
     const taken = gig.slots.filter((s) => s.runner).length;
     // The picture runs to the card's edge, and the card's corner is cut to match the picture's
     // frame: 72 + 2 x 4 margin at 1280 wide, so 6.25% of the card's width (cqw of the wrapper)

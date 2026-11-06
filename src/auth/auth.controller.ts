@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { Body, Controller, Get, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { isProd } from '../config';
 import { MembersService } from '../discord/members.service';
 import { SettingsService } from '../settings/settings.service';
-import { type Me, type Prefs, prefsInput } from '../shared/schemas';
+import { type Me, type PrefsInput, prefsInput, type SetupInput, setupInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { AuthGuard, CurrentUser, SESSION_COOKIE } from './auth.guard';
 import { AuthService, SESSION_DAYS } from './auth.service';
@@ -32,11 +32,20 @@ export class AuthController {
 
     @Put('api/prefs')
     @UseGuards(AuthGuard)
-    async setPrefs(@CurrentUser() user: Me, @Body(new ZodPipe(prefsInput)) body: Prefs) {
+    async setPrefs(@CurrentUser() user: Me, @Body(new ZodPipe(prefsInput)) body: PrefsInput) {
         await this.prefs.set(user.id, body);
-        // Player view changes what they can do, so their cached sign-in goes
+        // Player view and timezone are part of the sign-in, so the cached one goes
         await this.members.forget(user.id);
         return this.prefs.get(user.id);
+    }
+
+    /** The end of first-time setup: their timezone and whether they want reminders. */
+    @Post('api/setup')
+    @UseGuards(AuthGuard)
+    @HttpCode(204)
+    async setup(@CurrentUser() user: Me, @Body(new ZodPipe(setupInput)) body: SetupInput) {
+        await this.prefs.finishSetup(user.id, user.isAdmin, body);
+        await this.members.forget(user.id);
     }
 
     @Get('auth/login')

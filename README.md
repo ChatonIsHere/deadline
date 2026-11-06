@@ -59,6 +59,14 @@ Each gig is one session.
 - Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.
 - Confirmed runners get a reminder DM 8 hours before (Settings) and 30 minutes before. They can turn reminders off from the DM, with `/reminders`, or on the **Me** page. The thread gets a note too, without pings.
 
+## Timezones and availability
+
+- Times are stored as instants. The web shows them in each person's chosen timezone (their browser's until they pick one). Discord shows them in each reader's own zone.
+- The in-game date is Night City's date plus 51 years. Night City keeps Pacific time (`America/Los_Angeles`): the books never name a zone, but it's on the California coast.
+- Everyone's first visit runs setup: at least one runner (admins can skip), a timezone, and reminders on or off. Their usual week comes last and can wait.
+- Players mark the hours they can usually play on the **Me** page, on their own clock. It's stored as hours of the week (0 is Monday 00:00) with their timezone.
+- Admins get an **Availability** page: a heatmap of who's free, on the admin's clock, for a chosen week. Each player's hours are placed for that exact week, so clock changes in either zone land where they really happen. In a half-hour zone both halves of an hour have to be free. It filters by crew, by a live gig's runners, or by one player. The gig page's session card links to it.
+
 ## Completing a gig
 
 Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners. Each runner's player gets a DM with their payout and, if the fixer is a character, a menu to rate them from one to five stars. Picking stars saves them and opens a box for an optional note (300 characters). They can also rate, and change it, on the gig page. Anyone who had a runner on the gig can rate, including the fixer's own player if they went as a runner. The fixer's profile shows the average and the latest five ratings with their notes. Finished gigs can't be edited.

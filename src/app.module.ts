@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { GatewayIntentBits } from 'discord.js';
 import { NecordModule } from 'necord';
 import { AuthController } from './auth/auth.controller';
+import { AvailabilityController } from './availability/availability.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
 import { PrefsService } from './auth/prefs.service';
@@ -40,7 +41,7 @@ import { DebriefService } from './gigs/debrief.service';
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController],
+    controllers: [AuthController, AvailabilityController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController],
     providers: [
         PrismaService,
         // No arguments: they connect to REDIS_URL and S3 from the config (tests pass their own)

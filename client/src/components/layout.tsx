@@ -1,5 +1,6 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
 import { isLive } from '@shared/schemas';
+import { nightCityDate } from '@shared/time';
 import { LogOut, Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
@@ -29,6 +30,9 @@ function SetupReminder() {
     );
 }
 
+/** Where someone can be before they've finished first-time setup. */
+const SETUP_PATHS = ['/setup', '/runners/new'];
+
 interface Channel {
     to: string;
     label: string;
@@ -48,7 +52,10 @@ export function Layout() {
     const [palette, setPalette] = useState(false);
     // On phones the page scrolls inside this, so a new page starts at its top
     const scroller = useRef<HTMLDivElement>(null);
-    useEffect(() => scroller.current?.scrollTo(0, 0), [pathname]);
+    // Braces: newer browsers return a promise from scrollTo, which React would take as a cleanup
+    useEffect(() => {
+        scroller.current?.scrollTo(0, 0);
+    }, [pathname]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -63,13 +70,20 @@ export function Layout() {
 
     if (isError) return <Navigate to="/login" replace />;
     if (isPending) return <Say className="p-6">connecting to the board...</Say>;
+    // First time in: setup comes first (making a runner is part of it)
+    if (me.needsSetup && !SETUP_PATHS.includes(pathname)) return <Navigate to="/setup" replace />;
 
     const channels: Channel[] = [
         { to: '/gigs', label: 'Gigs', short: 'GIG' },
         { to: '/runners', label: 'Runners', short: 'RNS' },
         { to: '/fixers', label: 'Fixers', short: 'FIX' },
         { to: '/crews', label: 'Crews', short: 'CRW' },
-        ...(me.isAdmin ? [{ to: '/settings', label: 'Settings', short: 'SET' }] : []),
+        ...(me.isAdmin
+            ? [
+                  { to: '/availability', label: 'Availability', short: 'AVL' },
+                  { to: '/settings', label: 'Settings', short: 'SET' },
+              ]
+            : []),
     ];
 
     // The corner + makes whatever the list page shows. Nowhere else.
@@ -252,22 +266,23 @@ function usePath(): string {
     return parts.join('/');
 }
 
-/** The campaign runs 51 years ahead: today in 2026 is the same day in 2077. */
-const YEARS_AHEAD = 51;
-
-/** Today's in-game date, e.g. "05 NOV 2077". Checked again on each page change and when the tab comes back into view. */
+/**
+ * Today's date in Night City, 51 years on, e.g. "05 NOV 2077". It's the date on Night City's
+ * clock (Pacific time), whatever the viewer's zone. Checked again on each page change and when
+ * the tab comes back into view.
+ */
 function useInWorldDate(): string {
     const { pathname } = useLocation();
     const [today, setToday] = useState(() => new Date());
-    useEffect(() => setToday(new Date()), [pathname]);
+    useEffect(() => {
+        setToday(new Date());
+    }, [pathname]);
     useEffect(() => {
         const onShow = () => document.visibilityState === 'visible' && setToday(new Date());
         document.addEventListener('visibilitychange', onShow);
         return () => document.removeEventListener('visibilitychange', onShow);
     }, []);
-    const date = new Date(today);
-    date.setFullYear(date.getFullYear() + YEARS_AHEAD);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+    return nightCityDate(today.getTime());
 }
 
 function useOnline() {

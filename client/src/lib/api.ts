@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
@@ -32,6 +32,9 @@ export const useGig = (id: string | undefined) =>
 export const useGigTypes = () => useQuery({ queryKey: ['gig-types'], queryFn: () => api<string[]>('/api/gigs/types') });
 
 export const usePrefs = () => useQuery({ queryKey: ['prefs'], queryFn: () => api<Prefs>('/api/prefs') });
+export const useMyAvailability = () => useQuery({ queryKey: ['availability', 'mine'], queryFn: () => api<MyAvailability>('/api/availability/mine') });
+/** Everyone's week, for the heatmap. Admins only. */
+export const useAvailability = (enabled: boolean) => useQuery({ queryKey: ['availability'], queryFn: () => api<PlayerAvailability[]>('/api/availability'), enabled });
 
 /** Crew invites waiting on the signed in player's runners. */
 export const useCrewInvites = () => useQuery({ queryKey: ['crews', 'invites'], queryFn: () => api<CrewInvite[]>('/api/crews/invites') });

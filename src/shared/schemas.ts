@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isTimeZone, WEEK_HOURS } from './time';
 
 // Shared by the server (request validation) and the client (forms).
 
@@ -145,12 +146,54 @@ export const rankInput = z.object({ rank: text(30) });
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
 
-export const prefsInput = z.object({
-    reminders: z.boolean(),
-    /** Bot owner only: use the board as a normal player, admin powers hidden. */
-    playerView: z.boolean().default(false),
+/** A timezone name the runtime knows, e.g. "Europe/London". */
+const timezone = z.string().max(64).refine(isTimeZone, 'Unknown timezone');
+
+/** Only what's sent changes. */
+export const prefsInput = z
+    .object({
+        reminders: z.boolean(),
+        /** Bot owner only: use the board as a normal player, admin powers hidden. */
+        playerView: z.boolean(),
+        timezone,
+    })
+    .partial();
+export type PrefsInput = z.infer<typeof prefsInput>;
+
+export interface Prefs {
+    reminders: boolean;
+    playerView: boolean;
+    timezone: string | null;
+}
+
+/** The end of first-time setup. They need a runner first (admins can skip that). */
+export const setupInput = z.object({ timezone, reminders: z.boolean() });
+export type SetupInput = z.infer<typeof setupInput>;
+
+/** The hours of the week someone can usually play, on their own clock. See shared/time.ts. */
+export const availabilityInput = z.object({
+    hours: z
+        .array(z.number().int().min(0).max(WEEK_HOURS - 1))
+        .max(WEEK_HOURS)
+        .transform((hours) => [...new Set(hours)].sort((a, b) => a - b)),
 });
-export type Prefs = z.infer<typeof prefsInput>;
+export type AvailabilityInput = z.input<typeof availabilityInput>;
+
+export interface MyAvailability {
+    /** Null until they pick one */
+    timezone: string | null;
+    hours: number[];
+}
+
+/** For the admins' heatmap: everyone who can sign in, with their week and crews. */
+export interface PlayerAvailability {
+    member: Member;
+    /** Null if they haven't set a timezone, so their hours can't be placed */
+    timezone: string | null;
+    hours: number[];
+    /** Crews any of their runners are in */
+    crewIds: string[];
+}
 
 /** Which crew's slots to open to anyone. */
 export const openSlotsInput = z.object({ crewId: id });
@@ -216,6 +259,10 @@ export interface Me extends Member {
     isEdgerunner: boolean;
     /** The owner has player view on: isAdmin is off until they turn it off on the Me page. */
     playerView?: boolean;
+    /** Their timezone, or null to use the browser's */
+    timezone: string | null;
+    /** Hasn't finished first-time setup yet */
+    needsSetup: boolean;
 }
 
 /** A runner as shown in lists and slots. */

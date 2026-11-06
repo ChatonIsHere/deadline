@@ -26,7 +26,7 @@ export class MembersService {
         await this.forget(member.id);
     }
 
-    /** Drops someone's cached sign-in (roles, player view). */
+    /** Drops someone's cached sign-in (roles, player view, timezone, setup). */
     async forget(id: string) {
         await this.cache.del(meKey(id));
     }
@@ -67,13 +67,15 @@ export class MembersService {
 
     private async lookUp(id: string): Promise<Me | null> {
         const isOwner = this.owners.has(id);
-        const playerView = isOwner && (await this.prefs.get(id)).playerView;
+        const prefs = await this.prefs.get(id);
+        const playerView = isOwner && prefs.playerView;
+        const own = { timezone: prefs.timezone, needsSetup: !(await this.prefs.setUp(id)) };
         const member = this.guild?.members.cache.get(id) ?? (await this.guild?.members.fetch(id).catch(() => null));
 
         if (!member) {
             if (!isOwner) return null;
             const user = await this.client.users.fetch(id);
-            return { id, name: user.displayName, avatar: user.displayAvatarURL({ size: 64 }), isOwner, isAdmin: !playerView, isFixer: false, isEdgerunner: false, playerView };
+            return { id, name: user.displayName, avatar: user.displayAvatarURL({ size: 64 }), isOwner, isAdmin: !playerView, isFixer: false, isEdgerunner: false, playerView, ...own };
         }
 
         const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();
@@ -85,6 +87,7 @@ export class MembersService {
             isFixer: has(fixerRoleId),
             isEdgerunner: has(edgerunnerRoleId),
             playerView,
+            ...own,
         };
     }
 

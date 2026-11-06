@@ -5,7 +5,7 @@ import { Icon } from '@/components/common';
 import { RunnerChip } from '@/components/runner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatSession } from '@/components/session';
+import { useFormatSession } from '@/lib/time';
 
 /** Who's on the gig, grouped by crew, then the reserves. Pass the remove handlers to show admin buttons. */
 export function SlotList({
@@ -20,6 +20,7 @@ export function SlotList({
     /** Lets anyone take a crew's reserved slots. */
     onOpenCrew?: (crewId: string) => void;
 }) {
+    const formatSession = useFormatSession();
     const remove = (onClick: () => void) => (
         <Button variant="ghost" size="icon" className="ml-auto" title="Remove" onClick={onClick}>
             <X className="size-4" />

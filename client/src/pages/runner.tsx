@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Person, Say, StatusBadge } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RatingLine, Roles, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
-import { formatSession } from '@/components/session';
+import { useFormatSession, useTimeZone } from '@/lib/time';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
@@ -97,6 +97,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]; empty: string }) {
+    const formatSession = useFormatSession();
     return (
         <Card>
             <CardTitle>{title}</CardTitle>
@@ -121,6 +122,7 @@ function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]; empty
 
 /** A fixer's latest ratings, newest first. */
 function Reviews({ reviews }: { reviews: Review[] }) {
+    const tz = useTimeZone();
     return (
         <Card>
             <CardTitle>Latest ratings</CardTitle>
@@ -133,7 +135,7 @@ function Reviews({ reviews }: { reviews: Review[] }) {
                                 {r.gig.name}
                             </Link>
                             {r.by && <RunnerChip runner={r.by} />}
-                            {r.at && <span className="ml-auto text-xs text-muted-foreground">{new Date(r.at).toLocaleDateString('en-GB')}</span>}
+                            {r.at && <span className="ml-auto text-xs text-muted-foreground">{new Date(r.at).toLocaleDateString('en-GB', { timeZone: tz })}</span>}
                         </p>
                         {r.comment && <p className="border-l-2 border-accent pl-3 text-muted-foreground italic">{r.comment}</p>}
                     </li>

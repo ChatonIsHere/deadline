@@ -16,6 +16,8 @@ import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
 import { MePage } from '@/pages/me';
+import { AvailabilityPage } from '@/pages/availability';
+import { SetupPage } from '@/pages/setup';
 import { RunnerPage } from '@/pages/runner';
 import { RunnerEdit } from '@/pages/runner-edit';
 import { FixersPage, RunnersPage } from '@/pages/runners';
@@ -54,6 +56,8 @@ void loadConfig().then(() =>
                             {/* Old /library links */}
                             <Route path="library" element={<Navigate to="/settings/library" replace />} />
                             <Route path="me" element={<MePage />} />
+                            <Route path="setup" element={<SetupPage />} />
+                            <Route path="availability" element={<AvailabilityPage />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="settings/scheduling" element={<SchedulingSettings />} />
                             <Route path="settings/roles" element={<RoleSettings />} />

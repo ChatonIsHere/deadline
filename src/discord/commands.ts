@@ -206,7 +206,7 @@ export class Commands {
     @SlashCommand({ name: 'reminders', description: 'Turn session reminder DMs on or off' })
     async reminders(@Context() [interaction]: SlashCommandContext, @Options() { set }: ReminderOptions) {
         const userId = interaction.user.id;
-        await this.prefs.set(userId, { ...(await this.prefs.get(userId)), reminders: set === 'on' });
+        await this.prefs.set(userId, { reminders: set === 'on' });
         await interaction.reply({ content: voice.remindersSet(set === 'on'), flags: MessageFlags.Ephemeral });
     }
 
@@ -223,7 +223,7 @@ export class Commands {
 
     /** Who's asking, so pending gigs stay hidden from people who can't see them. */
     private async viewer(userId: string): Promise<Me> {
-        return (await this.members.me(userId)) ?? { id: userId, name: '', avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: false };
+        return (await this.members.me(userId)) ?? { id: userId, name: '', avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: false, timezone: null, needsSetup: false };
     }
 
     private oops(interaction: SlashCommandContext[0], message: string) {

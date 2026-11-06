@@ -20,6 +20,8 @@ const person = (id: string, roles: Partial<Me> = {}): Me => ({
     isAdmin: false,
     isFixer: false,
     isEdgerunner: true,
+    timezone: null,
+    needsSetup: false,
     ...roles,
 });
 
