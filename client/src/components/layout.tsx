@@ -49,7 +49,6 @@ export function Layout() {
     // On phones the page scrolls inside this, so a new page starts at its top
     const scroller = useRef<HTMLDivElement>(null);
     useEffect(() => scroller.current?.scrollTo(0, 0), [pathname]);
-    useScreenHeight();
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -86,11 +85,12 @@ export function Layout() {
                   : null;
 
     return (
-        // Phones: a column exactly the visible screen's height. The page scrolls inside it, with the
-        // prompt bar and channel bar as its last rows. Nothing is fixed to the screen, so browser
-        // toolbars that slide away on scroll (Firefox) can't move them. Desktop scrolls the page,
-        // and the prompt bar sticks to the bottom of the window, like a terminal's command line.
-        <div className="flex h-[var(--screen-h,100dvh)] flex-col md:grid md:h-auto md:min-h-screen md:grid-cols-[13rem_1fr]">
+        // Phones: the whole app is pinned to the screen's edges, so the page itself never scrolls;
+        // only the content inside does, with the prompt bar and channel bar as the last rows. A
+        // page that could scroll even a little let Firefox slide its toolbar away and took our
+        // bars with it. Desktop scrolls the page, and the prompt bar sticks to the bottom of the
+        // window, like a terminal's command line.
+        <div className="fixed inset-0 flex flex-col md:static md:grid md:min-h-screen md:grid-cols-[13rem_1fr]">
             <Rail channels={channels} />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col md:min-h-screen">
@@ -304,24 +304,6 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
             {!number && <span className="font-display text-xs tracking-widest">YOU</span>}
         </NavLink>
     );
-}
-
-/**
- * The visible screen height, measured, as --screen-h. Phones size the page to it. 100dvh should
- * be the same, but Firefox on Android leaves it short (it seems to allow for a toolbar that
- * isn't showing), which lifted the channel bar off the bottom of the screen.
- */
-function useScreenHeight() {
-    useEffect(() => {
-        const set = () => document.documentElement.style.setProperty('--screen-h', `${window.innerHeight}px`);
-        set();
-        window.addEventListener('resize', set);
-        window.visualViewport?.addEventListener('resize', set);
-        return () => {
-            window.removeEventListener('resize', set);
-            window.visualViewport?.removeEventListener('resize', set);
-        };
-    }, []);
 }
 
 /** With ?vp in the address: the heights the browser reports, for checking phone layouts. */
