@@ -1,9 +1,8 @@
-/** Gig pictures are 16:9, which suits Discord's gallery view. Runner pictures are square. */
-export const SIZES = {
-    gig: { width: 1280, height: 720 },
-    avatar: { width: 512, height: 512 },
-} as const;
-export type ImageKind = keyof typeof SIZES;
+import { type ImageKind, SIZES } from '../shared/images';
+
+// The sizes live in shared/ so the web's crop tool uses the same shapes
+export { SIZES };
+export type { ImageKind };
 
 /**
  * Discord's forum gallery crops previews to about 1.485:1 (measured: 802x540 on mobile; desktop

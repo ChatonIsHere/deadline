@@ -14,3 +14,10 @@ export const webFile = (id: number) => `${id}-web-v${FRAME_VERSION}.webp`;
 /** Smaller copies of the web picture: thumb for pickers, grids and avatars, medium for gig cards. Sizes are in library/frame.ts. */
 export const thumbFile = (id: number) => `${id}-thumb-v${FRAME_VERSION}.webp`;
 export const mediumFile = (id: number) => `${id}-medium-v${FRAME_VERSION}.webp`;
+
+/** Gig pictures are 16:9, which suits Discord's gallery view. Runner pictures are square. */
+export const SIZES = {
+    gig: { width: 1280, height: 720 },
+    avatar: { width: 512, height: 512 },
+} as const;
+export type ImageKind = keyof typeof SIZES;
