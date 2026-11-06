@@ -7,7 +7,7 @@ import { ConfirmButton, Icon, Money, Pay, Say, StatusBadge } from '@/components/
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
-import { AssignRunner, MySpot, SessionCard } from '@/components/session';
+import { AssignRunner, SessionCard, SignUp } from '@/components/session';
 import { SlotList } from '@/components/slot-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -28,13 +28,13 @@ export function Gig() {
     const { data: gig, isError } = useGig(id);
 
     const url = `/api/gigs/${id}`;
-    const approve = useAction(() => api(`${url}/approve`, 'POST'), 'Approved. Posting to Discord.');
-    const reject = useAction(() => api(`${url}/reject`, 'POST'), 'Rejected.');
-    const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'Status updated.');
-    const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'Runner removed.');
-    const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'Removed from reserves.');
-    const openCrew = useAction((crewId: number) => api(`${url}/open-slots`, 'POST', { crewId }), 'Slots opened to anyone.');
-    const remove = useAction(() => api(url, 'DELETE'), () => navigate('/gigs'));
+    const approve = useAction(() => api(`${url}/approve`, 'POST'), 'approved. posting to discord.');
+    const reject = useAction(() => api(`${url}/reject`, 'POST'), 'contract rejected.');
+    const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'status updated.');
+    const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'runner removed.');
+    const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'removed from the reserves.');
+    const openCrew = useAction((crewId: number) => api(`${url}/open-slots`, 'POST', { crewId }), 'slots opened to freelancers.');
+    const remove = useAction(() => api(url, 'DELETE'), 'contract deleted.', () => navigate('/gigs'));
 
     if (isError) return <Say>no such contract.</Say>;
     if (!gig) return <Say>decrypting...</Say>;
@@ -158,7 +158,6 @@ export function Gig() {
                         <Detail icon="eb" label="Pay" value={<Pay gig={gig} />} />
                     </Card>
 
-                    {me.isEdgerunner && active && <MySpot gig={gig} userId={me.id} />}
                     {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={gig.sessionAt ?? 'none'} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
@@ -175,7 +174,14 @@ export function Gig() {
                             onOpenCrew={me.isAdmin && active ? (crewId) => openCrew.mutate(crewId) : undefined}
                         />
                         {me.isAdmin && gig.status === 'open' && <AssignRunner gig={gig} />}
-                        {gig.status === 'open' && <Say className="mt-4">runners can sign up here or on the Discord post.</Say>}
+                        {/* Your own place on it, and signing up, under the list */}
+                        {me.isEdgerunner && active ? (
+                            <div className="mt-4 border-t border-border pt-4">
+                                <SignUp gig={gig} userId={me.id} />
+                            </div>
+                        ) : (
+                            gig.status === 'open' && <Say className="mt-4">runners can sign up here or on the Discord post.</Say>
+                        )}
                     </Card>
 
                     {(nextStatuses.length > 0 || canDelete) && (

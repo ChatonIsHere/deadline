@@ -11,7 +11,7 @@ import { Link } from 'react-router';
 export function MePage() {
     const me = useUser();
     const { data: prefs } = usePrefs();
-    const save = useAction((next: Prefs) => api('/api/prefs', 'PUT', next), 'Saved.');
+    const save = useAction((next: Prefs) => api('/api/prefs', 'PUT', next), 'preferences saved.');
 
     const roles = [me.isAdmin && 'Admin', me.isFixer && 'Fixer', me.isEdgerunner && 'Edgerunner'].filter(Boolean).join(', ');
 
@@ -61,8 +61,8 @@ export function MePage() {
 /** Crews asking one of the player's runners to join. Same as the DM's buttons. */
 function CrewInvites() {
     const invites = useCrewInvites().data ?? [];
-    const accept = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}/accept`, 'POST'), 'Welcome to the crew.');
-    const decline = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}`, 'DELETE'), 'Declined.');
+    const accept = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}/accept`, 'POST'), 'welcome to the crew.');
+    const decline = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}`, 'DELETE'), 'invite declined.');
     if (!invites.length) return null;
 
     return (

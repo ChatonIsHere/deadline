@@ -75,15 +75,20 @@ export const plainImageUrl = (id: number) => `/images/${plainFile(id)}`;
 export const thumbUrl = (id: number) => `/images/${thumbFile(id)}`;
 export const mediumUrl = (id: number) => `/images/${mediumFile(id)}`;
 
-/** A change that refreshes everything when it lands and shows errors as toasts. */
-export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, done?: string | ((result: R) => void)) {
+/**
+ * A change sent to the server. Every one says what happened, as a notification from the
+ * board that stays up across pages and fades after a few seconds. `message` is that line (or
+ * made from the result), `then` is anything to do after, like going to the new page.
+ * Errors show as notifications too. Everything refreshes when it lands.
+ */
+export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, message: string | ((result: R) => string), then?: (result: R) => void) {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: fn,
         onSuccess: (result) => {
             void queryClient.invalidateQueries();
-            if (typeof done === 'string') toast.success(done);
-            else done?.(result);
+            toast.success(typeof message === 'function' ? message(result) : message);
+            then?.(result);
         },
         onError: (err) => toast.error(err.message),
     });

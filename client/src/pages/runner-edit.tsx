@@ -1,7 +1,6 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { toast } from 'sonner';
 import { Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -53,6 +52,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
 
     const save = useAction(
         (input: RunnerInput) => (runner ? api<RunnerView>(`/api/runners/${runner.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),
+        runner ? 'runner saved.' : 'runner on file.',
         (saved) => navigate(`/runners/${saved.slug}`),
     );
 

@@ -2,7 +2,6 @@ import type { RegionView } from '@shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { toast } from 'sonner';
 import { ConfirmButton, Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
@@ -50,8 +49,8 @@ export function LibraryPage() {
 }
 
 function Pictures({ title, ids, region }: { title: string; ids: number[]; region: RegionView | null }) {
-    const remove = useAction((id: number) => api(`/api/library/images/${id}`, 'DELETE'));
-    const removeRegion = useAction(() => api(`/api/library/regions/${region!.id}`, 'DELETE'), 'Region deleted.');
+    const remove = useAction((id: number) => api(`/api/library/images/${id}`, 'DELETE'), 'picture removed.');
+    const removeRegion = useAction(() => api(`/api/library/regions/${region!.id}`, 'DELETE'), 'region deleted.');
     const queryClient = useQueryClient();
 
     return (
@@ -63,10 +62,7 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
                 <UploadButton
                     multiple
                     options={{ library: true, regionId: region?.id }}
-                    onUploaded={async () => {
-                        await queryClient.invalidateQueries({ queryKey: ['library'] });
-                        toast.success('Uploaded.');
-                    }}
+                    onUploaded={() => queryClient.invalidateQueries({ queryKey: ['library'] })}
                 />
                 {region && (
                     <ConfirmButton
@@ -103,7 +99,7 @@ function Pictures({ title, ids, region }: { title: string; ids: number[]; region
 function NewRegion({ districts }: { districts: string[] }) {
     const [name, setName] = useState('');
     const [district, setDistrict] = useState('');
-    const add = useAction(() => api('/api/library/regions', 'POST', { name, district: district || null }), () => setName(''));
+    const add = useAction(() => api('/api/library/regions', 'POST', { name, district: district || null }), 'region added.', () => setName(''));
 
     const submit = (e: FormEvent) => {
         e.preventDefault();

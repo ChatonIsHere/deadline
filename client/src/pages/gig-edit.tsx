@@ -13,6 +13,7 @@ export function GigEdit() {
 
     const save = useAction(
         (input: GigInput) => (id ? api<GigView>(`/api/gigs/${id}`, 'PATCH', input) : api<GigView>('/api/gigs', 'POST', input)),
+        (saved) => (id ? 'contract updated.' : saved.status === 'pending' ? 'contract submitted. waiting on an admin.' : 'contract posted.'),
         (saved) => navigate(`/gigs/${saved.id}`),
     );
 

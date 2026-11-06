@@ -66,7 +66,7 @@ function NewCrew() {
     const [slug, setSlug] = useState<string>();
     // One runner of your own needs no picking
     const runnerId = picked || (mine.length === 1 ? String(mine[0].id) : '');
-    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, slug, tagline, runnerId: Number(runnerId) }), (crew) => navigate(`/crews/${crew.slug}`));
+    const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, slug, tagline, runnerId: Number(runnerId) }), 'crew registered.', (crew) => navigate(`/crews/${crew.slug}`));
 
     const submit = (e: FormEvent) => {
         e.preventDefault();

@@ -2,7 +2,6 @@ import type { GigView } from '@shared/schemas';
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { toast } from 'sonner';
 import { Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -23,7 +22,7 @@ function toInput(ms: number): string {
 /** The session time. Admins set it here, which asks everyone on the gig to confirm. */
 export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) {
     const [value, setValue] = useState(gig.sessionAt ? toInput(gig.sessionAt) : '');
-    const save = useAction((sessionAt: number | null) => api(`/api/gigs/${gig.id}/session`, 'POST', { sessionAt }), 'Session updated.');
+    const save = useAction((sessionAt: number | null) => api(`/api/gigs/${gig.id}/session`, 'POST', { sessionAt }), 'session time updated.');
 
     const filled = gig.slots.filter((s) => s.runner);
     const confirmed = filled.filter((s) => s.state === 'confirmed').length;
@@ -67,10 +66,13 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
     );
 }
 
-/** The signed in player's place on the gig, with the same actions as the Discord post. */
-export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
+/**
+ * The signed in player's place on the gig and the same actions as the Discord post. Sits at
+ * the bottom of the gig's Crew panel.
+ */
+export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
     const act = (action: 'join' | 'confirm' | 'leave', body?: unknown) => api<{ message: string }>(`/api/gigs/${gig.id}/${action}`, 'POST', body);
-    const done = ({ message }: { message: string }) => toast.success(message);
+    const done = ({ message }: { message: string }) => message;
     const join = useAction((runnerId?: number) => act('join', { runnerId }), done);
     const confirm = useAction(() => act('confirm'), done);
     const leave = useAction(() => act('leave'), done);
@@ -93,20 +95,18 @@ export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
 
     if (canJoin && mine && !mine.length) {
         return (
-            <Card className="space-y-3 [--frame:var(--color-primary)]">
-                <CardTitle>Your spot</CardTitle>
+            <div className="space-y-3">
                 <Say>you need a runner to take gigs.</Say>
                 <Button asChild size="sm">
                     <Link to="/runners/new">Make a runner</Link>
                 </Button>
-            </Card>
+            </div>
         );
     }
 
     return (
-        <Card className="space-y-3 [--frame:var(--color-primary)]">
-            <CardTitle help="where your runner stands on this gig. you can pull out until it's completed or cancelled.">Your spot</CardTitle>
-            {/* Room for two lines, so the box keeps its size as the status changes */}
+        <div className="space-y-3">
+            {/* Room for two lines, so the panel keeps its size as the status changes */}
             <Say className="min-h-[2lh]">{status}</Say>
             {canJoin && mine && mine.length > 1 && (
                 <Select value={picked} onChange={setPicked} placeholder="Which runner?" options={mine.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />
@@ -128,7 +128,7 @@ export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
                     </Button>
                 )}
             </div>
-        </Card>
+        </div>
     );
 }
 
@@ -136,7 +136,7 @@ export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
 export function AssignRunner({ gig }: { gig: GigView }) {
     const [runnerId, setRunnerId] = useState('');
     const runners = useRunners().data ?? [];
-    const assign = useAction(() => api(`/api/gigs/${gig.id}/runners`, 'POST', { runnerId: Number(runnerId) }), () => setRunnerId(''));
+    const assign = useAction(() => api(`/api/gigs/${gig.id}/runners`, 'POST', { runnerId: Number(runnerId) }), 'runner added.', () => setRunnerId(''));
 
     const playersOn = new Set([...gig.slots.map((s) => s.runner?.ownerId), ...gig.reserves.map((r) => r.ownerId)]);
     const options = runners.filter((r) => r.canTakeGigs && !playersOn.has(r.ownerId));

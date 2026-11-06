@@ -14,7 +14,7 @@ export function RunnerPage() {
     const me = useUser();
     const navigate = useNavigate();
     const { data: runner, isError } = useRunner(id);
-    const remove = useAction(() => api(`/api/runners/${runner!.id}`, 'DELETE'), () => navigate('/runners'));
+    const remove = useAction(() => api(`/api/runners/${runner!.id}`, 'DELETE'), 'runner deleted.', () => navigate('/runners'));
 
     if (isError) return <Say>no such runner.</Say>;
     if (!runner) return <Say>pulling records...</Say>;

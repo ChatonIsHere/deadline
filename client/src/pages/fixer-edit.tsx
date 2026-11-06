@@ -47,6 +47,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
 
     const save = useAction(
         (input: RunnerInput) => (fixer ? api<RunnerView>(`/api/runners/${fixer.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),
+        fixer ? 'fixer saved.' : 'fixer on file.',
         (saved) => navigate(`/fixers/${saved.slug}`),
     );
 

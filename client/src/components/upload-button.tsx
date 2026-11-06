@@ -39,7 +39,9 @@ export function UploadButton({
     // Whatever made it up still counts, even if the rest was cancelled or failed
     const finish = async (done: number[]) => {
         setQueue([]);
-        if (done.length) await onUploaded(done);
+        if (!done.length) return;
+        toast.success(done.length === 1 ? 'picture uploaded.' : `${done.length} pictures uploaded.`);
+        await onUploaded(done);
     };
 
     const upload = async (picture: Blob) => {

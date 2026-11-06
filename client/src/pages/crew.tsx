@@ -3,7 +3,6 @@ import type { CrewView, RunnerCard } from '@shared/schemas';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { toast } from 'sonner';
 import { ConfirmButton, Icon, Say } from '@/components/common';
 import { RoleIcon, RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -20,12 +19,12 @@ export function Crew() {
 
     // The URL may hold the typed ID; the API calls below use the numeric one
     const url = `/api/crews/${crew?.id}`;
-    const setRank = useAction(({ runnerId, rank }: { runnerId: number; rank: string }) => api(`${url}/members/${runnerId}`, 'PATCH', { rank }), 'Rank changed.');
-    const removeMember = useAction((runnerId: number) => api(`${url}/members/${runnerId}`, 'DELETE'), 'Removed.');
-    const removeAlly = useAction((runnerId: number) => api(`${url}/allies/${runnerId}`, 'DELETE'), 'Removed.');
-    const cancelInvite = useAction((runnerId: number) => api(`${url}/invites/${runnerId}`, 'DELETE'), 'Invite cancelled.');
+    const setRank = useAction(({ runnerId, rank }: { runnerId: number; rank: string }) => api(`${url}/members/${runnerId}`, 'PATCH', { rank }), 'rank changed.');
+    const removeMember = useAction((runnerId: number) => api(`${url}/members/${runnerId}`, 'DELETE'), 'runner removed from the crew.');
+    const removeAlly = useAction((runnerId: number) => api(`${url}/allies/${runnerId}`, 'DELETE'), 'ally removed.');
+    const cancelInvite = useAction((runnerId: number) => api(`${url}/invites/${runnerId}`, 'DELETE'), 'invite cancelled.');
     const invite = useInvite(url);
-    const remove = useAction(() => api(url, 'DELETE'), () => navigate('/crews'));
+    const remove = useAction(() => api(url, 'DELETE'), 'crew disbanded.', () => navigate('/crews'));
 
     if (isError) return <Say>no such crew.</Say>;
     if (!crew) return <Say>scanning...</Say>;
@@ -153,7 +152,7 @@ export function Crew() {
 function useInvite(url: string) {
     return useAction(
         (runnerId: number) => api<{ dm: boolean }>(`${url}/invites`, 'POST', { runnerId }),
-        ({ dm }) => (dm ? toast.success('Invite sent.') : toast.success("Invite saved. Their DMs are closed, so they'll see it on their Me page.")),
+        ({ dm }) => (dm ? 'invite sent.' : "invite saved. their DMs are closed, so they'll see it on their Me page."),
     );
 }
 
@@ -172,7 +171,7 @@ function RunnerRow({ runner, children }: { runner: RunnerCard; children?: ReactN
 function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: boolean; onInvite: (runnerId: number) => void }) {
     const runners = useRunners().data ?? [];
     const [runnerId, setRunnerId] = useState('');
-    const add = useAction(() => api(`/api/crews/${crew.id}/members`, 'POST', { runnerId: Number(runnerId) }), () => setRunnerId(''));
+    const add = useAction(() => api(`/api/crews/${crew.id}/members`, 'POST', { runnerId: Number(runnerId) }), 'runner added to the crew.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.invites].map((r) => r.id));
     const options = runners.filter((r) => !taken.has(r.id));
 
@@ -208,7 +207,7 @@ function AddAlly({ crew }: { crew: CrewView }) {
     const runners = useRunners().data ?? [];
     const npcs = (useFixers().data ?? []).filter((f) => !f.ownerId);
     const [runnerId, setRunnerId] = useState('');
-    const add = useAction(() => api(`/api/crews/${crew.id}/allies`, 'POST', { runnerId: Number(runnerId) }), () => setRunnerId(''));
+    const add = useAction(() => api(`/api/crews/${crew.id}/allies`, 'POST', { runnerId: Number(runnerId) }), 'ally added.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.allies].map((r) => r.id));
     const options = [...runners, ...npcs].filter((r) => !taken.has(r.id)).sort((a, b) => a.handle.localeCompare(b.handle));
 
@@ -232,7 +231,7 @@ function EditCrew({ crew }: { crew: CrewView }) {
     const [name, setName] = useState(crew.name);
     const [tagline, setTagline] = useState(crew.tagline);
     const [ranks, setRanks] = useState(crew.ranks.map((r) => ({ name: r, was: r as string | null })));
-    const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, ranks }), 'Saved.');
+    const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, ranks }), 'crew saved.');
 
     const setRank = (i: number, value: string) => setRanks(ranks.map((r, j) => (j === i ? { ...r, name: value } : r)));
     const move = (i: number, by: number) => {

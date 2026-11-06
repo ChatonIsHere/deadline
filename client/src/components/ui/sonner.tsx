@@ -9,6 +9,8 @@ export function Toaster() {
         <Sonner
             theme="dark"
             position="bottom-right"
+            // Lives outside the pages, so a message stays up when the page changes; it fades after this
+            duration={5000}
             // Clear the bottom nav on phones
             mobileOffset={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
             toastOptions={{

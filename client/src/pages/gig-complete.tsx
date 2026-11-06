@@ -35,7 +35,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
     const [extra, setExtra] = useState<Record<number, Amounts>>({});
     const [error, setError] = useState('');
 
-    const complete = useAction((input: CompleteInput) => api(`/api/gigs/${gig.id}/complete`, 'POST', input), () => navigate(`/gigs/${gig.id}`));
+    const complete = useAction((input: CompleteInput) => api(`/api/gigs/${gig.id}/complete`, 'POST', input), 'job done. payouts sent.', () => navigate(`/gigs/${gig.id}`));
 
     const submit = (e: FormEvent) => {
         e.preventDefault();

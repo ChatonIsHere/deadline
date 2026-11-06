@@ -2,7 +2,6 @@ import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } fr
 import { Plus, Shuffle, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { toast } from 'sonner';
 import { Icon, Pay, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { Button } from '@/components/ui/button';

@@ -1,6 +1,5 @@
 import type { GigView, Rewards } from '@shared/schemas';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { Money, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RunnerChip, StarPicker } from '@/components/runner';
@@ -56,7 +55,7 @@ function RewardLine({ rewards, hqIp, plus }: { rewards: Rewards; hqIp?: number |
 export function RateFixer({ gig }: { gig: GigView }) {
     const [stars, setStars] = useState(gig.myRating?.stars ?? null);
     const [comment, setComment] = useState(gig.myRating?.comment ?? '');
-    const rate = useAction(() => api<{ message: string }>(`/api/gigs/${gig.id}/rating`, 'POST', { stars, comment }), ({ message }) => toast.success(message));
+    const rate = useAction(() => api<{ message: string }>(`/api/gigs/${gig.id}/rating`, 'POST', { stars, comment }), ({ message }) => message);
     const changed = stars !== (gig.myRating?.stars ?? null) || comment.trim() !== (gig.myRating?.comment ?? '');
     return (
         <Card className="space-y-3">

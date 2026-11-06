@@ -1,5 +1,4 @@
 import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView } from '@shared/schemas';
-import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Say } from '@/components/common';
@@ -37,7 +36,7 @@ function Shell({ children }: { children: (view: SettingsView, isOwner: boolean) 
 function useConfig(view: SettingsView) {
     const [form, setForm] = useState(view.settings);
     const set = (patch: Partial<Settings>) => setForm((f) => ({ ...f, ...patch }));
-    const save = useAction(() => api('/api/settings', 'PUT', form), 'Config saved.');
+    const save = useAction(() => api('/api/settings', 'PUT', form), 'config saved.');
     const submit = (e: FormEvent) => {
         e.preventDefault();
         save.mutate();
@@ -228,10 +227,7 @@ function BotProfileCard() {
     const library = useLibrary().data;
     const [about, setAbout] = useState<string | null>(null);
     const [bannerImageId, setBannerImageId] = useState<number | null>(null);
-    const save = useAction(() => api('/api/settings/bot-profile', 'PUT', { about: about ?? profile?.about ?? '', bannerImageId }), () => {
-        setBannerImageId(null);
-        toast.success('Bot profile updated.');
-    });
+    const save = useAction(() => api('/api/settings/bot-profile', 'PUT', { about: about ?? profile?.about ?? '', bannerImageId }), 'bot profile updated.', () => setBannerImageId(null));
 
     const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
 
