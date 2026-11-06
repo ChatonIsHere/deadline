@@ -82,7 +82,8 @@ export function Say({ children, className }: { children: ReactNode; className?: 
             ) : (
                 <>
                     {text.slice(0, shown)}
-                    {typing && <span className="inline-block h-[1em] w-[0.5em] translate-y-[0.15em] bg-accent" aria-hidden />}
+                    {/* The cursor takes no room (its width is cancelled out), so lines don't rewrap while typing */}
+                    {typing && <span className="-mr-[0.5em] inline-block h-[1em] w-[0.5em] translate-y-[0.15em] bg-accent" aria-hidden />}
                     <span className="text-transparent">{text.slice(shown)}</span>
                 </>
             )}

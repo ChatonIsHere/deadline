@@ -106,7 +106,8 @@ export function MySpot({ gig, userId }: { gig: GigView; userId: string }) {
     return (
         <Card className="space-y-3 [--frame:var(--color-primary)]">
             <CardTitle help="where your runner stands on this gig. you can pull out until it's completed or cancelled.">Your spot</CardTitle>
-            <Say>{status}</Say>
+            {/* Room for two lines, so the box keeps its size as the status changes */}
+            <Say className="min-h-[2lh]">{status}</Say>
             {canJoin && mine && mine.length > 1 && (
                 <Select value={picked} onChange={setPicked} placeholder="Which runner?" options={mine.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />
             )}

@@ -137,6 +137,8 @@ export class GigsController {
     }
 }
 
-/** The bot's lines without Discord formatting, for the web. */
-/** Bot lines come as Discord code blocks; the web wants the text. */
-const plain = plainVoice;
+/**
+ * Bot lines come as Discord code blocks; the web wants the text. These end up in the web's
+ * notifications, which put "// DEADLINE:" on themselves, so it's taken off here.
+ */
+const plain = (said: string) => plainVoice(said).replace(/^\/\/ DEADLINE:\s*/, '');
