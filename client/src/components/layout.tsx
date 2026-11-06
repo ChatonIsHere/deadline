@@ -49,6 +49,7 @@ export function Layout() {
     // On phones the page scrolls inside this, so a new page starts at its top
     const scroller = useRef<HTMLDivElement>(null);
     useEffect(() => scroller.current?.scrollTo(0, 0), [pathname]);
+    useScreenHeight();
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -89,7 +90,7 @@ export function Layout() {
         // prompt bar and channel bar as its last rows. Nothing is fixed to the screen, so browser
         // toolbars that slide away on scroll (Firefox) can't move them. Desktop scrolls the page,
         // and the prompt bar sticks to the bottom of the window, like a terminal's command line.
-        <div className="flex h-dvh flex-col md:grid md:h-auto md:min-h-screen md:grid-cols-[13rem_1fr]">
+        <div className="flex h-[var(--screen-h,100dvh)] flex-col md:grid md:h-auto md:min-h-screen md:grid-cols-[13rem_1fr]">
             <Rail channels={channels} />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col md:min-h-screen">
@@ -130,6 +131,7 @@ export function Layout() {
             </nav>
 
             <CommandPalette open={palette} onOpenChange={setPalette} />
+            <ViewportReadout />
         </div>
     );
 }
@@ -301,5 +303,55 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
             {children}
             {!number && <span className="font-display text-xs tracking-widest">YOU</span>}
         </NavLink>
+    );
+}
+
+/**
+ * The visible screen height, measured, as --screen-h. Phones size the page to it. 100dvh should
+ * be the same, but Firefox on Android leaves it short (it seems to allow for a toolbar that
+ * isn't showing), which lifted the channel bar off the bottom of the screen.
+ */
+function useScreenHeight() {
+    useEffect(() => {
+        const set = () => document.documentElement.style.setProperty('--screen-h', `${window.innerHeight}px`);
+        set();
+        window.addEventListener('resize', set);
+        window.visualViewport?.addEventListener('resize', set);
+        return () => {
+            window.removeEventListener('resize', set);
+            window.visualViewport?.removeEventListener('resize', set);
+        };
+    }, []);
+}
+
+/** With ?vp in the address: the heights the browser reports, for checking phone layouts. */
+function ViewportReadout() {
+    const [, redraw] = useState(0);
+    useEffect(() => {
+        const update = () => redraw((n) => n + 1);
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
+    if (!new URLSearchParams(window.location.search).has('vp')) return null;
+
+    const unit = (css: string) => {
+        const probe = document.createElement('div');
+        probe.style.cssText = `position:fixed;top:0;height:${css};visibility:hidden`;
+        document.body.append(probe);
+        const h = probe.getBoundingClientRect().height;
+        probe.remove();
+        return Math.round(h);
+    };
+    const rows: [string, number | string][] = [
+        ['innerHeight', window.innerHeight],
+        ['visualViewport', Math.round(window.visualViewport?.height ?? 0)],
+        ['clientHeight', document.documentElement.clientHeight],
+        ['100dvh', unit('100dvh')],
+        ['100svh', unit('100svh')],
+        ['100lvh', unit('100lvh')],
+        ['screen', `${window.screen.height} @${window.devicePixelRatio}`],
+    ];
+    return (
+        <pre className="fixed top-2 left-2 z-50 bg-background/90 p-2 text-xs text-accent">{rows.map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
     );
 }
