@@ -108,8 +108,8 @@ export function Layout() {
                 <Button
                     asChild
                     size="icon"
-                    // Above the prompt bar (3rem), and on phones the channel bar too
-                    className="fixed right-4 bottom-32 z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
+                    // Above the channel bar on phones, and the prompt bar on desktop
+                    className="fixed right-4 bottom-20 z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
                 >
                     <Link to={fab.to} aria-label={fab.label} title={fab.label}>
                         <Plus className="size-6" />
@@ -131,7 +131,6 @@ export function Layout() {
             </nav>
 
             <CommandPalette open={palette} onOpenChange={setPalette} />
-            <ViewportReadout />
         </div>
     );
 }
@@ -215,7 +214,8 @@ function Readout() {
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
-        <div className="sticky bottom-0 z-20 flex h-12 w-full shrink-0 items-center gap-2 border-t border-primary/40 bg-background px-4 text-sm md:px-8">
+        // Phones: the first row, under the browser bar. Desktop: stuck to the bottom of the window.
+        <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
                 <img src="/logo.svg" alt="" className="size-5 md:hidden" />
                 <span className="text-primary">&gt;</span>
@@ -303,40 +303,5 @@ function BarLink({ to, label, number, children }: { to: string; label: string; n
             {children}
             {!number && <span className="font-display text-xs tracking-widest">YOU</span>}
         </NavLink>
-    );
-}
-
-/** With ?vp in the address: the heights the browser reports, for checking phone layouts. */
-function ViewportReadout() {
-    const [, redraw] = useState(0);
-    useEffect(() => {
-        const update = () => redraw((n) => n + 1);
-        window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
-    }, []);
-    if (!new URLSearchParams(window.location.search).has('vp')) return null;
-
-    const unit = (css: string) => {
-        const probe = document.createElement('div');
-        probe.style.cssText = `position:fixed;top:0;height:${css};visibility:hidden`;
-        document.body.append(probe);
-        const h = probe.getBoundingClientRect().height;
-        probe.remove();
-        return Math.round(h);
-    };
-    const rows: [string, number | string][] = [
-        ['innerHeight', window.innerHeight],
-        ['visualViewport', Math.round(window.visualViewport?.height ?? 0)],
-        ['clientHeight', document.documentElement.clientHeight],
-        ['100dvh', unit('100dvh')],
-        ['100svh', unit('100svh')],
-        ['100lvh', unit('100lvh')],
-        ['screen', `${window.screen.height} @${window.devicePixelRatio}`],
-        ['safe bottom', unit('env(safe-area-inset-bottom, 0px)')],
-        ['app bottom', Math.round(document.querySelector('nav.shrink-0')?.parentElement?.getBoundingClientRect().bottom ?? 0)],
-        ['bar bottom', Math.round(document.querySelector('nav.shrink-0')?.getBoundingClientRect().bottom ?? 0)],
-    ];
-    return (
-        <pre className="fixed top-2 left-2 z-50 bg-background/90 p-2 text-xs text-accent">{rows.map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
     );
 }

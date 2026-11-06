@@ -11,9 +11,9 @@ export function Toaster() {
             position="bottom-right"
             // Lives outside the pages, so a message stays up when the page changes; it fades after this
             duration={10_000}
-            // Clear the prompt bar, and on phones the channel bar too
+            // Clear the prompt bar on desktop, and the channel bar on phones
             offset={{ bottom: '4rem' }}
-            mobileOffset={{ bottom: '8rem' }}
+            mobileOffset={{ bottom: '5rem' }}
             toastOptions={{
                 classNames: {
                     toast: 'group cut-frame !rounded-none !border-0 !bg-[var(--frame)] !shadow-none !px-4 !py-3 font-mono !text-sm !text-muted-foreground [--fill:var(--color-background)] [--frame:var(--color-accent)]',
