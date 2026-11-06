@@ -127,7 +127,7 @@
 
 /*
  * Things animate in as they appear: quick, in steps, like a terminal drawing them. Panels
- * open from a flat line, headings and labels type out, pictures flicker on, nav links step
+ * open from a flat line, headings and labels type out, pictures scan in, nav links step
  * in. Items in grids and stacks start a beat after the one before (--d).
  * Fill mode is `backwards`, so nothing (scale, clip) is left applied once it's done.
  * People who turn motion off get none of it.
@@ -155,18 +155,12 @@
         clip-path: inset(0 0 0 0);
     }
 }
-@keyframes flicker {
-    0% {
-        opacity: 0;
+@keyframes scan-in {
+    from {
+        clip-path: inset(0 0 100% 0);
     }
-    20% {
-        opacity: 1;
-    }
-    35% {
-        opacity: 0.25;
-    }
-    55% {
-        opacity: 1;
+    to {
+        clip-path: inset(0 0 0 0);
     }
 }
 @keyframes step-in-x {
@@ -206,8 +200,10 @@
         animation-delay: calc(var(--d, 0ms) + 120ms);
     }
 
-    main img {
-        animation: flicker 320ms steps(1, end) backwards;
+    /* Pictures (not icons or cut-corner avatars) draw in top to bottom, a band at a time.
+       Specific enough to beat the panel fade, so every picture does the same thing. */
+    main img:is([class*='aspect-'], [class*='object-cover']):not(.cut) {
+        animation: scan-in 260ms steps(8, end) backwards;
         animation-delay: calc(var(--d, 0ms) + 140ms);
     }
 
