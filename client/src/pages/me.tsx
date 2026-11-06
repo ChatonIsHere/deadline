@@ -19,7 +19,8 @@ export function MePage() {
     const roles = [me.isAdmin && 'Admin', me.isFixer && 'Fixer', me.isEdgerunner && 'Edgerunner'].filter(Boolean).join(', ');
 
     return (
-        <div className="mx-auto max-w-2xl space-y-5">
+        // Desktop: two columns, the availability grid on its own on the right
+        <div className="mx-auto max-w-2xl space-y-5 lg:max-w-6xl">
             <div className="flex items-center gap-3">
                 <Avatar member={me} className="size-12 [--cut:8px]" />
                 <div>
@@ -28,38 +29,43 @@ export function MePage() {
                 </div>
             </div>
 
-            {me.isOwner && prefs && (
-                <Card className="space-y-3 [--frame:var(--color-accent)]">
-                    <CardTitle help="as the bot owner you're always an admin. player view hides that, so the board and the bot treat you like any player with your Discord roles. turn it back off here.">
-                        Player view
-                    </CardTitle>
-                    <p>{prefs.playerView ? 'On. Admin tools are hidden.' : 'Off. You have full admin powers.'}</p>
-                    <Button variant={prefs.playerView ? 'default' : 'outline'} disabled={save.isPending} onClick={() => save.mutate({ playerView: !prefs.playerView })}>
-                        {prefs.playerView ? 'Back to admin' : 'View as a player'}
+            <div className="grid items-start gap-5 lg:grid-cols-2">
+                <div className="space-y-5">
+                    {me.isOwner && prefs && (
+                        <Card className="space-y-3 [--frame:var(--color-accent)]">
+                            <CardTitle help="as the bot owner you're always an admin. player view hides that, so the board and the bot treat you like any player with your Discord roles. turn it back off here or from Ctrl+K.">
+                                Player view
+                            </CardTitle>
+                            <p>{prefs.playerView ? 'On. Admin tools are hidden.' : 'Off. You have full admin powers.'}</p>
+                            <Button variant={prefs.playerView ? 'default' : 'outline'} disabled={save.isPending} onClick={() => save.mutate({ playerView: !prefs.playerView })}>
+                                {prefs.playerView ? 'Back to admin' : 'View as a player'}
+                            </Button>
+                        </Card>
+                    )}
+
+                    <CrewInvites />
+
+                    {prefs && <TimezoneCard current={prefs.timezone} />}
+
+                    <Card className="space-y-3">
+                        <CardTitle help="requests to confirm a session time still come through, since your slot depends on them.">Session reminders</CardTitle>
+                        <p>DMs a few hours before a session you've confirmed, and 30 minutes before it starts.</p>
+                        {prefs ? (
+                            <Button variant={prefs.reminders ? 'outline' : 'default'} disabled={save.isPending} onClick={() => save.mutate({ reminders: !prefs.reminders })}>
+                                {prefs.reminders ? 'Turn reminders off' : 'Turn reminders on'}
+                            </Button>
+                        ) : (
+                            <Say>loading...</Say>
+                        )}
+                    </Card>
+
+                    <Button variant="outline" className="w-full" onClick={logout}>
+                        <LogOut className="size-4" /> Log out
                     </Button>
-                </Card>
-            )}
+                </div>
 
-            <CrewInvites />
-
-            {prefs && <TimezoneCard current={prefs.timezone} />}
-            <AvailabilityCard />
-
-            <Card className="space-y-3">
-                <CardTitle help="requests to confirm a session time still come through, since your slot depends on them.">Session reminders</CardTitle>
-                <p>DMs a few hours before a session you've confirmed, and 30 minutes before it starts.</p>
-                {prefs ? (
-                    <Button variant={prefs.reminders ? 'outline' : 'default'} disabled={save.isPending} onClick={() => save.mutate({ reminders: !prefs.reminders })}>
-                        {prefs.reminders ? 'Turn reminders off' : 'Turn reminders on'}
-                    </Button>
-                ) : (
-                    <Say>loading...</Say>
-                )}
-            </Card>
-
-            <Button variant="outline" className="w-full" onClick={logout}>
-                <LogOut className="size-4" /> Log out
-            </Button>
+                <AvailabilityCard />
+            </div>
         </div>
     );
 }
@@ -108,7 +114,7 @@ function TimezoneCard({ current }: { current: string | null }) {
     const save = useAction(() => api('/api/prefs', 'PUT', { timezone: tz }), 'timezone saved.');
     return (
         <Card className="space-y-3">
-            <CardTitle help="session times on the board show in this zone, and so does your availability below.">Timezone</CardTitle>
+            <CardTitle help="session times on the board show in this zone, and so does your availability.">Timezone</CardTitle>
             <TimezonePicker id="timezone" value={tz} onChange={setTz} />
             <Button size="sm" disabled={!isPickedZone(tz) || tz === current || save.isPending} onClick={() => save.mutate()}>
                 Save
@@ -135,7 +141,7 @@ function AvailabilityCard() {
             ) : (
                 <>
                     <p className="text-xs text-muted-foreground">
-                        Your usual week, in {data.timezone ?? `${browserTimeZone()} (your browser's zone, until you save one above)`}.
+                        Your usual week, in {data.timezone ?? `${browserTimeZone()} (your browser's zone, until you save one)`}.
                     </p>
                     <WeekGrid hours={hours} onChange={setHours} />
                     <div className="flex flex-wrap gap-2">

@@ -4,7 +4,7 @@ import { Dialog as D } from 'radix-ui';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { logout } from '@/components/layout';
-import { useCrews, useFixers, useGigs, useRunners, useUser } from '@/lib/api';
+import { api, useAction, useCrews, useFixers, useGigs, useRunners, useUser } from '@/lib/api';
 
 /**
  * Ctrl+K (or a click on the prompt bar): type to jump to any page, gig, runner, fixer or
@@ -17,6 +17,12 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     const runners = useRunners().data ?? [];
     const fixers = useFixers().data ?? [];
     const crews = useCrews().data ?? [];
+
+    // The owner's player view: admin powers hidden, so they see what a player sees
+    const playerView = useAction(
+        (on: boolean) => api('/api/prefs', 'PUT', { playerView: on }),
+        () => (me.playerView ? 'admin powers back.' : 'player view on. admin tools hidden.'),
+    );
 
     const go = (to: string) => {
         onOpenChange(false);
@@ -93,6 +99,18 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                                 ))}
                             </Group>
                             <Group heading="Session">
+                                {me.isOwner && (
+                                    <Item
+                                        value={me.playerView ? 'back to admin player view off' : 'view as a player player view on'}
+                                        tag="VIEW"
+                                        onSelect={() => {
+                                            onOpenChange(false);
+                                            playerView.mutate(!me.playerView);
+                                        }}
+                                    >
+                                        {me.playerView ? 'Back to admin' : 'View as a player'}
+                                    </Item>
+                                )}
                                 <Item value="log out sign out" tag="EXIT" onSelect={() => void logout()}>
                                     Log out
                                 </Item>
