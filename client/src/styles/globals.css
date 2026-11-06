@@ -124,3 +124,103 @@
         animation: none;
     }
 }
+
+/*
+ * Things animate in as they appear: quick, in steps, like a terminal drawing them. Panels
+ * open from a flat line, headings and labels type out, pictures flicker on, nav links step
+ * in. Items in grids and stacks start a beat after the one before (--d).
+ * Fill mode is `backwards`, so nothing (scale, clip) is left applied once it's done.
+ * People who turn motion off get none of it.
+ */
+@keyframes power-on {
+    from {
+        scale: 0.3 0.02;
+        opacity: 0.6;
+    }
+    45% {
+        scale: 1 0.02;
+        opacity: 1;
+    }
+}
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+}
+@keyframes type-in {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+@keyframes flicker {
+    0% {
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    35% {
+        opacity: 0.25;
+    }
+    55% {
+        opacity: 1;
+    }
+}
+@keyframes step-in-x {
+    from {
+        translate: -10px 0;
+        opacity: 0;
+    }
+}
+@keyframes step-in-y {
+    from {
+        translate: 0 8px;
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    /* The beat between siblings in lists, grids and stacks */
+    :is(.grid, [class*='space-y-']) > :nth-child(2) { --d: 35ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(3) { --d: 70ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(4) { --d: 105ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(5) { --d: 140ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(6) { --d: 175ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(7) { --d: 210ms; }
+    :is(.grid, [class*='space-y-']) > :nth-child(n + 8) { --d: 245ms; }
+
+    .cut-frame {
+        animation: power-on 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+        animation-delay: var(--d, 0ms);
+    }
+    .cut-frame > * {
+        animation: fade-in 150ms ease-out backwards;
+        animation-delay: calc(var(--d, 0ms) + 170ms);
+    }
+
+    :is(h1, h2, h3, label) {
+        animation: type-in 220ms steps(10, end) backwards;
+        animation-delay: calc(var(--d, 0ms) + 120ms);
+    }
+
+    main img {
+        animation: flicker 320ms steps(1, end) backwards;
+        animation-delay: calc(var(--d, 0ms) + 140ms);
+    }
+
+    aside nav > a,
+    nav.shrink-0 a {
+        animation: step-in-x 180ms steps(4, end) backwards;
+    }
+    nav.shrink-0 a {
+        animation-name: step-in-y;
+    }
+    :is(aside nav, nav.shrink-0 > div) > :nth-child(2) { animation-delay: 40ms; }
+    :is(aside nav, nav.shrink-0 > div) > :nth-child(3) { animation-delay: 80ms; }
+    :is(aside nav, nav.shrink-0 > div) > :nth-child(4) { animation-delay: 120ms; }
+    :is(aside nav, nav.shrink-0 > div) > :nth-child(5) { animation-delay: 160ms; }
+    :is(aside nav, nav.shrink-0 > div) > :nth-child(6) { animation-delay: 200ms; }
+}
