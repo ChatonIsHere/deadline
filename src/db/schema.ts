@@ -218,6 +218,8 @@ export const gigObjectives = sqliteTable('gig_objectives', {
     bonus: integer(),
     // Paid for each time it's done ("x for each y"), not once on completion
     each: integer({ mode: 'boolean' }).notNull().default(false),
+    // Shown to players as "not disclosed" until the gig begins (sign-ups lock)
+    hidden: integer({ mode: 'boolean' }).notNull().default(false),
     position: integer().notNull(),
 });
 

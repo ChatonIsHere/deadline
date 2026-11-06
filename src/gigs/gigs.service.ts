@@ -10,7 +10,7 @@ import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
 import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
-import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, type RunnerCard, type RunnerState } from '../shared/schemas';
+import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot } from './slots';
@@ -64,12 +64,12 @@ export class GigsService {
         const rows = this.db.query.gigs.findMany({ with: GIG_WITH }).sync();
         return rows
             .filter((g) => canSeeGig(user, g))
-            .map((g) => this.toView(g, user.id))
+            .map((g) => this.toView(g, user))
             .sort((a, b) => b.createdAt - a.createdAt);
     }
 
     get(user: Me, id: number): GigView {
-        const gig = this.view(id, user.id);
+        const gig = this.view(id, user);
         if (!canSeeGig(user, { ...gig, createdBy: gig.createdBy.id })) throw new NotFoundException();
         return gig;
     }
@@ -91,7 +91,7 @@ export class GigsService {
         });
 
         this.post(id);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     update(user: Me, id: number, input: GigInput): GigView {
@@ -108,7 +108,7 @@ export class GigsService {
 
         // More slots can mean room for reserves
         this.afterRemoval(id);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     delete(user: Me, id: number) {
@@ -128,7 +128,7 @@ export class GigsService {
             .where(eq(gigs.id, id))
             .run();
         this.post(id);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** Lock or reopen sign-ups, or cancel. Completing goes through DebriefService. */
@@ -141,7 +141,7 @@ export class GigsService {
         this.db.update(gigs).set({ status }).where(eq(gigs.id, id)).run();
         if (status === 'cancelled') this.clearReserves(id);
         this.post(id, { note: voice.statusChanged[status] });
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** A finished gig has no one waiting for a slot. */
@@ -192,7 +192,7 @@ export class GigsService {
         const player = runner?.ownerId ? await this.members.me(runner.ownerId) : null;
         if (!runner || !player?.isEdgerunner) throw new BadRequestException("Only runners whose player has the edgerunner role can go on a gig.");
         this.add(runner, id, true);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     confirm(userId: string, id: number): string {
@@ -232,7 +232,7 @@ export class GigsService {
 
         this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slotId)).run();
         this.afterRemoval(id);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** Admin removes a player's runner from the reserves. */
@@ -241,7 +241,7 @@ export class GigsService {
         if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
         if (!this.removeReserve(id, userId)) throw new NotFoundException();
         this.post(id);
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** Sets or clears the session time. Everyone in a slot is asked to confirm, again if it changed. */
@@ -269,7 +269,7 @@ export class GigsService {
         });
 
         this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt), ask: players } : { note: voice.sessionCleared() });
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** Lifts a crew's hold on its slots in this gig, so any runner can take them. */
@@ -285,7 +285,7 @@ export class GigsService {
         if (!changed) throw new NotFoundException();
 
         this.afterRemoval(id, voice.slotsOpened(crew?.name ?? 'The crew'));
-        return this.view(id, user.id);
+        return this.view(id, user);
     }
 
     /** Takes a runner off every unfinished gig before it's deleted. Finished gigs keep their record. */
@@ -603,11 +603,14 @@ export class GigsService {
         return gig;
     }
 
-    /** `userId` fills in their own rating of the fixer. */
-    view(id: number, userId?: string): GigView {
+    /**
+     * `viewer` fills in their own rating of the fixer. A signed in admin, or the gig's fixer or
+     * poster, also gets undisclosed objectives' details. No viewer (Discord) gets the public view.
+     */
+    view(id: number, viewer?: Me | string): GigView {
         const gig = this.db.query.gigs.findFirst({ where: eq(gigs.id, id), with: GIG_WITH }).sync();
         if (!gig) throw new NotFoundException('No such gig.');
-        return this.toView(gig, userId);
+        return this.toView(gig, viewer);
     }
 
     /** When an awaiting runner gets dropped if they don't confirm. */
@@ -616,7 +619,10 @@ export class GigsService {
         return confirmDeadline(slot.askedAt.getTime(), sessionAt.getTime(), this.settings.get().confirmHours);
     }
 
-    private toView(gig: GigRow, userId?: string): GigView {
+    private toView(gig: GigRow, viewer?: Me | string): GigView {
+        const userId = typeof viewer === 'string' ? viewer : viewer?.id;
+        const insider = typeof viewer === 'object' && (viewer.isAdmin || viewer.id === gig.createdBy || viewer.id === gig.fixerId);
+        const revealed = objectivesRevealed(gig.status);
         const ids = [...gig.slots.map((s) => s.runnerId), ...gig.reserves.map((r) => r.runnerId), ...gig.rewards.map((r) => r.runnerId), gig.fixerRunnerId];
         const known = ids.filter((id): id is number => id !== null);
         const cards = new Map(
@@ -640,7 +646,14 @@ export class GigsService {
             brief: gig.brief,
             primaryObjective: gig.primaryObjective.split('\n').filter(Boolean),
             imageId: gig.imageId,
-            objectives: gig.objectives.sort((a, b) => a.position - b.position).map((o) => ({ text: o.text, bonus: o.bonus, each: o.each })),
+            objectives: gig.objectives
+                .sort((a, b) => a.position - b.position)
+                .map((o) => {
+                    const secret = o.hidden && !revealed;
+                    // Players don't get an undisclosed objective's details at all, not just hidden on screen
+                    if (secret && !insider) return { text: '', bonus: null, each: false, hidden: true, secret };
+                    return { text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, secret };
+                }),
             slots: gig.slots
                 .sort((a, b) => a.position - b.position)
                 .map((s) => ({
@@ -671,7 +684,7 @@ export class GigsService {
     private writeObjectives(tx: Tx, gigId: number, objectives: GigInput['objectives']) {
         if (!objectives.length) return;
         tx.insert(gigObjectives)
-            .values(objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, each: o.each, position })))
+            .values(objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, position })))
             .run();
     }
 

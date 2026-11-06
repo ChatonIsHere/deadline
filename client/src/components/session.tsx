@@ -82,16 +82,7 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
     const [picked, setPicked] = useState('');
     const slot = gig.slots.find((s) => s.runner?.ownerId === userId);
     const reserve = gig.reserves.findIndex((r) => r.ownerId === userId) + 1;
-    const runner = slot?.runner ?? gig.reserves[reserve - 1];
     const canJoin = !slot && !reserve && gig.status === 'open';
-
-    let status: string;
-    if (slot?.state === 'confirmed') status = `${runner?.handle} is confirmed.`;
-    else if (slot?.state === 'awaiting') status = `confirm ${runner?.handle} can make it${slot.confirmBy ? ` by ${formatSession(slot.confirmBy)}` : ''}.`;
-    else if (slot) status = `${runner?.handle} is interested. you'll be asked to confirm once there's a time.`;
-    else if (reserve) status = `${runner?.handle} is reserve #${reserve}.`;
-    else if (gig.status === 'open') status = gig.slots.some((s) => !s.runner) ? 'slots open.' : 'slots are full. signing up puts you on the reserves.';
-    else status = 'sign-ups are locked.';
 
     if (canJoin && mine && !mine.length) {
         return (
@@ -106,8 +97,8 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
 
     return (
         <div className="space-y-3">
-            {/* Room for two lines, so the panel keeps its size as the status changes */}
-            <Say className="min-h-[2lh]">{status}</Say>
+            {/* A fixed note. Where you stand shows in the list above; what changes comes as a notification. */}
+            <Say>sign up here or on the Discord post. full gigs put you on the reserves.</Say>
             {canJoin && mine && mine.length > 1 && (
                 <Select value={picked} onChange={setPicked} placeholder="Which runner?" options={mine.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />
             )}

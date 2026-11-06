@@ -1,5 +1,5 @@
 import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } from '@shared/schemas';
-import { Plus, Shuffle, X } from 'lucide-react';
+import { Eye, EyeOff, Plus, Shuffle, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon, Pay, Say } from '@/components/common';
@@ -30,7 +30,7 @@ interface FormState {
     imageId: number | null;
     /** The picture came from the library, so it follows the location. */
     imageAuto: boolean;
-    objectives: { text: string; bonus: string; each: boolean }[];
+    objectives: { text: string; bonus: string; each: boolean; hidden: boolean }[];
     slots: { crewId: string; count: string }[];
 }
 
@@ -64,7 +64,7 @@ function toForm(gig?: GigView): FormState {
         pay: String(gig.pay),
         imageId: gig.imageId,
         imageAuto: false,
-        objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each })),
+        objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each, hidden: o.hidden })),
         slots: [...counts].map(([crewId, count]) => ({ crewId, count: String(count) })),
     };
 }
@@ -77,7 +77,7 @@ function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
         pay: form.pay === '' ? NaN : Number(form.pay),
         // Blank extra parts are dropped rather than failing the form
         primaryObjective: form.primaryObjective.filter((p, i) => i === 0 || p.trim()),
-        objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each })),
+        objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each, hidden: o.hidden })),
         slots: form.slots.map((s) => ({ crewId: s.crewId ? Number(s.crewId) : null, count: Number(s.count) })),
     };
 }
@@ -221,13 +221,24 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                             >
                                 {o.each ? 'Each' : 'Once'}
                             </Button>
+                            <Button
+                                type="button"
+                                variant={o.hidden ? 'accent' : 'outline'}
+                                size="icon"
+                                className="mb-0.5"
+                                aria-pressed={o.hidden}
+                                title={o.hidden ? 'Not disclosed to players until sign-ups lock' : 'Shown to players'}
+                                onClick={() => setRow('objectives', i, { hidden: !o.hidden })}
+                            >
+                                {o.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                            </Button>
                             <Button type="button" variant="ghost" size="icon" className="mb-0.5" onClick={() => removeRow('objectives', i)}>
                                 <X className="size-4" />
                             </Button>
                         </div>
                     ))}
                     {form.objectives.length < 8 && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => set({ objectives: [...form.objectives, { text: '', bonus: '', each: false }] })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => set({ objectives: [...form.objectives, { text: '', bonus: '', each: false, hidden: false }] })}>
                             <Plus className="size-4" /> Add objective
                         </Button>
                     )}
@@ -317,7 +328,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                     </div>
                     <div>
                         <Label help="the primary objective's pay, up to that plus every secondary bonus. a + means per-each bonuses can add more.">Pay</Label>
-                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null, each: o.each })) }} />
+                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null, each: o.each, secret: o.hidden })) }} />
                     </div>
                 </Card>
 

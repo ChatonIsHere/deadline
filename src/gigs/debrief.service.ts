@@ -55,7 +55,7 @@ export class DebriefService {
             note: debriefMessages,
             after: (latest) => this.posts.sendPayouts(latest, payouts),
         });
-        return this.gigs.view(id, user.id);
+        return this.gigs.view(id, user);
     }
 
     /**

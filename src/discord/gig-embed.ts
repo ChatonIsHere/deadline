@@ -87,7 +87,13 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         ...(gig.type ? [{ name: 'Type', value: `${typeIcon} ${gig.type}`.trim(), inline: true }] : []),
         ...(gig.primaryObjective.length ? [{ name: 'Primary objective', value: primaryText(gig, emoji, icon('objective', '-')) }] : []),
         ...(gig.objectives.length
-            ? [{ name: 'Secondary objectives', value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.text}${bonusText(o, emoji)}`).join('\n') }]
+            ? [
+                  {
+                      name: 'Secondary objectives',
+                      // Undisclosed ones keep their place in the list, but not what they are or pay
+                      value: gig.objectives.map((o) => `${icon('bonus', '-')} ${o.secret ? '`[ NOT DISCLOSED ]`' : `${o.text}${bonusText(o, emoji)}`}`).join('\n'),
+                  },
+              ]
             : []),
         ...debriefFields(gig, emoji),
     ];

@@ -66,7 +66,7 @@ const input = (slots: GigInput['slots'], patch: Partial<GigInput> = {}): GigInpu
     brief: 'Get in, get out.',
     primaryObjective: ['Grab the case.'],
     imageId: null,
-    objectives: [{ text: 'No alarms', bonus: 500, each: false }],
+    objectives: [{ text: 'No alarms', bonus: 500, each: false, hidden: false }],
     slots,
     ...patch,
 });
@@ -147,6 +147,34 @@ describe('GigsService', () => {
             gigs.update(fixer, gig.id, input([{ crewId: null, count: 2 }], { name: 'Changed' }));
             gigs.approve(admin, gig.id, true);
             assert.throws(() => gigs.update(fixer, gig.id, input([{ crewId: null, count: 2 }])), /Forbidden/);
+        });
+    });
+
+    describe('undisclosed objectives', () => {
+        const secretGig = () =>
+            gigs.create(admin, input([{ crewId: null, count: 1 }], { objectives: [{ text: 'Plant the bug', bonus: 1000, each: false, hidden: true }] }));
+        const player = people.find((p) => p.id === 'a')!;
+
+        it('keeps the details from players until the gig begins', () => {
+            const gig = secretGig();
+            const seen = gigs.view(gig.id, player).objectives[0];
+            assert.deepEqual(seen, { text: '', bonus: null, each: false, hidden: true, secret: true });
+            // Discord gets the public view too
+            assert.equal(gigs.view(gig.id).objectives[0].text, '');
+        });
+
+        it('shows admins the details, still marked secret', () => {
+            const seen = gigs.view(secretGig().id, admin).objectives[0];
+            assert.equal(seen.text, 'Plant the bug');
+            assert.equal(seen.secret, true);
+        });
+
+        it('reveals them once sign-ups lock', () => {
+            const gig = secretGig();
+            gigs.setStatus(admin, gig.id, 'closed');
+            const seen = gigs.view(gig.id, player).objectives[0];
+            assert.equal(seen.text, 'Plant the bug');
+            assert.equal(seen.secret, false);
         });
     });
 

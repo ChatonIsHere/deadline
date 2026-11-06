@@ -120,9 +120,15 @@ export function Gig() {
                             <ul className="space-y-2">
                                 {gig.objectives.map((o, i) => (
                                     <li key={i} className="flex justify-between gap-4">
-                                        <span>
-                                            - <Markdown inline text={o.text} />
-                                        </span>
+                                        {/* Players get no text for an undisclosed one; admins and its fixer see it, marked */}
+                                        {o.secret && !o.text ? (
+                                            <span className="text-muted-foreground">- [ NOT DISCLOSED ]</span>
+                                        ) : (
+                                            <span>
+                                                - <Markdown inline text={o.text} />
+                                                {o.secret && <span className="ml-2 text-xs text-accent uppercase">not disclosed yet</span>}
+                                            </span>
+                                        )}
                                         {o.bonus && (
                                             <span className="flex shrink-0 items-center gap-1 self-start">
                                                 <span className="font-semibold text-primary">+</span>

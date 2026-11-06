@@ -64,10 +64,11 @@ export const gigInput = z.object({
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
     imageId: z.number().int().nullable(),
     objectives: z
-        // `each`: paid for each time it's done ("x for each y"), not once on completion
+        // `each`: paid for each time it's done ("x for each y"), not once on completion.
+        // `hidden`: players see "not disclosed" until the gig begins.
         .array(
             z
-                .object({ text: oneLine(150), bonus: z.number().int().min(1).nullable(), each: z.boolean() })
+                .object({ text: oneLine(150), bonus: z.number().int().min(1).nullable(), each: z.boolean(), hidden: z.boolean() })
                 .refine((o) => !o.each || o.bonus, 'A per-each objective needs a bonus'),
         )
         .max(8),
@@ -323,8 +324,12 @@ export interface GigView {
     /** One or more parts. */
     primaryObjective: string[];
     imageId: number | null;
-    /** `each`: the bonus is paid for each time it's done. */
-    objectives: { text: string; bonus: number | null; each: boolean }[];
+    /**
+     * `each`: the bonus is paid for each time it's done. `hidden`: the setting, kept from
+     * players until the gig begins. `secret`: still kept from them right now. Players get a
+     * secret one with no text or bonus; admins and the gig's fixer get the details.
+     */
+    objectives: { text: string; bonus: number | null; each: boolean; hidden: boolean; secret: boolean }[];
     slots: SlotView[];
     /** Waiting for a slot, in order. */
     reserves: RunnerCard[];
@@ -396,9 +401,16 @@ export interface CrewInvite {
 /**
  * A gig's pay: the primary objective alone, up to that plus every secondary bonus. Per-each
  * bonuses count once and make it open-ended (`open`: shown with a + after the top end).
+ * Undisclosed objectives don't count (players can't know them) but make it open-ended too.
  */
-export const payRange = (gig: { pay: number; objectives: { bonus: number | null; each?: boolean }[] }) => ({
-    min: gig.pay,
-    max: gig.pay + gig.objectives.reduce((sum, o) => sum + (o.bonus ?? 0), 0),
-    open: gig.objectives.some((o) => o.each && !!o.bonus),
-});
+export const payRange = (gig: { pay: number; objectives: { bonus: number | null; each?: boolean; secret?: boolean }[] }) => {
+    const known = gig.objectives.filter((o) => !o.secret);
+    return {
+        min: gig.pay,
+        max: gig.pay + known.reduce((sum, o) => sum + (o.bonus ?? 0), 0),
+        open: known.some((o) => o.each && !!o.bonus) || gig.objectives.some((o) => o.secret),
+    };
+};
+
+/** Undisclosed objectives come out when sign-ups lock and the job is on. */
+export const objectivesRevealed = (status: GigStatus) => status === 'closed' || status === 'completed';
