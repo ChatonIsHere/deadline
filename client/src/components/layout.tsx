@@ -1,7 +1,7 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
 import { isLive } from '@shared/schemas';
 import { LogOut, Plus, Search } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Say } from '@/components/common';
@@ -46,6 +46,9 @@ export function Layout() {
     const { data: me, isPending, isError } = useMe();
     const { pathname } = useLocation();
     const [palette, setPalette] = useState(false);
+    // On phones the page scrolls inside this, so a new page starts at its top
+    const scroller = useRef<HTMLDivElement>(null);
+    useEffect(() => scroller.current?.scrollTo(0, 0), [pathname]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -82,13 +85,16 @@ export function Layout() {
                   : null;
 
     return (
-        <div className="min-h-screen md:grid md:grid-cols-[13rem_1fr]">
+        // Phones: a column exactly the visible screen's height, with the page scrolling inside it and
+        // the channel bar as its last row. Nothing is fixed to the screen, so browser toolbars that
+        // slide away on scroll (Firefox) can't make the bar jump. Desktop scrolls the page as normal.
+        <div className="flex h-dvh flex-col md:grid md:h-auto md:min-h-screen md:grid-cols-[13rem_1fr]">
             <Rail channels={channels} />
 
-            <div className="flex min-w-0 flex-col">
+            <div ref={scroller} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto md:overflow-visible">
                 <PromptBar onOpen={() => setPalette(true)} />
-                {/* Bottom padding on phones keeps content clear of the channel bar */}
-                <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-40 md:px-8 md:pb-10">
+                {/* Bottom padding on phones keeps content clear of the corner + */}
+                <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10">
                     {me.isAdmin && <SetupReminder />}
                     <Outlet />
                 </main>
@@ -106,8 +112,7 @@ export function Layout() {
                 </Button>
             )}
 
-            {/* Solid and on its own layer: a blurred fixed bar lags and jumps while phone browsers slide their toolbars */}
-            <nav className="fixed inset-x-0 bottom-0 z-20 transform-gpu border-t border-primary/40 bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+            <nav className="shrink-0 border-t border-primary/40 bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
@@ -204,7 +209,7 @@ function Readout() {
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
-        <div className="sticky top-0 z-20 flex h-12 w-full transform-gpu items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:px-8">
+        <div className="sticky top-0 z-20 flex h-12 w-full shrink-0 items-center gap-2 border-b border-primary/40 bg-background px-4 text-sm md:px-8">
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
                 <img src="/logo.svg" alt="" className="size-5 md:hidden" />
                 <span className="text-primary">&gt;</span>
