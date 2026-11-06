@@ -1,24 +1,19 @@
 import { isLive, type PlayerAvailability } from '@shared/schemas';
-import { addDays, DAYS, heatmap, weekStart } from '@shared/time';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { DAYS, heatmap, offsetMinutes, shiftMinute } from '@shared/time';
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { Heatmap } from '@/components/availability';
 import { Avatar, Say } from '@/components/common';
-import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { useAvailability, useCrews, useGigs, useUser } from '@/lib/api';
-import { clock, useTimeZone, zoneOffset } from '@/lib/time';
+import { useTimeZone, zoneOffset } from '@/lib/time';
 
 type Placed = PlayerAvailability & { timezone: string };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /**
- * When everyone can play, for admins picking a session time. Each player's usual week is read
- * on their own clock and shown on the admin's, for a real week, so clock changes land right.
- * Narrow it to a crew, a gig's runners or one player.
+ * When everyone can usually play, for admins picking a session time. Each player's usual week
+ * is moved onto the admin's clock. Narrow it to a crew, a gig's runners or one player.
  */
 export function AvailabilityPage() {
     const me = useUser();
@@ -27,7 +22,6 @@ export function AvailabilityPage() {
     const crews = useCrews().data ?? [];
     const gigs = (useGigs().data ?? []).filter((g) => isLive(g.status));
     const [params, setParams] = useSearchParams();
-    const [weeks, setWeeks] = useState(0);
     const [picked, setPicked] = useState<number | null>(null);
 
     // ?crew=<slug>, ?gig=<ref> or neither; ?player=<id> narrows further
@@ -65,10 +59,7 @@ export function AvailabilityPage() {
         return { placed: shown.filter(isPlaced), unset: shown.filter((p) => !isPlaced(p)) };
     }, [inGroup, playerId]);
 
-    const monday = addDays(weekStart(Date.now(), tz), weeks * 7);
-    const mondayKey = `${monday.year}-${monday.month}-${monday.day}`;
-    const cells = useMemo(() => heatmap(placed, monday, tz), [placed, mondayKey, tz]);
-    const days = DAYS.map((d, i) => `${d} ${addDays(monday, i).day}`);
+    const cells = useMemo(() => heatmap(placed, tz), [placed, tz]);
     const cell = picked === null ? null : cells[picked];
 
     if (!me.isAdmin) return <Navigate to="/gigs" replace />;
@@ -79,7 +70,6 @@ export function AvailabilityPage() {
         ...gigs.map((g) => ({ value: `gig:${g.ref}`, label: g.name, hint: 'gig' })),
     ];
     const playerOptions = [{ value: '', label: inGroup.length ? 'All of them' : 'Nobody here' }, ...inGroup.map((p) => ({ value: p.member.id, label: p.member.name }))];
-    const sunday = addDays(monday, 6);
     const free = cell ? cell.free.map((i) => placed[i]) : [];
     const busy = cell ? placed.filter((_, i) => !cell.free.includes(i)) : [];
 
@@ -94,38 +84,27 @@ export function AvailabilityPage() {
 
             <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
                 <Card className="space-y-3">
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" title="Week before" onClick={() => setWeeks((w) => w - 1)}>
-                            <ChevronLeft className="size-4" />
-                        </Button>
-                        <p className="flex-1 text-center font-display tracking-wider uppercase">
-                            {monday.day} {MONTHS[monday.month - 1]} to {sunday.day} {MONTHS[sunday.month - 1]}
-                            {weeks === 0 && <span className="text-muted-foreground"> · this week</span>}
-                        </p>
-                        <Button variant="ghost" size="icon" title="Week after" onClick={() => setWeeks((w) => w + 1)}>
-                            <ChevronRight className="size-4" />
-                        </Button>
-                    </div>
+                    <CardTitle help="everyone's usual week, moved onto your clock using today's time differences. when the clocks change in one place and not another, it can be an hour out for a week or two.">
+                        Usual week
+                    </CardTitle>
                     <p className="text-xs text-muted-foreground">
                         Your time ({tz}, {zoneOffset(tz)}). Numbers are how many are free; outlined hours suit everyone shown.
                     </p>
-                    {!everyone ? <Say>pulling schedules...</Say> : <Heatmap cells={cells} total={placed.length} days={days} picked={picked} onPick={setPicked} />}
+                    {!everyone ? <Say>pulling schedules...</Say> : <Heatmap cells={cells} total={placed.length} picked={picked} onPick={setPicked} />}
                 </Card>
 
                 <div className="space-y-5">
                     <Card className="space-y-3">
-                        <CardTitle>{cell ? `${days[Math.floor(picked! / 24)]}, ${clock(cell.start, tz)}` : 'Pick an hour'}</CardTitle>
-                        {!cell ? (
+                        <CardTitle>{picked !== null ? weekTime(picked * 60) : 'Pick an hour'}</CardTitle>
+                        {!cell || picked === null ? (
                             <Say>point at an hour to see who's free.</Say>
-                        ) : cell.skipped ? (
-                            <Say>the clocks skip this hour this week.</Say>
                         ) : (
                             <>
                                 <p>
                                     <span className="text-primary">{free.length}</span> of {placed.length} free
                                 </p>
-                                <People title="Free" people={free} at={cell.start} />
-                                <People title="Busy" people={busy} at={cell.start} muted />
+                                <People title="Free" people={free} minute={picked * 60} viewerTz={tz} />
+                                <People title="Busy" people={busy} minute={picked * 60} viewerTz={tz} muted />
                             </>
                         )}
                     </Card>
@@ -149,9 +128,15 @@ export function AvailabilityPage() {
     );
 }
 
-/** Who's free or busy at an hour, with the time on their own clock. */
-function People({ title, people, at, muted }: { title: string; people: Placed[]; at: number; muted?: boolean }) {
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** A minute of the week as "Tue 01:30". */
+const weekTime = (minute: number) => `${DAYS[Math.floor(minute / 1440)]} ${pad(Math.floor((minute % 1440) / 60))}:${pad(minute % 60)}`;
+
+/** Who's free or busy at an hour of the viewer's week, with the time on their own clock. */
+function People({ title, people, minute, viewerTz, muted }: { title: string; people: Placed[]; minute: number; viewerTz: string; muted?: boolean }) {
     if (!people.length) return null;
+    const viewer = offsetMinutes(viewerTz);
     return (
         <div className="space-y-2">
             <p className="text-xs tracking-widest text-muted-foreground uppercase">{title}</p>
@@ -161,7 +146,7 @@ function People({ title, people, at, muted }: { title: string; people: Placed[];
                         <Avatar member={p.member} />
                         <span className="min-w-0 flex-1 truncate">{p.member.name}</span>
                         <span className="text-xs text-muted-foreground tabular-nums" title={p.timezone}>
-                            {clock(at, p.timezone)} theirs
+                            {weekTime(shiftMinute(minute, offsetMinutes(p.timezone) - viewer))} theirs
                         </span>
                     </li>
                 ))}

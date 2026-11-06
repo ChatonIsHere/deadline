@@ -1,7 +1,6 @@
 /**
  * Timezones, shared by the server and the web app. Times are stored as instants (Unix ms).
- * Weekly availability is stored as wall-clock hours in the player's own timezone, and only
- * turned into instants for a real week, so clock changes land where they really happen.
+ * Weekly availability is a usual week, not tied to dates: hours on the player's own clock.
  */
 
 /**
@@ -99,25 +98,6 @@ export function fromWallTime(w: Pick<WallTime, 'year' | 'month' | 'day' | 'hour'
     return before;
 }
 
-/** Which hour of the week (0 to 167) an instant is in, on a clock in `tz`. */
-export function weekHour(ms: number, tz: string): number {
-    const w = wallTime(ms, tz);
-    return w.weekday * 24 + w.hour;
-}
-
-/** The Monday of the week an instant falls in, on a clock in `tz`, as a calendar date. */
-export function weekStart(ms: number, tz: string): { year: number; month: number; day: number } {
-    const w = wallTime(ms, tz);
-    const d = new Date(Date.UTC(w.year, w.month - 1, w.day - w.weekday));
-    return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
-}
-
-/** A calendar date some days on, e.g. the Wednesday of a week. */
-export function addDays(date: { year: number; month: number; day: number }, days: number) {
-    const d = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
-    return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
-}
-
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 /** Today in Night City, 51 years on, e.g. "05 NOV 2077". */
@@ -135,39 +115,33 @@ export interface Weekly {
     hours: number[];
 }
 
+const WEEK_MINUTES = WEEK_HOURS * 60;
+
+/** How far ahead of UTC a zone is right now (or at an instant), in minutes. */
+export const offsetMinutes = (tz: string, at = Date.now()) => Math.round(offset(at, tz) / 60_000);
+
 /**
- * Whether someone's free for a whole hour starting at an instant. Usually that's one of their
- * hours, but in a zone with a half-hour offset it spans two, and both have to be free.
+ * Where a minute of the viewer's week lands on someone else's clock, given how far apart the
+ * two zones are. Wraps round the week, so late Sunday for one can be Monday for the other.
  */
-export function freeFor(person: Weekly, start: number, free = new Set(person.hours)): boolean {
-    return free.has(weekHour(start, person.timezone)) && free.has(weekHour(start + 59 * 60_000, person.timezone));
-}
+export const shiftMinute = (minute: number, by: number) => (((minute + by) % WEEK_MINUTES) + WEEK_MINUTES) % WEEK_MINUTES;
 
 export interface HeatCell {
-    /** When the hour starts */
-    start: number;
-    /** The clocks skip this hour this week (going forward), so nobody can play it */
-    skipped: boolean;
     /** Indexes into the people given, of who's free */
     free: number[];
 }
 
 /**
- * A week of hours on the viewer's clock, starting from a Monday, with who's free in each.
- * Each person's hours are read on their own clock for that exact week, so it's right across
- * timezones and clock changes. Returns 168 cells, day by day.
+ * A usual week of hours on the viewer's clock, with who's free in each. Not tied to dates:
+ * each person's hours are moved by the gap between their zone and the viewer's as it is at
+ * `now`. In a zone with a half-hour offset an hour spans two of theirs, and both have to be
+ * free. Returns 168 cells, day by day.
  */
-export function heatmap(people: Weekly[], monday: { year: number; month: number; day: number }, viewerTz: string): HeatCell[] {
-    const sets = people.map((p) => new Set(p.hours));
-    const cells: HeatCell[] = [];
-    for (let d = 0; d < 7; d++) {
-        const date = addDays(monday, d);
-        for (let hour = 0; hour < 24; hour++) {
-            const start = fromWallTime({ ...date, hour, minute: 0 }, viewerTz);
-            const skipped = wallTime(start, viewerTz).hour !== hour;
-            const free = skipped ? [] : people.flatMap((p, i) => (freeFor(p, start, sets[i]) ? [i] : []));
-            cells.push({ start, skipped, free });
-        }
-    }
-    return cells;
+export function heatmap(people: Weekly[], viewerTz: string, now = Date.now()): HeatCell[] {
+    const viewer = offsetMinutes(viewerTz, now);
+    const placed = people.map((p) => ({ free: new Set(p.hours), by: offsetMinutes(p.timezone, now) - viewer }));
+    const hourAt = (minute: number) => Math.floor(minute / 60);
+    return Array.from({ length: WEEK_HOURS }, (_, h) => ({
+        free: placed.flatMap((p, i) => (p.free.has(hourAt(shiftMinute(h * 60, p.by))) && p.free.has(hourAt(shiftMinute(h * 60 + 59, p.by))) ? [i] : [])),
+    }));
 }

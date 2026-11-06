@@ -131,39 +131,21 @@ function Row({ hour, onLabel, children }: { hour: number; onLabel?: () => void; 
 }
 
 /**
- * A week of hours on the viewer's clock, shaded by how many people are free. Hours everyone
- * can make get an outline. Pointing at (or tapping) an hour picks it, to show who's free.
+ * A usual week of hours on the viewer's clock, shaded by how many people are free. Hours
+ * everyone can make get an outline. Pointing at (or tapping) an hour picks it, to show who's free.
  */
-export function Heatmap({
-    cells,
-    total,
-    days,
-    picked,
-    onPick,
-}: {
-    cells: HeatCell[];
-    total: number;
-    /** Column headings, e.g. "Mon 9" */
-    days: string[];
-    picked: number | null;
-    onPick: (index: number) => void;
-}) {
+export function Heatmap({ cells, total, picked, onPick }: { cells: HeatCell[]; total: number; picked: number | null; onPick: (index: number) => void }) {
     return (
         <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] gap-px select-none">
             <span />
-            {days.map((day) => {
-                // Day over date, so seven fit across a phone
-                const [name, date] = day.split(' ');
-                return (
-                    <span key={day} className="pb-1 text-center font-display text-xs leading-tight tracking-wider text-muted-foreground uppercase">
-                        <span className="block">{name}</span>
-                        <span className="block text-foreground">{date}</span>
-                    </span>
-                );
-            })}
+            {DAYS.map((day) => (
+                <span key={day} className="pb-1 text-center font-display text-xs tracking-wider text-muted-foreground uppercase">
+                    {day}
+                </span>
+            ))}
             {HOURS.map((h) => (
                 <Row key={h} hour={h}>
-                    {days.map((day, d) => {
+                    {DAYS.map((day, d) => {
                         const i = d * 24 + h;
                         const cell = cells[i];
                         const n = cell.free.length;
@@ -173,13 +155,12 @@ export function Heatmap({
                             <button
                                 key={day}
                                 type="button"
-                                aria-label={`${day} ${pad(h)}:00, ${cell.skipped ? 'skipped by the clock change' : `${n} of ${total} free`}`}
+                                aria-label={`${day} ${pad(h)}:00, ${n} of ${total} free`}
                                 onPointerEnter={(e) => e.pointerType === 'mouse' && onPick(i)}
                                 onClick={() => onPick(i)}
-                                style={cell.skipped ? undefined : { background: `color-mix(in oklab, var(--color-primary) ${Math.round(share * 100)}%, var(--color-muted))` }}
+                                style={{ background: `color-mix(in oklab, var(--color-primary) ${Math.round(share * 100)}%, var(--color-muted))` }}
                                 className={cn(
                                     'h-5 cursor-pointer text-center text-[10px] leading-5 tabular-nums outline-none',
-                                    cell.skipped && 'bg-[repeating-linear-gradient(45deg,var(--color-muted)_0_3px,transparent_3px_6px)]',
                                     share > 0.5 ? 'text-primary-foreground' : 'text-muted-foreground',
                                     everyone && 'shadow-[inset_0_0_0_1px_var(--color-accent)]',
                                     picked === i && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',

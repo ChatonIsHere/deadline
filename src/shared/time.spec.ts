@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { fromWallTime, heatmap, nightCityDate, weekHour } from './time';
+import { fromWallTime, heatmap, nightCityDate } from './time';
 
 const at = (iso: string) => Date.parse(iso);
 const LONDON = 'Europe/London';
@@ -24,43 +24,31 @@ describe('fromWallTime', () => {
     });
 });
 
-describe('weekHour', () => {
-    it('is the hour of the week on that zone’s clock', () => {
-        const ms = at('2026-11-09T19:00Z'); // a Monday
-        assert.equal(weekHour(ms, LONDON), 19);
-        assert.equal(weekHour(ms, LA), 11);
-        // 00:30 on Tuesday
-        assert.equal(weekHour(ms, KOLKATA), 24);
-    });
-});
-
 describe('heatmap', () => {
-    const monday = (day: number, month = 11) => ({ year: 2026, month, day });
+    const NOV = at('2026-11-09T12:00Z');
 
     it('shows each player on the viewer’s clock', () => {
-        const cells = heatmap([{ timezone: LA, hours: [11] }], monday(9), LONDON);
+        // 11:00 Monday in Los Angeles is 19:00 Monday in London
+        const cells = heatmap([{ timezone: LA, hours: [11] }], LONDON, NOV);
         assert.deepEqual(cells[19].free, [0]);
         assert.equal(cells.filter((c) => c.free.length).length, 1);
     });
 
-    it('follows the week’s real clock changes', () => {
+    it('uses the gap between the zones as it is today', () => {
         // Between the UK and US clock changes the gap is 7 hours, not 8
-        const cells = heatmap([{ timezone: LA, hours: [11] }], monday(26, 10), LONDON);
+        const cells = heatmap([{ timezone: LA, hours: [11] }], LONDON, at('2026-10-28T12:00Z'));
         assert.deepEqual(cells[18].free, [0]);
+    });
+
+    it('wraps round the end of the week', () => {
+        // 22:00 Sunday in Los Angeles is 06:00 Monday in London
+        assert.deepEqual(heatmap([{ timezone: LA, hours: [6 * 24 + 22] }], LONDON, NOV)[6].free, [0]);
     });
 
     it('needs both halves of an hour in a half-hour zone', () => {
         // 19:00 London is 00:30 to 01:30 in Kolkata on Tuesday
-        assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24] }], monday(9), LONDON)[19].free, []);
-        assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24, 25] }], monday(9), LONDON)[19].free, [0]);
-    });
-
-    it('marks the hour the clocks skip', () => {
-        const cells = heatmap([{ timezone: LONDON, hours: Array.from({ length: 168 }, (_, i) => i) }], { year: 2027, month: 3, day: 22 }, LONDON);
-        const sunday1am = 6 * 24 + 1;
-        assert.equal(cells[sunday1am].skipped, true);
-        assert.deepEqual(cells[sunday1am].free, []);
-        assert.equal(cells.filter((c) => c.skipped).length, 1);
+        assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24] }], LONDON, NOV)[19].free, []);
+        assert.deepEqual(heatmap([{ timezone: KOLKATA, hours: [24, 25] }], LONDON, NOV)[19].free, [0]);
     });
 });
 

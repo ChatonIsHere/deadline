@@ -65,7 +65,7 @@ Each gig is one session.
 - The in-game date is Night City's date plus 51 years. Night City keeps Pacific time (`America/Los_Angeles`): the books never name a zone, but it's on the California coast.
 - Everyone's first visit runs setup: at least one runner (admins can skip), a timezone, and reminders on or off. Their usual week comes last and can wait.
 - Players mark the hours they can usually play on the **Me** page, on their own clock. It's stored as hours of the week (0 is Monday 00:00) with their timezone.
-- Admins get an **Availability** page: a heatmap of who's free, on the admin's clock, for a chosen week. Each player's hours are placed for that exact week, so clock changes in either zone land where they really happen. In a half-hour zone both halves of an hour have to be free. It filters by crew, by a live gig's runners, or by one player. The gig page's session card links to it.
+- Admins get an **Availability** page: a heatmap of everyone's usual week, not tied to dates, on the admin's clock. Each player's hours are moved by the gap between their zone and the admin's as it is today, so it can be an hour out for the week or two when only one side's clocks have changed. In a half-hour zone both halves of an hour have to be free. It filters by crew, by a live gig's runners, or by one player. The gig page's session card links to it.
 
 ## Completing a gig
 
