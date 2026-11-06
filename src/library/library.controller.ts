@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { type Me, regionInput, type RegionInput } from '../shared/schemas';
@@ -31,26 +31,26 @@ export class LibraryController {
     ) {
         if (!file) throw new BadRequestException('No file.');
         const kind = body.kind === 'avatar' ? 'avatar' : 'gig';
-        const regionId = body.regionId && kind === 'gig' ? Number(body.regionId) : null;
+        const regionId = body.regionId && kind === 'gig' ? body.regionId : null;
         const inLibrary = body.library === 'true' && kind === 'gig';
         return { id: await this.library.upload(user, file.buffer, { regionId, inLibrary, kind }) };
     }
 
     @Delete('images/:id')
     @HttpCode(204)
-    remove(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
-        this.library.remove(user, id);
+    remove(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.library.remove(user, id);
     }
 
     @Post('regions')
     @HttpCode(204)
     addRegion(@CurrentUser() user: Me, @Body(new ZodPipe(regionInput)) body: RegionInput) {
-        this.library.addRegion(user, body);
+        return this.library.addRegion(user, body);
     }
 
     @Delete('regions/:id')
     @HttpCode(204)
-    deleteRegion(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
-        this.library.deleteRegion(user, id);
+    deleteRegion(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.library.deleteRegion(user, id);
     }
 }

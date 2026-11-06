@@ -27,7 +27,7 @@ interface FormState {
     primaryObjective: string[];
     /** What the primary objective pays. */
     pay: string;
-    imageId: number | null;
+    imageId: string | null;
     /** The picture came from the library, so it follows the location. */
     imageAuto: boolean;
     objectives: { text: string; bonus: string; each: boolean; hidden: boolean }[];
@@ -72,13 +72,13 @@ function toForm(gig?: GigView): FormState {
 function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
     return {
         ...form,
-        fixerRunnerId: form.fixerRunnerId ? Number(form.fixerRunnerId) : null,
+        fixerRunnerId: form.fixerRunnerId || null,
         type: form.type.trim() || null,
         pay: form.pay === '' ? NaN : Number(form.pay),
         // Blank extra parts are dropped rather than failing the form
         primaryObjective: form.primaryObjective.filter((p, i) => i === 0 || p.trim()),
         objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each, hidden: o.hidden })),
-        slots: form.slots.map((s) => ({ crewId: s.crewId ? Number(s.crewId) : null, count: Number(s.count) })),
+        slots: form.slots.map((s) => ({ crewId: s.crewId || null, count: Number(s.count) })),
     };
 }
 
@@ -91,7 +91,7 @@ function candidates(library: LibraryView, location: string) {
     return { key: 'pool', ids: library.pool };
 }
 
-function randomFrom(ids: number[], not: number | null): number | null {
+function randomFrom(ids: string[], not: string | null): string | null {
     const others = ids.filter((id) => id !== not);
     const list = others.length ? others : ids;
     return list.length ? list[Math.floor(Math.random() * list.length)] : null;

@@ -1,0 +1,351 @@
+// Deadline's database. Postgres on db-data-01 in production, the local Docker one in dev.
+// Tables and columns are snake_case in the database, camelCase in code.
+// Some checks Prisma can't express (stars 1 to 5, pay above 0, a single settings row) are added
+// by hand in the first migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GigStatus {
+  pending
+  open
+  closed
+  completed
+  cancelled
+  rejected
+
+  @@map("gig_status")
+}
+
+/// Where a runner in a slot stands. Only "interested" until a session time is set.
+enum RunnerState {
+  interested
+  awaiting
+  confirmed
+
+  @@map("runner_state")
+}
+
+/// gig: a 16:9 post picture. avatar: a square runner picture.
+enum ImageKind {
+  gig
+  avatar
+
+  @@map("image_kind")
+}
+
+/// One row (id 1), set from the web Settings page.
+model Settings {
+  id               Int     @id @default(1)
+  guildId          String? @map("guild_id")
+  forumId          String? @map("forum_id")
+  adminRoleId      String? @map("admin_role_id")
+  fixerRoleId      String? @map("fixer_role_id")
+  edgerunnerRoleId String? @map("edgerunner_role_id")
+  /// Day-of reminder, hours before a session
+  reminderHours    Int     @default(8) @map("reminder_hours")
+  /// How long runners get to confirm a session time
+  confirmHours     Int     @default(48) @map("confirm_hours")
+  /// Roles runners can pick (string[]). Starts as RED's core ten.
+  runnerRoles      Json    @default("[]") @map("runner_roles")
+
+  @@map("settings")
+}
+
+/// Per-person choices. No row means the defaults.
+model UserPrefs {
+  userId     String  @id @map("user_id")
+  reminders  Boolean @default(true)
+  /// The bot owner browsing as a normal player, admin powers hidden
+  playerView Boolean @default(false) @map("player_view")
+
+  @@map("user_prefs")
+}
+
+/// A crew of runners. Whoever holds its top rank (Founder by default) runs it.
+model Crew {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// One of a kind, compared as links compare them (see slug)
+  name      String   @unique
+  /// The crew's link, made from the name: /crews/static-wolves
+  slug      String   @unique
+  tagline   String   @default("")
+  /// The player who made it. Kept for the record; the top rank runs the crew.
+  ownerId   String   @map("owner_id")
+  /// Rank names (string[]), highest first. The first is the founder rank.
+  ranks     Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  members CrewMember[]
+  allies  CrewAlly[]
+  invites CrewInvite[]
+  slots   GigSlot[]
+
+  @@map("crews")
+}
+
+model CrewMember {
+  crewId   String @map("crew_id") @db.Uuid
+  runnerId String @map("runner_id") @db.Uuid
+  /// One of the crew's ranks, by name
+  rank     String
+
+  crew   Crew   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([crewId, runnerId])
+  @@index([runnerId])
+  @@map("crew_members")
+}
+
+/// Runners a crew knows and trusts, without them being members.
+model CrewAlly {
+  crewId   String @map("crew_id") @db.Uuid
+  runnerId String @map("runner_id") @db.Uuid
+
+  crew   Crew   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([crewId, runnerId])
+  @@index([runnerId])
+  @@map("crew_allies")
+}
+
+/// A crew asking a runner to join. Their player accepts or declines (DM or web).
+model CrewInvite {
+  crewId    String   @map("crew_id") @db.Uuid
+  runnerId  String   @map("runner_id") @db.Uuid
+  invitedBy String   @map("invited_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  crew   Crew   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([crewId, runnerId])
+  @@index([runnerId])
+  @@map("crew_invites")
+}
+
+/// A character. Players can have several. One with the Fixer role counts as a fixer only while
+/// its player has the Discord fixer role. NPC fixers are added by admins and have no player.
+model Runner {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The player. Empty for NPC fixers.
+  ownerId        String?  @map("owner_id")
+  /// One of a kind in Night City, compared as links compare them (see slug)
+  handle         String
+  /// The runner's link, made from the handle: /runners/vex
+  slug           String   @unique
+  role           String
+  /// More roles (string[])
+  extraRoles     Json     @default("[]") @map("extra_roles")
+  imageId        String?  @map("image_id") @db.Uuid
+  // Fixer profile
+  officeLocation String?  @map("office_location")
+  specialties    String?
+  contact        String?
+  bio            String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  image       Image?       @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  memberships CrewMember[]
+  allyOf      CrewAlly[]
+  invites     CrewInvite[]
+  fixedGigs   Gig[]
+  slots       GigSlot[]
+  reserves    GigReserve[]
+  rewards     GigReward[]
+
+  @@index([ownerId])
+  @@index([imageId])
+  @@map("runners")
+}
+
+model Gig {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  /// The fixer's name: their character's handle, or what an admin typed for a one-off NPC
+  fixerName          String      @map("fixer_name")
+  fixerRunnerId      String?     @map("fixer_runner_id") @db.Uuid
+  /// The fixer character's player, if they have one
+  fixerId            String?     @map("fixer_id")
+  location           String
+  type               String?
+  /// Everything about the job. The Discord post's description.
+  brief              String
+  /// What the crew has to do to get paid: one or more parts (string[]), one payout
+  primaryObjective   Json        @default("[]") @map("primary_objective")
+  /// What the primary objective pays. The gig's pay runs from this to this plus every bonus.
+  pay                Int
+  imageId            String?     @map("image_id") @db.Uuid
+  /// Storage key of the current gig card (the picture with the name on it) for Discord
+  cardKey            String?     @map("card_key")
+  status             GigStatus   @default(pending)
+  createdBy          String      @map("created_by")
+  /// Forum post. In a forum the starter message shares the thread's ID.
+  threadId           String?     @unique @map("thread_id")
+  /// Thread messages carrying whatever didn't fit in the post's first message (string[])
+  overflowMessageIds Json        @default("[]") @map("overflow_message_ids")
+  /// When the session is played. Until then runners are only "interested".
+  sessionAt          DateTime?   @map("session_at") @db.Timestamptz(3)
+  /// Reminders already sent for the current session time
+  remindedDay        Boolean     @default(false) @map("reminded_day")
+  remindedSoon       Boolean     @default(false) @map("reminded_soon")
+  // Filled in when an admin completes the gig. These rewards go to everyone on it.
+  summary            String?
+  rewardEb           Int?        @map("reward_eb")
+  rewardIp           Int?        @map("reward_ip")
+  rewardHqIp         Int?        @map("reward_hq_ip")
+  rewardText         String?     @map("reward_text")
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  fixerRunner Runner?        @relation(fields: [fixerRunnerId], references: [id], onDelete: SetNull)
+  image       Image?         @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  objectives  GigObjective[]
+  slots       GigSlot[]
+  reserves    GigReserve[]
+  rewards     GigReward[]
+  ratings     FixerRating[]
+
+  @@index([status])
+  @@index([fixerRunnerId])
+  @@index([imageId])
+  @@map("gigs")
+}
+
+/// Secondary objectives. The primary one is on the gig.
+model GigObjective {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gigId    String  @map("gig_id") @db.Uuid
+  text     String
+  bonus    Int?
+  /// Paid for each time it's done ("x for each y"), not once on completion
+  each     Boolean @default(false)
+  /// Shown to players as "not disclosed" until the gig begins (sign-ups lock)
+  hidden   Boolean @default(false)
+  position Int
+
+  gig Gig @relation(fields: [gigId], references: [id], onDelete: Cascade)
+
+  @@index([gigId])
+  @@map("gig_objectives")
+}
+
+/// One row per slot. No crew means anyone can take it. No player means it's empty.
+model GigSlot {
+  id       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gigId    String      @map("gig_id") @db.Uuid
+  crewId   String?     @map("crew_id") @db.Uuid
+  /// The player (one runner each per gig) and which of their runners is going
+  userId   String?     @map("user_id")
+  runnerId String?     @map("runner_id") @db.Uuid
+  /// Only meaningful while userId is set
+  state    RunnerState @default(interested)
+  /// When an awaiting runner was asked to confirm, and whether they've been nudged since
+  askedAt  DateTime?   @map("asked_at") @db.Timestamptz(3)
+  nudged   Boolean     @default(false)
+  position Int
+
+  gig    Gig     @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  crew   Crew?   @relation(fields: [crewId], references: [id], onDelete: SetNull)
+  runner Runner? @relation(fields: [runnerId], references: [id], onDelete: SetNull)
+
+  @@index([gigId])
+  @@index([userId])
+  @@index([runnerId])
+  @@map("gig_slots")
+}
+
+/// Runners waiting for a slot, first come first served.
+model GigReserve {
+  gigId    String   @map("gig_id") @db.Uuid
+  userId   String   @map("user_id")
+  runnerId String   @map("runner_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  gig    Gig    @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([gigId, userId])
+  @@index([runnerId])
+  @@map("gig_reserves")
+}
+
+/// Extra rewards for one runner, on top of the crew's.
+model GigReward {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gigId    String  @map("gig_id") @db.Uuid
+  runnerId String  @map("runner_id") @db.Uuid
+  eb       Int?
+  ip       Int?
+  text     String?
+
+  gig    Gig    @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@unique([gigId, runnerId])
+  @@index([runnerId])
+  @@map("gig_rewards")
+}
+
+/// A player's star rating (1 to 5) for a gig's fixer, given after the gig.
+model FixerRating {
+  gigId   String   @map("gig_id") @db.Uuid
+  userId  String   @map("user_id")
+  stars   Int
+  comment String?
+  ratedAt DateTime @default(now()) @map("rated_at") @db.Timestamptz(3)
+
+  gig Gig @relation(fields: [gigId], references: [id], onDelete: Cascade)
+
+  @@id([gigId, userId])
+  @@map("fixer_ratings")
+}
+
+/// Night City districts and areas, suggested for gig locations. Seeded on first start.
+model Region {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String  @unique
+  /// The district an area belongs to. Empty for districts themselves.
+  district String?
+
+  images Image[]
+
+  @@map("regions")
+}
+
+/// Pictures for gig posts and runners. Library ones get picked at random: the region's own,
+/// then its district's, then the general pool (no region). The files live in object storage
+/// under images/<id>/.
+model Image {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  regionId    String?   @map("region_id") @db.Uuid
+  inLibrary   Boolean   @map("in_library")
+  kind        ImageKind @default(gig)
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// When nothing (gig, runner, library) used it any more. Deleted 30 days after.
+  unusedSince DateTime? @map("unused_since") @db.Timestamptz(3)
+
+  region  Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  gigs    Gig[]
+  runners Runner[]
+
+  @@index([regionId])
+  @@index([unusedSince])
+  @@map("images")
+}
+
+/// Stored files no longer used (old gig cards, old frame versions), deleted 30 days after.
+model StaleObject {
+  key   String   @id
+  since DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("stale_objects")
+}

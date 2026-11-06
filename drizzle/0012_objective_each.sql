@@ -1,1 +1,0 @@
-ALTER TABLE `gig_objectives` ADD `each` integer DEFAULT false NOT NULL;

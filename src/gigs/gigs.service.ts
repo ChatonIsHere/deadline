@@ -1,17 +1,17 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, count, desc, eq, gt, inArray, isNotNull, isNull, like } from 'drizzle-orm';
-import { gigRef, gigRefPrefix, isNumericId, isUuid } from '../shared/slug';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma, type Runner } from '@prisma/client';
 import { Once } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
-import { DB, Db } from '../db/db';
-import { crewMembers, crews, fixerRatings, gigObjectives, gigReserves, gigRewards, gigs, gigSlots, runners } from '../db/schema';
 import { GigPostService, type Note } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
 import { voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
+import { stringList } from '../prisma/json';
+import { PrismaService, type Tx } from '../prisma/prisma.service';
 import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
 import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
+import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot } from './slots';
@@ -25,17 +25,23 @@ const CLOCK_MS = 60 * 1000;
 const asked = () => ({ state: 'awaiting' as const, askedAt: new Date(), nudged: false });
 /** A slot's fields once its runner is gone. */
 const emptied = { userId: null, runnerId: null, state: 'interested' as const, askedAt: null, nudged: false };
-const GIG_WITH = { objectives: true, slots: { with: { crew: true } }, reserves: true, rewards: true } as const;
 
-type Runner = typeof runners.$inferSelect;
+/** Everything a gig's view needs, in one query. */
+const GIG_INCLUDE = {
+    objectives: { orderBy: { position: 'asc' } },
+    slots: { include: { crew: true, runner: true }, orderBy: { position: 'asc' } },
+    reserves: { include: { runner: true }, orderBy: { joinedAt: 'asc' } },
+    rewards: { include: { runner: true } },
+    fixerRunner: true,
+} as const satisfies Prisma.GigInclude;
+type GigRow = Prisma.GigGetPayload<{ include: typeof GIG_INCLUDE }>;
 
 export const toCard = (r: Runner): RunnerCard => ({
     id: r.id,
-    // Old rows get one on startup (RunnersService); the numeric ID works in URLs too
-    slug: r.slug ?? String(r.id),
+    slug: r.slug,
     handle: r.handle,
     role: r.role,
-    extraRoles: r.extraRoles,
+    extraRoles: stringList(r.extraRoles),
     imageId: r.imageId,
     ownerId: r.ownerId,
 });
@@ -49,11 +55,11 @@ export const toCard = (r: Runner): RunnerCard => ({
 export class GigsService {
     private readonly logger = new Logger(GigsService.name);
     /** Post updates per gig, run one at a time so an older state never lands last. */
-    private readonly postQueue = new Map<number, Promise<void>>();
+    private readonly postQueue = new Map<string, Promise<void>>();
     private readonly timers: NodeJS.Timeout[] = [];
 
     constructor(
-        @Inject(DB) private readonly db: Db,
+        private readonly prisma: PrismaService,
         private readonly members: MembersService,
         private readonly posts: GigPostService,
         private readonly settings: SettingsService,
@@ -61,106 +67,103 @@ export class GigsService {
         private readonly prefs: PrefsService,
     ) {}
 
-    list(user: Me): GigView[] {
-        const rows = this.db.query.gigs.findMany({ with: GIG_WITH }).sync();
-        return rows
-            .filter((g) => canSeeGig(user, g))
-            .map((g) => this.toView(g, user))
-            .sort((a, b) => b.createdAt - a.createdAt);
+    async list(user: Me): Promise<GigView[]> {
+        const rows = await this.prisma.gig.findMany({ include: GIG_INCLUDE, orderBy: { createdAt: 'desc' } });
+        const visible = rows.filter((g) => canSeeGig(user, g));
+        return Promise.all(visible.map((g) => this.toView(g, user)));
     }
 
     /**
-     * A gig's numeric ID from a URL part: its UUID, its link ("3f2a9c1b-overzealous-squanch",
-     * matched on the UUID start, so renames don't break old links), or the old numeric ID.
+     * A gig's ID from a URL part: its link ("3f2a9c1b-overzealous-squanch", matched on the
+     * UUID start, so renames don't break old links) or its full UUID.
      */
-    resolve(ref: string): number {
-        if (isNumericId(ref)) return Number(ref);
+    async resolve(ref: string): Promise<string> {
+        if (isUuid(ref)) {
+            const gig = await this.prisma.gig.findUnique({ where: { id: ref.toLowerCase() }, select: { id: true } });
+            if (gig) return gig.id;
+        }
         const prefix = gigRefPrefix(ref);
-        const where = isUuid(ref) ? eq(gigs.uuid, ref.toLowerCase()) : prefix ? like(gigs.uuid, `${prefix}%`) : undefined;
-        const gig = where && this.db.select({ id: gigs.id }).from(gigs).where(where).get();
-        if (!gig) throw new NotFoundException('No such gig.');
-        return gig.id;
+        if (prefix) {
+            const [gig] = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM gigs WHERE id::text LIKE ${`${prefix}%`} LIMIT 1`;
+            if (gig) return gig.id;
+        }
+        throw new NotFoundException('No such gig.');
     }
 
-    get(user: Me, ref: string): GigView {
-        const gig = this.view(this.resolve(ref), user);
+    async get(user: Me, ref: string): Promise<GigView> {
+        const gig = await this.view(await this.resolve(ref), user);
         if (!canSeeGig(user, { ...gig, createdBy: gig.createdBy.id })) throw new NotFoundException();
         return gig;
     }
 
-    create(user: Me, input: GigInput): GigView {
+    async create(user: Me, input: GigInput): Promise<GigView> {
         if (!canCreateGig(user)) throw new ForbiddenException();
         const status: GigStatus = user.isAdmin ? 'open' : 'pending';
+        const { objectives, slots, ...fields } = await this.prepare(user, input);
 
-        const id = this.db.transaction((tx) => {
-            const { objectives, slots, ...fields } = this.prepare(user, input);
-            const [gig] = tx
-                .insert(gigs)
-                .values({ ...fields, status, createdBy: user.id })
-                .returning({ id: gigs.id })
-                .all();
-            this.writeObjectives(tx, gig.id, objectives);
-            this.writeSlots(tx, gig.id, slots);
+        const id = await this.prisma.$transaction(async (tx) => {
+            const gig = await tx.gig.create({ data: { ...fields, status, createdBy: user.id }, select: { id: true } });
+            await this.writeObjectives(tx, gig.id, objectives);
+            await this.writeSlots(tx, gig.id, slots);
             return gig.id;
         });
 
+        await this.library.refreshUsage([fields.imageId]);
         this.post(id);
         return this.view(id, user);
     }
 
-    update(user: Me, id: number, input: GigInput): GigView {
-        const gig = this.row(id);
+    async update(user: Me, id: string, input: GigInput): Promise<GigView> {
+        const gig = await this.row(id);
         if (!canEditGig(user, gig)) throw new ForbiddenException();
+        const { objectives, slots, ...fields } = await this.prepare(user, input);
 
-        this.db.transaction((tx) => {
-            const { objectives, slots, ...fields } = this.prepare(user, input);
-            tx.update(gigs).set(fields).where(eq(gigs.id, id)).run();
-            tx.delete(gigObjectives).where(eq(gigObjectives.gigId, id)).run();
-            this.writeObjectives(tx, id, objectives);
-            this.writeSlots(tx, id, slots);
+        await this.prisma.$transaction(async (tx) => {
+            await tx.gig.update({ where: { id }, data: fields });
+            await tx.gigObjective.deleteMany({ where: { gigId: id } });
+            await this.writeObjectives(tx, id, objectives);
+            await this.writeSlots(tx, id, slots);
         });
 
+        await this.library.refreshUsage([fields.imageId, gig.imageId]);
         // More slots can mean room for reserves
-        this.afterRemoval(id);
+        await this.afterRemoval(id);
         return this.view(id, user);
     }
 
-    delete(user: Me, id: number) {
-        const gig = this.row(id);
+    async delete(user: Me, id: string) {
+        const gig = await this.row(id);
         if (!canDeleteGig(user, gig)) throw new ForbiddenException();
-        this.db.delete(gigs).where(eq(gigs.id, id)).run();
+        await this.prisma.gig.delete({ where: { id } });
+        await this.library.refreshUsage([gig.imageId]);
     }
 
-    approve(user: Me, id: number, approved: boolean): GigView {
-        const gig = this.row(id);
+    async approve(user: Me, id: string, approved: boolean): Promise<GigView> {
+        const gig = await this.row(id);
         if (!user.isAdmin) throw new ForbiddenException();
         if (gig.status !== 'pending') throw new BadRequestException('Only pending gigs can be approved or rejected.');
 
-        this.db
-            .update(gigs)
-            .set({ status: approved ? 'open' : 'rejected' })
-            .where(eq(gigs.id, id))
-            .run();
+        await this.prisma.gig.update({ where: { id }, data: { status: approved ? 'open' : 'rejected' } });
         this.post(id);
         return this.view(id, user);
     }
 
     /** Lock or reopen sign-ups, or cancel. Completing goes through DebriefService. */
-    setStatus(user: Me, id: number, status: GigStatus): GigView {
-        const gig = this.row(id);
+    async setStatus(user: Me, id: string, status: GigStatus): Promise<GigView> {
+        const gig = await this.row(id);
         if (!user.isAdmin) throw new ForbiddenException();
         if (status === 'completed') throw new BadRequestException('Complete a gig with its debrief form.');
         if (!NEXT_STATUSES[gig.status].includes(status)) throw new BadRequestException(`Can't go from ${gig.status} to ${status}.`);
 
-        this.db.update(gigs).set({ status }).where(eq(gigs.id, id)).run();
-        if (status === 'cancelled') this.clearReserves(id);
+        await this.prisma.gig.update({ where: { id }, data: { status } });
+        if (status === 'cancelled') await this.clearReserves(id);
         this.post(id, { note: voice.statusChanged[status] });
         return this.view(id, user);
     }
 
     /** A finished gig has no one waiting for a slot. */
-    clearReserves(id: number) {
-        this.db.delete(gigReserves).where(eq(gigReserves.gigId, id)).run();
+    async clearReserves(id: string, db: PrismaService | Tx = this.prisma) {
+        await db.gigReserve.deleteMany({ where: { gigId: id } });
     }
 
     // Runners and sessions
@@ -174,15 +177,15 @@ export class GigsService {
      * A player signs up (from the post's button or the web). Confirms them if they were
      * asked to. A player with several runners has to say which one.
      */
-    async join(userId: string, id: number, runnerId?: number): Promise<string> {
+    async join(userId: string, id: string, runnerId?: string): Promise<string> {
         const me = await this.members.me(userId);
         if (!me?.isEdgerunner) throw new ForbiddenException(voice.notRunner);
 
-        const slot = this.slotOf(id, userId);
+        const slot = await this.slotOf(id, userId);
         if (slot?.state === 'awaiting') return this.confirm(userId, id);
-        if (this.row(id).status !== 'open') throw new BadRequestException(voice.notOpen);
+        if ((await this.row(id)).status !== 'open') throw new BadRequestException(voice.notOpen);
 
-        const added = this.add(this.pickRunner(userId, runnerId), id, false);
+        const added = await this.add(await this.pickRunner(userId, runnerId), id, false);
         if (added.reserve) return voice.reserve(added.reserve);
         return added.state === 'interested' ? voice.interested() : voice.joined(added.left);
     }
@@ -191,95 +194,88 @@ export class GigsService {
      * The player's runners, when they need to pick one to sign up with. Empty means no
      * choice is needed (or joining will fail anyway, which join() then explains).
      */
-    runnerChoices(userId: string, id: number): RunnerCard[] {
-        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.id, id) }).sync();
+    async runnerChoices(userId: string, id: string): Promise<RunnerCard[]> {
+        const gig = await this.prisma.gig.findUnique({ where: { id }, select: { status: true } });
         if (gig?.status !== 'open' || !this.members.isEdgerunner(userId)) return [];
-        if (this.slotOf(id, userId) || this.isReserve(id, userId)) return [];
-        const mine = this.runnersOf(userId);
+        if ((await this.slotOf(id, userId)) || (await this.isReserve(id, userId))) return [];
+        const mine = await this.runnersOf(userId);
         return mine.length > 1 ? mine.map(toCard) : [];
     }
 
     /** Admin puts a runner on a gig. Same as them joining, except they're asked to confirm a set time. */
-    async assign(user: Me, id: number, runnerId: number): Promise<GigView> {
+    async assign(user: Me, id: string, runnerId: string): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
-        const runner = this.db.query.runners.findFirst({ where: eq(runners.id, runnerId) }).sync();
+        const runner = await this.prisma.runner.findUnique({ where: { id: runnerId } });
         const player = runner?.ownerId ? await this.members.me(runner.ownerId) : null;
-        if (!runner || !player?.isEdgerunner) throw new BadRequestException("Only runners whose player has the edgerunner role can go on a gig.");
-        this.add(runner, id, true);
+        if (!runner || !player?.isEdgerunner) throw new BadRequestException('Only runners whose player has the edgerunner role can go on a gig.');
+        await this.add(runner, id, true);
         return this.view(id, user);
     }
 
-    confirm(userId: string, id: number): string {
-        const gig = this.row(id);
+    async confirm(userId: string, id: string): Promise<string> {
+        const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException(voice.notActive);
         if (!gig.sessionAt) throw new BadRequestException(voice.nothingToConfirm);
 
-        const slot = this.slotOf(id, userId);
-        if (!slot) throw new BadRequestException(this.isReserve(id, userId) ? voice.alreadyReserve : voice.notIn);
+        const slot = await this.slotOf(id, userId);
+        if (!slot) throw new BadRequestException((await this.isReserve(id, userId)) ? voice.alreadyReserve : voice.notIn);
         if (slot.state === 'confirmed') throw new BadRequestException(voice.alreadyConfirmed);
 
-        this.db.update(gigSlots).set({ state: 'confirmed' }).where(eq(gigSlots.id, slot.id)).run();
+        await this.prisma.gigSlot.update({ where: { id: slot.id }, data: { state: 'confirmed' } });
         this.post(id);
         return voice.confirmed();
     }
 
     /** Drops a player's runner from their slot or the reserves. Works after sign-ups lock too. */
-    leave(userId: string, id: number) {
-        const gig = this.row(id);
+    async leave(userId: string, id: string) {
+        const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException(voice.notActive);
 
-        const slot = this.slotOf(id, userId);
-        const reserve = this.db.query.gigReserves.findFirst({ where: and(eq(gigReserves.gigId, id), eq(gigReserves.userId, userId)) }).sync();
-        if (slot) this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slot.id)).run();
-        else if (reserve) this.removeReserve(id, userId);
-        else throw new BadRequestException(voice.notIn);
-
-        this.afterRemoval(id);
+        const removed = await this.prisma.$transaction(async (tx) => {
+            await lockGig(tx, id);
+            const slot = await tx.gigSlot.findFirst({ where: { gigId: id, userId } });
+            if (slot) {
+                await tx.gigSlot.update({ where: { id: slot.id }, data: emptied });
+                return true;
+            }
+            return (await tx.gigReserve.deleteMany({ where: { gigId: id, userId } })).count > 0;
+        });
+        if (!removed) throw new BadRequestException(voice.notIn);
+        await this.afterRemoval(id);
     }
 
     /** Admin removes a runner from a slot. */
-    kick(user: Me, id: number, slotId: number): GigView {
+    async kick(user: Me, id: string, slotId: string): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
-        if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
-        const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.id, slotId), eq(gigSlots.gigId, id)) }).sync();
+        if (!ACTIVE.includes((await this.row(id)).status)) throw new BadRequestException(voice.notActive);
+        const slot = await this.prisma.gigSlot.findFirst({ where: { id: slotId, gigId: id } });
         if (!slot?.userId) throw new NotFoundException();
 
-        this.db.update(gigSlots).set(emptied).where(eq(gigSlots.id, slotId)).run();
-        this.afterRemoval(id);
+        await this.prisma.gigSlot.update({ where: { id: slotId }, data: emptied });
+        await this.afterRemoval(id);
         return this.view(id, user);
     }
 
     /** Admin removes a player's runner from the reserves. */
-    unreserve(user: Me, id: number, userId: string): GigView {
+    async unreserve(user: Me, id: string, userId: string): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
-        if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
-        if (!this.removeReserve(id, userId)) throw new NotFoundException();
+        if (!ACTIVE.includes((await this.row(id)).status)) throw new BadRequestException(voice.notActive);
+        if (!(await this.prisma.gigReserve.deleteMany({ where: { gigId: id, userId } })).count) throw new NotFoundException();
         this.post(id);
         return this.view(id, user);
     }
 
     /** Sets or clears the session time. Everyone in a slot is asked to confirm, again if it changed. */
-    setSession(user: Me, id: number, sessionAt: number | null): GigView {
+    async setSession(user: Me, id: string, sessionAt: number | null): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
-        const gig = this.row(id);
+        const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status) && gig.status !== 'pending') throw new BadRequestException(voice.notActive);
 
-        const players = this.db.transaction((tx) => {
-            tx.update(gigs)
-                .set({ sessionAt: sessionAt ? new Date(sessionAt) : null, remindedDay: false, remindedSoon: false })
-                .where(eq(gigs.id, id))
-                .run();
-            const filled = and(eq(gigSlots.gigId, id), isNotNull(gigSlots.userId));
-            tx.update(gigSlots)
-                .set(sessionAt ? asked() : { state: 'interested', askedAt: null })
-                .where(filled)
-                .run();
-            return tx
-                .select({ userId: gigSlots.userId })
-                .from(gigSlots)
-                .where(filled)
-                .all()
-                .map((s) => s.userId!);
+        const players = await this.prisma.$transaction(async (tx) => {
+            await tx.gig.update({ where: { id }, data: { sessionAt: sessionAt ? new Date(sessionAt) : null, remindedDay: false, remindedSoon: false } });
+            const filled = { gigId: id, userId: { not: null } };
+            await tx.gigSlot.updateMany({ where: filled, data: sessionAt ? asked() : { state: 'interested', askedAt: null } });
+            return (await tx.gigSlot.findMany({ where: filled, select: { userId: true } })).map((s) => s.userId!);
         });
 
         this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt), ask: players } : { note: voice.sessionCleared() });
@@ -287,62 +283,50 @@ export class GigsService {
     }
 
     /** Lifts a crew's hold on its slots in this gig, so any runner can take them. */
-    openCrewSlots(user: Me, id: number, crewId: number): GigView {
+    async openCrewSlots(user: Me, id: string, crewId: string): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
-        if (!ACTIVE.includes(this.row(id).status)) throw new BadRequestException(voice.notActive);
-        const crew = this.db.query.crews.findFirst({ where: eq(crews.id, crewId) }).sync();
-        const changed = this.db
-            .update(gigSlots)
-            .set({ crewId: null })
-            .where(and(eq(gigSlots.gigId, id), eq(gigSlots.crewId, crewId)))
-            .run().changes;
-        if (!changed) throw new NotFoundException();
+        if (!ACTIVE.includes((await this.row(id)).status)) throw new BadRequestException(voice.notActive);
+        const crew = await this.prisma.crew.findUnique({ where: { id: crewId }, select: { name: true } });
+        const { count } = await this.prisma.gigSlot.updateMany({ where: { gigId: id, crewId }, data: { crewId: null } });
+        if (!count) throw new NotFoundException();
 
-        this.afterRemoval(id, voice.slotsOpened(crew?.name ?? 'The crew'));
+        await this.afterRemoval(id, voice.slotsOpened(crew?.name ?? 'The crew'));
         return this.view(id, user);
     }
 
     /** Takes a runner off every unfinished gig before it's deleted. Finished gigs keep their record. */
-    dropRunner(runnerId: number) {
-        const live = this.db
-            .selectDistinct({ id: gigs.id })
-            .from(gigs)
-            .innerJoin(gigSlots, eq(gigSlots.gigId, gigs.id))
-            .where(and(eq(gigSlots.runnerId, runnerId), inArray(gigs.status, [...ACTIVE, 'pending'])))
-            .all();
-
-        this.db.update(gigSlots).set(emptied).where(and(eq(gigSlots.runnerId, runnerId), inArray(gigSlots.gigId, live.map((g) => g.id)))).run();
-        // Older gigs just lose the link to the runner
-        this.db.update(gigSlots).set({ runnerId: null }).where(eq(gigSlots.runnerId, runnerId)).run();
-        this.db.delete(gigReserves).where(eq(gigReserves.runnerId, runnerId)).run();
-        this.db.update(gigs).set({ fixerRunnerId: null }).where(eq(gigs.fixerRunnerId, runnerId)).run();
-
-        for (const { id } of live) this.afterRemoval(id);
+    async dropRunner(runnerId: string) {
+        const live = await this.prisma.gig.findMany({ where: { status: { in: [...ACTIVE, 'pending'] }, slots: { some: { runnerId } } }, select: { id: true } });
+        const liveIds = live.map((g) => g.id);
+        await this.prisma.gigSlot.updateMany({ where: { runnerId, gigId: { in: liveIds } }, data: emptied });
+        // Deleting the runner clears the rest itself: older slots lose the link, reserves go, fixer links go
+        for (const id of liveIds) await this.afterRemoval(id);
     }
 
-    /** Takes a slot or a place on the reserves. */
-    private add(runner: Runner, id: number, assigned: boolean): { state?: RunnerState; left: number; reserve?: number } {
+    /** Takes a slot or a place on the reserves. The gig is locked meanwhile, so two people can't take the same slot. */
+    private async add(runner: Runner, id: string, assigned: boolean): Promise<{ state?: RunnerState; left: number; reserve?: number }> {
         const userId = runner.ownerId!;
-        const result = this.db.transaction((tx) => {
-            const gig = this.row(id);
+        const crewIds = await this.crewIds(runner.id);
+        const result = await this.prisma.$transaction(async (tx) => {
+            await lockGig(tx, id);
+            const gig = await tx.gig.findUniqueOrThrow({ where: { id } });
             // Admins can still add runners once sign-ups are locked
             if (assigned ? !ACTIVE.includes(gig.status) : gig.status !== 'open') throw new BadRequestException(assigned ? voice.notActive : voice.notOpen);
 
-            const slots = tx.select().from(gigSlots).where(eq(gigSlots.gigId, id)).all();
+            const slots = await tx.gigSlot.findMany({ where: { gigId: id } });
             if (slots.some((s) => s.userId === userId)) throw new BadRequestException(assigned ? voice.playerAlreadyIn : voice.alreadyIn);
-            if (this.isReserve(id, userId)) throw new BadRequestException(assigned ? voice.playerAlreadyReserve : voice.alreadyReserve);
+            if (await tx.gigReserve.findUnique({ where: { gigId_userId: { gigId: id, userId } } })) {
+                throw new BadRequestException(assigned ? voice.playerAlreadyReserve : voice.alreadyReserve);
+            }
 
-            const slot = pickSlot(slots, this.crewIds(runner.id));
+            const slot = pickSlot(slots, crewIds);
             if (!slot) {
-                tx.insert(gigReserves).values({ gigId: id, userId, runnerId: runner.id }).run();
-                return { left: 0, reserve: tx.select({ n: count() }).from(gigReserves).where(eq(gigReserves.gigId, id)).get()!.n };
+                await tx.gigReserve.create({ data: { gigId: id, userId, runnerId: runner.id } });
+                return { left: 0, reserve: await tx.gigReserve.count({ where: { gigId: id } }) };
             }
 
             const state: RunnerState = !gig.sessionAt ? 'interested' : assigned ? 'awaiting' : 'confirmed';
-            tx.update(gigSlots)
-                .set({ userId, runnerId: runner.id, ...(state === 'awaiting' ? asked() : { state }) })
-                .where(eq(gigSlots.id, slot.id))
-                .run();
+            await tx.gigSlot.update({ where: { id: slot.id }, data: { userId, runnerId: runner.id, ...(state === 'awaiting' ? asked() : { state }) } });
             return { state, left: slots.filter((s) => s.userId === null).length - 1 };
         });
 
@@ -356,40 +340,39 @@ export class GigsService {
      * reserve into a job they weren't on. `note` is for gig-wide news only; runners coming
      * and going show in the post's crew list instead of the thread.
      */
-    private afterRemoval(id: number, note?: string) {
-        const gig = this.row(id);
+    private async afterRemoval(id: string, note?: string) {
+        const gig = await this.row(id);
         const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
-        const promoted = ACTIVE.includes(gig.status) && !played ? this.promote(id) : [];
+        const promoted = ACTIVE.includes(gig.status) && !played ? await this.promote(id) : [];
         this.post(id, { note, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
     }
 
     /** Moves reserves into any empty slots they can take. Returns who moved up. */
-    private promote(id: number): { userId: string; runnerId: number | null }[] {
-        return this.db.transaction((tx) => {
-            const gig = this.row(id);
-            const slots = tx.select().from(gigSlots).where(eq(gigSlots.gigId, id)).all();
-            const reserves = tx.select().from(gigReserves).where(eq(gigReserves.gigId, id)).orderBy(gigReserves.joinedAt).all();
+    private async promote(id: string): Promise<{ userId: string; runnerId: string }[]> {
+        return this.prisma.$transaction(async (tx) => {
+            await lockGig(tx, id);
+            const gig = await tx.gig.findUniqueOrThrow({ where: { id } });
+            const slots = await tx.gigSlot.findMany({ where: { gigId: id } });
+            const reserves = await tx.gigReserve.findMany({ where: { gigId: id }, orderBy: { joinedAt: 'asc' } });
+            const memberships = await tx.crewMember.findMany({ where: { runnerId: { in: reserves.map((r) => r.runnerId) } } });
             const moves = fillFromReserves(
                 slots,
-                reserves.map((r) => ({ userId: r.userId, crewIds: r.runnerId ? this.crewIds(r.runnerId) : [] })),
+                reserves.map((r) => ({ userId: r.userId, crewIds: memberships.filter((m) => m.runnerId === r.runnerId).map((m) => m.crewId) })),
             );
-            return moves.map(({ slotId, userId }) => {
+            const moved: { userId: string; runnerId: string }[] = [];
+            for (const { slotId, userId } of moves) {
                 const runnerId = reserves.find((r) => r.userId === userId)!.runnerId;
-                tx.update(gigSlots)
-                    .set({ userId, runnerId, ...(gig.sessionAt ? asked() : { state: 'interested' }) })
-                    .where(eq(gigSlots.id, slotId))
-                    .run();
-                tx.delete(gigReserves)
-                    .where(and(eq(gigReserves.gigId, id), eq(gigReserves.userId, userId)))
-                    .run();
-                return { userId, runnerId };
-            });
+                await tx.gigSlot.update({ where: { id: slotId }, data: { userId, runnerId, ...(gig.sessionAt ? asked() : { state: 'interested' }) } });
+                await tx.gigReserve.delete({ where: { gigId_userId: { gigId: id, userId } } });
+                moved.push({ userId, runnerId });
+            }
+            return moved;
         });
     }
 
     /** Which of the player's runners is signing up. One runner means no need to ask. */
-    private pickRunner(userId: string, runnerId?: number): Runner {
-        const mine = this.runnersOf(userId);
+    private async pickRunner(userId: string, runnerId?: string): Promise<Runner> {
+        const mine = await this.runnersOf(userId);
         if (runnerId !== undefined) {
             const runner = mine.find((r) => r.id === runnerId);
             if (!runner) throw new BadRequestException("That runner isn't yours.");
@@ -399,108 +382,88 @@ export class GigsService {
         throw new BadRequestException(mine.length ? voice.pickRunner : voice.noRunner(config.PUBLIC_URL));
     }
 
-    private runnersOf(userId: string): Runner[] {
-        return this.db.query.runners.findMany({ where: eq(runners.ownerId, userId), orderBy: runners.handle }).sync();
+    private runnersOf(userId: string): Promise<Runner[]> {
+        return this.prisma.runner.findMany({ where: { ownerId: userId }, orderBy: { handle: 'asc' } });
     }
 
-    private crewIds(runnerId: number): number[] {
-        return this.db
-            .select()
-            .from(crewMembers)
-            .where(eq(crewMembers.runnerId, runnerId))
-            .all()
-            .map((m) => m.crewId);
+    private async crewIds(runnerId: string): Promise<string[]> {
+        return (await this.prisma.crewMember.findMany({ where: { runnerId }, select: { crewId: true } })).map((m) => m.crewId);
     }
 
-    private slotOf(id: number, userId: string) {
-        return this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, id), eq(gigSlots.userId, userId)) }).sync();
+    private slotOf(id: string, userId: string) {
+        return this.prisma.gigSlot.findFirst({ where: { gigId: id, userId } });
     }
 
-    private isReserve(id: number, userId: string): boolean {
-        return !!this.db.query.gigReserves.findFirst({ where: and(eq(gigReserves.gigId, id), eq(gigReserves.userId, userId)) }).sync();
-    }
-
-    private removeReserve(id: number, userId: string): number {
-        return this.db
-            .delete(gigReserves)
-            .where(and(eq(gigReserves.gigId, id), eq(gigReserves.userId, userId)))
-            .run().changes;
+    private async isReserve(id: string, userId: string): Promise<boolean> {
+        return !!(await this.prisma.gigReserve.findUnique({ where: { gigId_userId: { gigId: id, userId } } }));
     }
 
     /** A runner's handle for the bot's messages. */
-    handle(runnerId: number | null): string {
-        const runner = runnerId ? this.db.query.runners.findFirst({ where: eq(runners.id, runnerId) }).sync() : undefined;
+    async handle(runnerId: string | null): Promise<string> {
+        const runner = runnerId ? await this.prisma.runner.findUnique({ where: { id: runnerId }, select: { handle: true } }) : null;
         return runner?.handle ?? 'A runner';
     }
 
     /** Active gigs with slots for this crew. Look them up before deleting a crew, then refresh them. */
-    gigsForCrew(crewId: number): number[] {
-        return this.db
-            .selectDistinct({ id: gigs.id })
-            .from(gigs)
-            .innerJoin(gigSlots, eq(gigSlots.gigId, gigs.id))
-            .where(and(eq(gigSlots.crewId, crewId), inArray(gigs.status, ACTIVE)))
-            .all()
-            .map((r) => r.id);
+    async gigsForCrew(crewId: string): Promise<string[]> {
+        const rows = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE }, slots: { some: { crewId } } }, select: { id: true } });
+        return rows.map((r) => r.id);
     }
 
     /** Fills open slots from the reserves (after crew changes) and updates the posts. */
-    refill(ids: number[]) {
-        for (const id of ids) this.afterRemoval(id);
+    async refill(ids: string[]) {
+        for (const id of ids) await this.afterRemoval(id);
     }
 
     /** Re-posts gigs after something they show changes (a crew renamed, a runner edited). */
-    refresh(ids: number[]) {
+    refresh(ids: string[]) {
         for (const id of ids) this.post(id);
     }
 
     /** Gigs that are live (open or locked), newest first. For /gig suggestions. */
-    live(): { id: number; name: string }[] {
-        return this.db.select({ id: gigs.id, name: gigs.name }).from(gigs).where(inArray(gigs.status, ACTIVE)).orderBy(desc(gigs.createdAt)).all();
+    live(): Promise<{ id: string; name: string }[]> {
+        return this.prisma.gig.findMany({ where: { status: { in: ACTIVE } }, select: { id: true, name: true }, orderBy: { createdAt: 'desc' } });
     }
 
     /** Live gigs where the player has a runner in a slot or on the reserves. For /mygigs. */
-    forPlayer(userId: string): GigView[] {
-        const inSlot = this.db.select({ id: gigSlots.gigId }).from(gigSlots).where(eq(gigSlots.userId, userId)).all();
-        const reserved = this.db.select({ id: gigReserves.gigId }).from(gigReserves).where(eq(gigReserves.userId, userId)).all();
-        const ids = [...new Set([...inSlot, ...reserved].map((r) => r.id))];
-        return ids
-            .map((id) => this.view(id, userId))
-            .filter((g) => ACTIVE.includes(g.status))
-            .sort((a, b) => (a.sessionAt ?? Infinity) - (b.sessionAt ?? Infinity));
+    async forPlayer(userId: string): Promise<GigView[]> {
+        const rows = await this.prisma.gig.findMany({
+            where: { status: { in: ACTIVE }, OR: [{ slots: { some: { userId } } }, { reserves: { some: { userId } } }] },
+            include: GIG_INCLUDE,
+        });
+        const views = await Promise.all(rows.map((g) => this.toView(g, userId)));
+        return views.sort((a, b) => (a.sessionAt ?? Infinity) - (b.sessionAt ?? Infinity));
     }
 
-    countOpen(): number {
-        return this.db.select({ n: count() }).from(gigs).where(eq(gigs.status, 'open')).get()?.n ?? 0;
+    countOpen(): Promise<number> {
+        return this.prisma.gig.count({ where: { status: 'open' } });
     }
 
     /** Brings back the post of a live gig that Discord archived or someone closed. */
-    keepOpen(threadId: string) {
-        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.threadId, threadId) }).sync();
+    async keepOpen(threadId: string) {
+        const gig = await this.prisma.gig.findUnique({ where: { threadId }, select: { id: true, status: true } });
         if (gig && ACTIVE.includes(gig.status)) this.post(gig.id);
     }
 
     /** Refreshes every live post: on startup (so format changes reach old posts) and every few hours. */
     @Once('clientReady')
-    refreshAll() {
-        const live = this.db.select({ id: gigs.id }).from(gigs).where(inArray(gigs.status, ACTIVE)).all();
+    async refreshAll() {
+        const live = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE } }, select: { id: true } });
         for (const { id } of live) this.post(id);
         if (!this.timers.length) {
             this.timers.push(
-                setInterval(() => this.refreshAll(), SWEEP_MS),
-                setInterval(() => this.tick(), CLOCK_MS),
+                setInterval(() => void this.refreshAll().catch((err) => this.logger.error(`Refresh failed: ${err}`)), SWEEP_MS),
+                setInterval(() => void this.tick().catch((err) => this.logger.error(`Clock failed: ${err}`)), CLOCK_MS),
             );
             this.timers.forEach((t) => t.unref());
-            this.tick();
+            await this.tick();
         }
     }
 
     /** Sends whatever reminders, nudges and no-response drops are due. Runs every minute. */
-    tick(now = Date.now()) {
+    async tick(now = Date.now()) {
         const { reminderHours, confirmHours } = this.settings.get();
-        const upcoming = this.db.query.gigs
-            .findMany({ where: and(inArray(gigs.status, ACTIVE), gt(gigs.sessionAt, new Date(now))), with: { slots: true } })
-            .sync();
+        const upcoming = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE }, sessionAt: { gt: new Date(now) } }, include: { slots: true } });
 
         for (const gig of upcoming) {
             const sessionAt = gig.sessionAt!.getTime();
@@ -516,33 +479,26 @@ export class GigsService {
             });
 
             if (work.remind) {
-                this.db
-                    .update(gigs)
-                    // The 30-minute reminder covers the day-of one too, so that never comes after it
-                    .set(work.remind === 'soon' ? { remindedDay: true, remindedSoon: true } : { remindedDay: true })
-                    .where(eq(gigs.id, gig.id))
-                    .run();
+                // The 30-minute reminder covers the day-of one too, so that never comes after it
+                await this.prisma.gig.update({ where: { id: gig.id }, data: work.remind === 'soon' ? { remindedDay: true, remindedSoon: true } : { remindedDay: true } });
                 const confirmed = gig.slots.filter((s) => s.userId && s.state === 'confirmed').map((s) => s.userId!);
-                const wanting = confirmed.filter((userId) => this.prefs.get(userId).reminders);
+                const wanting: string[] = [];
+                for (const userId of confirmed) if ((await this.prefs.get(userId)).reminders) wanting.push(userId);
                 const kind = work.remind;
                 this.post(gig.id, { after: (view, threadId) => this.posts.remind(view, threadId, wanting, kind) });
             }
 
             for (const userId of work.nudge) {
                 const slot = awaiting.find((s) => s.userId === userId)!;
-                this.db.update(gigSlots).set({ nudged: true }).where(eq(gigSlots.id, slot.id)).run();
+                await this.prisma.gigSlot.update({ where: { id: slot.id }, data: { nudged: true } });
                 const confirmBy = confirmDeadline(slot.askedAt?.getTime() ?? now, sessionAt, confirmHours);
                 this.post(gig.id, { after: (view, threadId) => this.posts.askToConfirm(view, threadId, [userId], confirmBy, true) });
             }
 
             if (work.drop.length) {
-                this.db
-                    .update(gigSlots)
-                    .set(emptied)
-                    .where(and(eq(gigSlots.gigId, gig.id), inArray(gigSlots.userId, work.drop)))
-                    .run();
+                await this.prisma.gigSlot.updateMany({ where: { gigId: gig.id, userId: { in: work.drop } }, data: emptied });
                 const dropped = work.drop;
-                this.afterRemoval(gig.id);
+                await this.afterRemoval(gig.id);
                 this.post(gig.id, { after: (view) => this.posts.notifyDropped(view, dropped) });
             }
         }
@@ -555,17 +511,17 @@ export class GigsService {
      * characters. Admins pick any fixer character or type a name. No picture means a
      * random one for the location.
      */
-    private prepare(user: Me, input: GigInput) {
-        const fixer = this.resolveFixer(user, input);
-        if (input.imageId && !this.library.exists(input.imageId)) throw new BadRequestException('That picture is gone. Pick another.');
-        const imageId = input.imageId ?? this.library.pick(input.location);
-        return { ...input, primaryObjective: input.primaryObjective.join('\n'), fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId, imageId };
+    private async prepare(user: Me, input: GigInput) {
+        const fixer = await this.resolveFixer(user, input);
+        if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Pick another.');
+        const imageId = input.imageId ?? (await this.library.pick(input.location));
+        return { ...input, fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId, imageId };
     }
 
-    private resolveFixer(user: Me, input: GigInput): { name: string; runnerId: number | null; userId: string | null } {
+    private async resolveFixer(user: Me, input: GigInput): Promise<{ name: string; runnerId: string | null; userId: string | null }> {
         if (input.fixerRunnerId) {
-            const runner = this.db.query.runners.findFirst({ where: eq(runners.id, input.fixerRunnerId) }).sync();
-            if (!runner || !this.members.isFixerRunner(runner)) throw new BadRequestException("That character isn't a fixer.");
+            const runner = await this.prisma.runner.findUnique({ where: { id: input.fixerRunnerId } });
+            if (!runner || !this.members.isFixerRunner({ ...runner, extraRoles: stringList(runner.extraRoles) })) throw new BadRequestException("That character isn't a fixer.");
             if (!user.isAdmin && runner.ownerId !== user.id) throw new ForbiddenException();
             return { name: runner.handle, runnerId: runner.id, userId: runner.ownerId };
         }
@@ -574,7 +530,7 @@ export class GigsService {
             return { name: input.fixerName, runnerId: null, userId: null };
         }
         // A fixer with a single fixer character doesn't need to pick
-        const own = this.runnersOf(user.id).filter((r) => this.members.isFixerRunner(r));
+        const own = (await this.runnersOf(user.id)).filter((r) => this.members.isFixerRunner({ ...r, extraRoles: stringList(r.extraRoles) }));
         if (own.length === 1) return { name: own[0].handle, runnerId: own[0].id, userId: user.id };
         throw new BadRequestException(own.length ? 'Pick which of your fixers this gig is from.' : 'Make a fixer character first: a runner with the Fixer role.');
     }
@@ -582,16 +538,18 @@ export class GigsService {
     /**
      * Updates the gig's post, then posts `note` in its thread, asks the `ask` players to
      * confirm the session time by DM, and runs `after` for anything else that needs the post.
+     * Queued per gig and run in the background; failures are logged.
      */
-    post(id: number, { note, ask = [], after }: { note?: Note; ask?: string[]; after?: AfterPost } = {}) {
+    post(id: string, { note, ask = [], after }: { note?: Note; ask?: string[]; after?: AfterPost } = {}) {
         const previous = this.postQueue.get(id) ?? Promise.resolve();
         const next = previous.then(async () => {
             try {
-                const gig = this.row(id);
-                const view = this.view(id);
-                const { threadId, overflowIds } = await this.posts.sync(view, { threadId: gig.threadId, overflowIds: gig.overflowMessageIds }, note);
-                if (threadId !== gig.threadId || overflowIds.join() !== gig.overflowMessageIds.join()) {
-                    this.db.update(gigs).set({ threadId, overflowMessageIds: overflowIds }).where(eq(gigs.id, id)).run();
+                const gig = await this.row(id);
+                const view = await this.view(id);
+                const overflow = stringList(gig.overflowMessageIds);
+                const { threadId, overflowIds } = await this.posts.sync(view, { threadId: gig.threadId, overflowIds: overflow, cardKey: gig.cardKey }, note);
+                if (threadId !== gig.threadId || overflowIds.join() !== overflow.join()) {
+                    await this.prisma.gig.update({ where: { id }, data: { threadId, overflowMessageIds: overflowIds } });
                 }
                 if (!threadId) return;
                 // Only players still waiting to confirm by now (someone may have pulled out meanwhile)
@@ -611,8 +569,8 @@ export class GigsService {
         });
     }
 
-    row(id: number) {
-        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.id, id) }).sync();
+    async row(id: string) {
+        const gig = await this.prisma.gig.findUnique({ where: { id } });
         if (!gig) throw new NotFoundException('No such gig.');
         return gig;
     }
@@ -621,8 +579,8 @@ export class GigsService {
      * `viewer` fills in their own rating of the fixer. A signed in admin, or the gig's fixer or
      * poster, also gets undisclosed objectives' details. No viewer (Discord) gets the public view.
      */
-    view(id: number, viewer?: Me | string): GigView {
-        const gig = this.db.query.gigs.findFirst({ where: eq(gigs.id, id), with: GIG_WITH }).sync();
+    async view(id: string, viewer?: Me | string): Promise<GigView> {
+        const gig = await this.prisma.gig.findUnique({ where: { id }, include: GIG_INCLUDE });
         if (!gig) throw new NotFoundException('No such gig.');
         return this.toView(gig, viewer);
     }
@@ -633,23 +591,16 @@ export class GigsService {
         return confirmDeadline(slot.askedAt.getTime(), sessionAt.getTime(), this.settings.get().confirmHours);
     }
 
-    private toView(gig: GigRow, viewer?: Me | string): GigView {
+    private async toView(gig: GigRow, viewer?: Me | string): Promise<GigView> {
         const userId = typeof viewer === 'string' ? viewer : viewer?.id;
         const insider = typeof viewer === 'object' && (viewer.isAdmin || viewer.id === gig.createdBy || viewer.id === gig.fixerId);
         const revealed = objectivesRevealed(gig.status);
-        const ids = [...gig.slots.map((s) => s.runnerId), ...gig.reserves.map((r) => r.runnerId), ...gig.rewards.map((r) => r.runnerId), gig.fixerRunnerId];
-        const known = ids.filter((id): id is number => id !== null);
-        const cards = new Map(
-            (known.length ? this.db.query.runners.findMany({ where: inArray(runners.id, known) }).sync() : []).map((r) => [r.id, r]),
-        );
-        const card = (id: number | null) => (id && cards.has(id) ? toCard(cards.get(id)!) : null);
-        const fixer = gig.fixerRunnerId ? cards.get(gig.fixerRunnerId) : undefined;
-        const rating = userId ? this.db.query.fixerRatings.findFirst({ where: and(eq(fixerRatings.gigId, gig.id), eq(fixerRatings.userId, userId)) }).sync() : undefined;
+        const rating = userId ? await this.prisma.fixerRating.findUnique({ where: { gigId_userId: { gigId: gig.id, userId } } }) : null;
         const done = gig.status === 'completed';
+        const fixer = gig.fixerRunner;
 
         return {
             id: gig.id,
-            uuid: gig.uuid,
             ref: gigRef(gig),
             name: gig.name,
             fixerName: fixer?.handle ?? gig.fixerName,
@@ -660,28 +611,22 @@ export class GigsService {
             type: gig.type,
             pay: gig.pay,
             brief: gig.brief,
-            primaryObjective: gig.primaryObjective.split('\n').filter(Boolean),
+            primaryObjective: stringList(gig.primaryObjective),
             imageId: gig.imageId,
-            objectives: gig.objectives
-                .sort((a, b) => a.position - b.position)
-                .map((o) => {
-                    const secret = o.hidden && !revealed;
-                    // Players don't get an undisclosed objective's details at all, not just hidden on screen
-                    if (secret && !insider) return { text: '', bonus: null, each: false, hidden: true, secret };
-                    return { text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, secret };
-                }),
-            slots: gig.slots
-                .sort((a, b) => a.position - b.position)
-                .map((s) => ({
-                    id: s.id,
-                    crew: s.crew ? { id: s.crew.id, name: s.crew.name } : null,
-                    runner: s.userId ? (card(s.runnerId) ?? unknownRunner(s.userId)) : null,
-                    state: s.state,
-                    confirmBy: this.confirmBy(s, gig.sessionAt),
-                })),
-            reserves: gig.reserves
-                .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime())
-                .map((r) => card(r.runnerId) ?? unknownRunner(r.userId)),
+            objectives: gig.objectives.map((o) => {
+                const secret = o.hidden && !revealed;
+                // Players don't get an undisclosed objective's details at all, not just hidden on screen
+                if (secret && !insider) return { text: '', bonus: null, each: false, hidden: true, secret };
+                return { text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, secret };
+            }),
+            slots: gig.slots.map((s) => ({
+                id: s.id,
+                crew: s.crew ? { id: s.crew.id, name: s.crew.name } : null,
+                runner: s.userId ? (s.runner ? toCard(s.runner) : unknownRunner(s.userId)) : null,
+                state: s.state,
+                confirmBy: this.confirmBy(s, gig.sessionAt),
+            })),
+            reserves: gig.reserves.map((r) => toCard(r.runner)),
             sessionAt: gig.sessionAt?.getTime() ?? null,
             status: gig.status,
             createdBy: this.members.member(gig.createdBy),
@@ -689,47 +634,42 @@ export class GigsService {
             createdAt: gig.createdAt.getTime(),
             summary: done ? gig.summary : null,
             crewRewards: done ? { eb: gig.rewardEb, ip: gig.rewardIp, hqIp: gig.rewardHqIp, text: gig.rewardText } : null,
-            runnerRewards: gig.rewards
-                .filter((r) => cards.has(r.runnerId))
-                .map((r) => ({ runner: toCard(cards.get(r.runnerId)!), eb: r.eb, ip: r.ip, text: r.text })),
+            runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, text: r.text })),
             canRate: done && !!gig.fixerRunnerId && !!userId && gig.slots.some((s) => s.userId === userId),
             myRating: rating ? { stars: rating.stars, comment: rating.comment } : null,
         };
     }
 
-    private writeObjectives(tx: Tx, gigId: number, objectives: GigInput['objectives']) {
+    private async writeObjectives(tx: Tx, gigId: string, objectives: GigInput['objectives']) {
         if (!objectives.length) return;
-        tx.insert(gigObjectives)
-            .values(objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, position })))
-            .run();
+        await tx.gigObjective.createMany({ data: objectives.map((o, position) => ({ gigId, text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden, position })) });
     }
 
-    private writeSlots(tx: Tx, gigId: number, groups: GigInput['slots']) {
-        const existing = tx.select().from(gigSlots).where(eq(gigSlots.gigId, gigId)).all();
+    private async writeSlots(tx: Tx, gigId: string, groups: GigInput['slots']) {
+        const existing = await tx.gigSlot.findMany({ where: { gigId } });
         let changes;
         try {
             changes = diffSlots(existing, groups);
         } catch (err) {
             throw new BadRequestException((err as Error).message);
         }
-        if (changes.remove.length) tx.delete(gigSlots).where(and(inArray(gigSlots.id, changes.remove), isNull(gigSlots.userId))).run();
+        if (changes.remove.length) await tx.gigSlot.deleteMany({ where: { id: { in: changes.remove }, userId: null } });
         if (changes.add.length) {
             const start = existing.length ? Math.max(...existing.map((s) => s.position)) + 1 : 0;
-            tx.insert(gigSlots)
-                .values(changes.add.map((crewId, i) => ({ gigId, crewId, position: start + i })))
-                .run();
+            await tx.gigSlot.createMany({ data: changes.add.map((crewId, i) => ({ gigId, crewId, position: start + i })) });
         }
     }
 }
 
+/**
+ * Holds the gig's row until the transaction ends, so changes to its slots and reserves happen
+ * one at a time. Without it, two people could take the same last slot.
+ */
+async function lockGig(tx: Tx, id: string) {
+    await tx.$queryRaw`SELECT id FROM gigs WHERE id = ${id}::uuid FOR UPDATE`;
+}
+
 /** A sign-up whose runner was deleted. */
-const unknownRunner = (userId: string): RunnerCard => ({ id: 0, slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId });
+const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId });
 
 type AfterPost = (view: GigView, threadId: string) => Promise<void>;
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
-type GigRow = typeof gigs.$inferSelect & {
-    objectives: (typeof gigObjectives.$inferSelect)[];
-    slots: (typeof gigSlots.$inferSelect & { crew: typeof crews.$inferSelect | null })[];
-    reserves: (typeof gigReserves.$inferSelect)[];
-    rewards: (typeof gigRewards.$inferSelect)[];
-};

@@ -61,8 +61,8 @@ export function MePage() {
 /** Crews asking one of the player's runners to join. Same as the DM's buttons. */
 function CrewInvites() {
     const invites = useCrewInvites().data ?? [];
-    const accept = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}/accept`, 'POST'), 'welcome to the crew.');
-    const decline = useAction(({ crewId, runnerId }: { crewId: number; runnerId: number }) => api(`/api/crews/${crewId}/invites/${runnerId}`, 'DELETE'), 'invite declined.');
+    const accept = useAction(({ crewId, runnerId }: { crewId: string; runnerId: string }) => api(`/api/crews/${crewId}/invites/${runnerId}/accept`, 'POST'), 'welcome to the crew.');
+    const decline = useAction(({ crewId, runnerId }: { crewId: string; runnerId: string }) => api(`/api/crews/${crewId}/invites/${runnerId}`, 'DELETE'), 'invite declined.');
     if (!invites.length) return null;
 
     return (

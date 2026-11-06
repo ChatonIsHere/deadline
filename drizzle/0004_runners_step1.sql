@@ -1,1 +1,0 @@
-ALTER TABLE `settings` ADD `runner_roles` text DEFAULT '["Rockerboy","Solo","Netrunner","Tech","Medtech","Media","Exec","Lawman","Fixer","Nomad"]' NOT NULL;

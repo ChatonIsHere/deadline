@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { GatewayIntentBits } from 'discord.js';
 import { NecordModule } from 'necord';
 import { AuthController } from './auth/auth.controller';
@@ -8,7 +9,11 @@ import { PrefsService } from './auth/prefs.service';
 import { config } from './config';
 import { CrewsController } from './crews/crews.controller';
 import { CrewsService } from './crews/crews.service';
-import { DB, openDb } from './db/db';
+import { CacheService } from './cache/cache.service';
+import { CleanupService } from './library/cleanup.service';
+import { ImagesController } from './library/images.controller';
+import { PrismaService } from './prisma/prisma.service';
+import { StorageService } from './storage/storage.service';
 import { EmojiService } from './discord/emoji.service';
 import { BotProfileService } from './discord/bot-profile.service';
 import { Commands } from './discord/commands';
@@ -29,14 +34,19 @@ import { DebriefService } from './gigs/debrief.service';
 // One module. The app is small enough that splitting it up would only add files.
 @Module({
     imports: [
+        ScheduleModule.forRoot(),
         NecordModule.forRoot({
             token: config.DISCORD_TOKEN,
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
         }),
     ],
-    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController],
+    controllers: [AuthController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController],
     providers: [
-        { provide: DB, useFactory: () => openDb(config.DATABASE_PATH) },
+        PrismaService,
+        // No arguments: they connect to REDIS_URL and S3 from the config (tests pass their own)
+        { provide: CacheService, useFactory: () => new CacheService() },
+        { provide: StorageService, useFactory: () => new StorageService() },
+        CleanupService,
         AuthService,
         AuthGuard,
         PrefsService,

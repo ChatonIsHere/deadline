@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Client, Guild, GuildMember, type MessageCreateOptions, PermissionFlagsBits, Team, User } from 'discord.js';
-import { Context, ContextOf, Once } from 'necord';
+import { Context, ContextOf, On, Once } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
+import { CacheService } from '../cache/cache.service';
 import { SettingsService } from '../settings/settings.service';
 import { FIXER_ROLE, type Me, type Member } from '../shared/schemas';
 
@@ -16,7 +17,19 @@ export class MembersService {
         @Inject(Client) private readonly client: Client,
         private readonly settings: SettingsService,
         private readonly prefs: PrefsService,
+        private readonly cache: CacheService,
     ) {}
+
+    /** Someone's roles changed: their cached sign-in goes, so the change shows on their next click. */
+    @On('guildMemberUpdate')
+    async onMemberUpdate(@Context() [, member]: ContextOf<'guildMemberUpdate'>) {
+        await this.forget(member.id);
+    }
+
+    /** Drops someone's cached sign-in (roles, player view). */
+    async forget(id: string) {
+        await this.cache.del(meKey(id));
+    }
 
     @Once('clientReady')
     async onReady(@Context() [client]: ContextOf<'clientReady'>) {
@@ -44,8 +57,17 @@ export class MembersService {
      * view on (Me page) isn't an admin, so they see the board as a player with their real roles.
      */
     async me(id: string): Promise<Me | null> {
+        // Every request asks, so it's cached for a minute (and dropped when roles or player view change)
+        const cached = await this.cache.get<{ me: Me | null }>(meKey(id));
+        if (cached) return cached.me;
+        const me = await this.lookUp(id);
+        await this.cache.set(meKey(id), { me }, 60);
+        return me;
+    }
+
+    private async lookUp(id: string): Promise<Me | null> {
         const isOwner = this.owners.has(id);
-        const playerView = isOwner && this.prefs.get(id).playerView;
+        const playerView = isOwner && (await this.prefs.get(id)).playerView;
         const member = this.guild?.members.cache.get(id) ?? (await this.guild?.members.fetch(id).catch(() => null));
 
         if (!member) {
@@ -112,6 +134,8 @@ export class MembersService {
         return failed;
     }
 }
+
+const meKey = (id: string) => `me:${id}`;
 
 function toMember(m: GuildMember): Member {
     return { id: m.id, name: m.displayName, avatar: m.displayAvatarURL({ size: 64 }) };

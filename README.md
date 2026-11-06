@@ -5,7 +5,9 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 ## Stack
 
 - NestJS 11 + Necord 6 (discord.js 14) on Node 24
-- SQLite through Drizzle (`better-sqlite3`), file at `DATABASE_PATH`
+- Postgres through Prisma (schema in `prisma/schema.prisma`)
+- Redis for sessions and short-lived caches, S3 for pictures
+- Records are keyed by UUID
 - Web UI: React 19, Vite, Tailwind 4, shadcn-style components, served by the same Nest app
 
 ## Roles
@@ -37,12 +39,12 @@ A crew is a group of runners with ranks. A gig can hold slots for a crew, and on
 
 ## Links
 
-Every gig, runner (and so fixer) and crew has a UUID, and `/gigs/<uuid>`, `/runners/<uuid>`, `/fixers/<uuid>` and `/crews/<uuid>` always work. The links the site uses are readable:
+Every gig, runner (and so fixer) and crew is keyed by a UUID, and `/gigs/<uuid>`, `/runners/<uuid>`, `/fixers/<uuid>` and `/crews/<uuid>` always work. Every link the site and the bot hand out is the readable one:
 
 - Gigs: the first part of the UUID and the name, `/gigs/3f2a9c1b-overzealous-squanch`. The deadline:// bar shows it in capitals. Only the UUID part is matched, so links from before a rename still work.
 - Runners and fixers: the handle, `/runners/vex`. Crews: the name, `/crews/static-wolves`. These follow renames.
 
-Handles and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist. They need a letter, and can't be `new`, `edit`, `mine` or `invites`. The old numeric links (`/gigs/3`) still work, so older Discord posts don't break. Inside the database the numeric IDs are still the keys: Discord buttons and picture files use them.
+Handles and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
 ## Sessions
 
@@ -81,9 +83,13 @@ Any other forum tags work as gig types. If a gig's type matches a tag, the post 
 
 ```bash
 npm install
-cp .env.example .env   # fill it in
-npm run start:dev      # http://localhost:3003
+docker compose up -d       # Postgres on 5433, Redis on 6380 (plus the test database)
+cp .env.example .env       # add the Discord token and secret
+npx prisma migrate deploy  # sets up the database
+npm run start:dev          # http://localhost:3003
 ```
+
+Without S3 settings, pictures are kept in `./data/objects`. Without `REDIS_URL`, caching (and sessions) happen in memory.
 
 ## Env
 
@@ -92,7 +98,9 @@ npm run start:dev      # http://localhost:3003
 | `NODE_ENV` | `production` serves the built client from `dist/client`, with secure cookies and a CSP. Otherwise Vite runs inside the server |
 | `PORT` | HTTP port, default 3003 |
 | `PUBLIC_URL` | Where the web UI lives. Used for OAuth and links in posts |
-| `DATABASE_PATH` | SQLite file, default `./data/deadline.db` |
+| `DATABASE_URL` | Postgres |
+| `REDIS_URL` | Redis, for sessions (30 days), signed-in users' roles (a minute), Discord lookups and recently served pictures. Optional |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Where pictures are stored. The bucket stays private. Optional |
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_CLIENT_SECRET` | OAuth secret. The client ID is the bot's application ID |
 
@@ -129,7 +137,9 @@ Every gig has a picture, framed in the board's colours. There are six frame vari
 
 Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 
-For bulk imports, drop images in `import/<Region name>/` (or `import/pool/`) next to the database (by default `data/import/`) and restart. They get added to the library and the files are deleted.
+Pictures are stored under `images/<id>/` (S3, or `./data/objects` locally) and served at the same path from `/images/`. The bucket stays private: Deadline fetches from it, keeping pictures up to 512 KB in Redis for 6 hours, and sends them with one-year cache headers. A changed picture always gets a new file name, since names carry the frame version or a hash.
+
+**Cleanup:** a picture nothing uses any more (no gig, finished ones included, no runner, not in the library) is deleted 30 days later. So are files left behind by a replaced gig card or an older frame version. It runs daily at 04:30 (`src/library/cleanup.service.ts`).
 
 Gig posts use a **gig card** made for each gig (`src/library/gig-card.ts`): its picture cut to 1070x720 (the shape Discord's forum gallery previews use, about 1.485:1), framed with a margin so desktop and mobile both show the whole frame, and the operation's name on the left, centred top to bottom so it clears the forum's tags, one word per line, each on a dark bar so it reads on bright pictures, as big as fits. Cards are PNG: Discord marks WebP pictures as GIFs in the forum gallery. It's rebuilt when the gig's name or picture changes. The font is Chakra Petch Bold (`assets/fonts`, SIL Open Font License).
 
@@ -146,7 +156,7 @@ Types get an emoji when one is named `type_<type>`, e.g. `type_heist`. Runner ro
 | `npm run start:dev` | Server and web UI with reload |
 | `npm run build` | Builds to `dist/` |
 | `npm run start:prod` | Runs the build. Set `NODE_ENV=production` |
-| `npm test` | Unit tests |
+| `npm test` | Tests. Needs `docker compose up -d`: they use the `deadline_test` database, emptied before each test |
 | `npm run typecheck` | Server and client |
 | `npm run emoji` | Redraws `assets/emoji` from `scripts/draw-emoji.js` |
-| `npm run db:generate` | New migration after changing `src/db/schema.ts`. Migrations run on startup. |
+| `npx prisma migrate dev --name <what>` | New migration after changing `prisma/schema.prisma`. The container applies migrations on start (`prisma migrate deploy`). |

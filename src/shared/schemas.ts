@@ -38,13 +38,15 @@ const optionalText = (max: number) =>
         .nullable()
         .transform((s) => s || null);
 const optionalAmount = z.number().int().min(0).nullable();
+/** A record's ID: a UUID. */
+const id = z.uuid();
 
 export const gigInput = z.object({
     name: text(100),
     /** Admins can type any name. Fixers' gigs use their fixer character, so this is ignored. */
     fixerName: z.string().trim().max(60),
     /** A fixer character. Required for fixers, optional for admins (who can type a name instead). */
-    fixerRunnerId: z.number().int().nullable(),
+    fixerRunnerId: id.nullable(),
     location: text(100),
     type: z.string().trim().max(40).nullable(),
     /** The brief: everything about the job. It's the post's description, which Discord caps at 4096. */
@@ -53,7 +55,7 @@ export const gigInput = z.object({
     primaryObjective: z.array(oneLine(150)).min(1, 'Add the primary objective').max(8),
     /** What the primary objective pays. */
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
-    imageId: z.number().int().nullable(),
+    imageId: id.nullable(),
     objectives: z
         // `each`: paid for each time it's done ("x for each y"), not once on completion.
         // `hidden`: players see "not disclosed" until the gig begins.
@@ -64,7 +66,7 @@ export const gigInput = z.object({
         )
         .max(8),
     slots: z
-        .array(z.object({ crewId: z.number().int().nullable(), count: z.number().int().min(1) }))
+        .array(z.object({ crewId: id.nullable(), count: z.number().int().min(1) }))
         .min(1, 'Add at least one slot')
         .refine((groups) => groups.reduce((sum, g) => sum + g.count, 0) <= MAX_SLOTS, `${MAX_SLOTS} slots max`),
 });
@@ -82,7 +84,7 @@ export const completeInput = z.object({
     hqIp: optionalAmount,
     text: optionalText(200),
     runners: z
-        .array(z.object({ runnerId: z.number().int(), eb: optionalAmount, ip: optionalAmount, text: optionalText(200) }))
+        .array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, text: optionalText(200) }))
         .max(MAX_SLOTS),
 });
 export type CompleteInput = z.infer<typeof completeInput>;
@@ -91,15 +93,15 @@ export const ratingInput = z.object({ stars: z.number().int().min(1).max(5), com
 export type RatingInput = z.infer<typeof ratingInput>;
 
 /** Signing up. A player with one runner can leave it out. */
-export const joinInput = z.object({ runnerId: z.number().int().optional() });
-export const runnerRefInput = z.object({ runnerId: z.number().int() });
+export const joinInput = z.object({ runnerId: id.optional() });
+export const runnerRefInput = z.object({ runnerId: id });
 
 export const runnerInput = z.object({
     /** One of a kind: it's the runner's link (/runners/vex). */
     handle: text(40),
     role: text(30),
     extraRoles: z.array(text(30)).max(9),
-    imageId: z.number().int().nullable(),
+    imageId: id.nullable(),
     // Fixer profile, shown when the runner counts as a fixer
     officeLocation: optionalText(100),
     specialties: optionalText(150),
@@ -119,7 +121,7 @@ export const newCrewInput = z.object({
     name: text(50),
     tagline: z.string().trim().max(120),
     /** The runner founding it. Your own, or anyone's for admins. */
-    runnerId: z.number().int(),
+    runnerId: id,
 });
 export type NewCrewInput = z.infer<typeof newCrewInput>;
 
@@ -151,7 +153,7 @@ export const prefsInput = z.object({
 export type Prefs = z.infer<typeof prefsInput>;
 
 /** Which crew's slots to open to anyone. */
-export const openSlotsInput = z.object({ crewId: z.number().int() });
+export const openSlotsInput = z.object({ crewId: id });
 
 export const regionInput = z.object({
     name: text(40),
@@ -160,17 +162,17 @@ export const regionInput = z.object({
 export type RegionInput = z.infer<typeof regionInput>;
 
 export interface RegionView {
-    id: number;
+    id: string;
     name: string;
     district: string | null;
     /** Library image IDs. See shared/images.ts for the URLs. */
-    images: number[];
+    images: string[];
 }
 
 export interface LibraryView {
     regions: RegionView[];
     /** General pool image IDs, used when a region has none. */
-    pool: number[];
+    pool: string[];
 }
 
 const snowflake = z.string().regex(/^\d+$/).nullable();
@@ -190,7 +192,7 @@ export type Settings = z.infer<typeof settingsInput>;
 /** The bot's Discord profile. About me is the app's description (400 characters max). */
 export const botProfileInput = z.object({
     about: z.string().trim().max(400),
-    bannerImageId: z.number().int().nullable(),
+    bannerImageId: id.nullable(),
 });
 export type BotProfileInput = z.infer<typeof botProfileInput>;
 export interface BotProfile {
@@ -218,13 +220,13 @@ export interface Me extends Member {
 
 /** A runner as shown in lists and slots. */
 export interface RunnerCard {
-    id: number;
+    id: string;
     /** The runner's link, made from the handle. */
     slug: string;
     handle: string;
     role: string;
     extraRoles: string[];
-    imageId: number | null;
+    imageId: string | null;
     /** The player. Null for NPC fixers. */
     ownerId: string | null;
 }
@@ -251,7 +253,7 @@ export interface Rating {
 }
 
 export interface GigLink {
-    id: number;
+    id: string;
     ref: string;
     name: string;
     status: GigStatus;
@@ -259,12 +261,11 @@ export interface GigLink {
 }
 
 export interface RunnerView extends RunnerSummary {
-    uuid: string;
     officeLocation: string | null;
     specialties: string | null;
     contact: string | null;
     bio: string | null;
-    crews: { id: number; slug: string; name: string }[];
+    crews: { id: string; slug: string; name: string }[];
     /** Gigs this runner went on (or is signed up for). */
     gigs: GigLink[];
     /** Gigs this runner was the fixer for. */
@@ -277,7 +278,7 @@ export interface RunnerView extends RunnerSummary {
 export interface Review {
     stars: number;
     comment: string | null;
-    gig: { id: number; ref: string; name: string };
+    gig: { id: string; ref: string; name: string };
     /** The runner the rater had on the gig. */
     by: RunnerCard | null;
     /** Unix ms. Missing on ratings from before comments. */
@@ -285,8 +286,8 @@ export interface Review {
 }
 
 export interface SlotView {
-    id: number;
-    crew: { id: number; name: string } | null;
+    id: string;
+    crew: { id: string; name: string } | null;
     runner: RunnerCard | null;
     state: RunnerState;
     /** Unix ms. When an awaiting runner gets dropped if they haven't confirmed. */
@@ -300,15 +301,14 @@ export interface Rewards {
 }
 
 export interface GigView {
-    id: number;
-    uuid: string;
+    id: string;
     /** The gig's link: UUID start and name (see shared/slug.ts). */
     ref: string;
     name: string;
     /** The fixer's name: their character's handle, or what an admin typed. */
     fixerName: string;
-    fixerRunnerId: number | null;
-    fixerImageId: number | null;
+    fixerRunnerId: string | null;
+    fixerImageId: string | null;
     /** The fixer character's player, if they have one. */
     fixerId: string | null;
     location: string;
@@ -318,7 +318,7 @@ export interface GigView {
     brief: string;
     /** One or more parts. */
     primaryObjective: string[];
-    imageId: number | null;
+    imageId: string | null;
     /**
      * `each`: the bonus is paid for each time it's done. `hidden`: the setting, kept from
      * players until the gig begins. `secret`: still kept from them right now. Players get a
@@ -370,8 +370,7 @@ export interface CrewMember extends RunnerCard {
 }
 
 export interface CrewView {
-    id: number;
-    uuid: string;
+    id: string;
     /** The crew's link, made from the name. */
     slug: string;
     name: string;
@@ -388,7 +387,7 @@ export interface CrewView {
 
 /** A crew asking one of your runners to join. */
 export interface CrewInvite {
-    crew: { id: number; slug: string; name: string; tagline: string };
+    crew: { id: string; slug: string; name: string; tagline: string };
     runner: RunnerCard;
     invitedBy: Member;
     createdAt: number;

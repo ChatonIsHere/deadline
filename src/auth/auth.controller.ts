@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Body, Controller, Get, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { isProd } from '../config';
+import { MembersService } from '../discord/members.service';
 import { SettingsService } from '../settings/settings.service';
 import { type Me, type Prefs, prefsInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
@@ -20,6 +21,7 @@ export class AuthController {
         private readonly auth: AuthService,
         private readonly settings: SettingsService,
         private readonly prefs: PrefsService,
+        private readonly members: MembersService,
     ) {}
 
     @Get('api/prefs')
@@ -30,8 +32,10 @@ export class AuthController {
 
     @Put('api/prefs')
     @UseGuards(AuthGuard)
-    setPrefs(@CurrentUser() user: Me, @Body(new ZodPipe(prefsInput)) body: Prefs) {
-        this.prefs.set(user.id, body);
+    async setPrefs(@CurrentUser() user: Me, @Body(new ZodPipe(prefsInput)) body: Prefs) {
+        await this.prefs.set(user.id, body);
+        // Player view changes what they can do, so their cached sign-in goes
+        await this.members.forget(user.id);
         return this.prefs.get(user.id);
     }
 
@@ -59,8 +63,8 @@ export class AuthController {
     }
 
     @Post('auth/logout')
-    logout(@Req() req: Request, @Res() res: Response) {
-        this.auth.end(req.cookies?.[SESSION_COOKIE]);
+    async logout(@Req() req: Request, @Res() res: Response) {
+        await this.auth.end(req.cookies?.[SESSION_COOKIE]);
         res.clearCookie(SESSION_COOKIE, cookie);
         res.status(204).end();
     }

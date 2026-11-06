@@ -1,10 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { Client } from 'discord.js';
-import { eq, lt } from 'drizzle-orm';
+import { CacheService } from '../cache/cache.service';
 import { config } from '../config';
-import { DB, Db } from '../db/db';
-import { sessions } from '../db/schema';
 import { MembersService } from '../discord/members.service';
 import { canLogIn } from '../shared/permissions';
 import type { Me } from '../shared/schemas';
@@ -12,12 +10,15 @@ import type { Me } from '../shared/schemas';
 export const SESSION_DAYS = 30;
 const DISCORD_API = 'https://discord.com/api/v10';
 
+/** Sessions live in the cache (Redis), expiring on their own. A session is just whose it is. */
+const sessionKey = (id: string) => `sess:${id}`;
+
 @Injectable()
 export class AuthService {
     constructor(
-        @Inject(DB) private readonly db: Db,
         @Inject(Client) private readonly client: Client,
         private readonly members: MembersService,
+        private readonly cache: CacheService,
     ) {}
 
     /** The bot's application ID doubles as the OAuth client ID. */
@@ -65,24 +66,22 @@ export class AuthService {
         const me = await this.members.me(userId);
         if (!me || !canLogIn(me)) return null;
 
-        this.db.delete(sessions).where(lt(sessions.expiresAt, new Date())).run();
         const id = randomBytes(32).toString('base64url');
-        const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
-        this.db.insert(sessions).values({ id, userId, expiresAt }).run();
+        await this.cache.set(sessionKey(id), { userId }, SESSION_DAYS * 86_400);
         return id;
     }
 
-    /** The signed in user. Roles are checked live, so losing a role takes effect straight away. */
+    /** The signed in user. Roles are checked live (cached a minute), so losing a role takes effect quickly. */
     async user(sessionId: string | undefined): Promise<Me | null> {
         if (!sessionId) return null;
-        const session = this.db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) }).sync();
-        if (!session || session.expiresAt < new Date()) return null;
+        const session = await this.cache.get<{ userId: string }>(sessionKey(sessionId));
+        if (!session) return null;
 
         const me = await this.members.me(session.userId);
         return me && canLogIn(me) ? me : null;
     }
 
-    end(sessionId: string | undefined) {
-        if (sessionId) this.db.delete(sessions).where(eq(sessions.id, sessionId)).run();
+    async end(sessionId: string | undefined) {
+        if (sessionId) await this.cache.del(sessionKey(sessionId));
     }
 }

@@ -1,8 +1,11 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ChannelType, Client, PermissionFlagsBits } from 'discord.js';
-import { DB, Db } from '../db/db';
-import { settings } from '../db/schema';
+import { z } from 'zod';
+import { CacheService } from '../cache/cache.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CORE_ROLES, FIXER_ROLE, type GuildOptions, type Me, type Option, type Settings } from '../shared/schemas';
+
+const roleList = z.array(z.string());
 
 const EMPTY: Settings = {
     guildId: null,
@@ -15,21 +18,30 @@ const EMPTY: Settings = {
     runnerRoles: CORE_ROLES,
 };
 
-/** Which server, forum and roles Deadline uses. Kept in SQLite, changed on the web. */
+/**
+ * Which server, forum and roles Deadline uses. Kept in the database, changed on the web.
+ * Read once at startup and kept in memory: there's one instance, and every change goes
+ * through save(), so it never goes stale. That keeps get() synchronous for its many callers.
+ */
 @Injectable()
-export class SettingsService {
-    private cached: Settings | null = null;
+export class SettingsService implements OnModuleInit {
+    private cached: Settings = EMPTY;
 
     constructor(
-        @Inject(DB) private readonly db: Db,
+        private readonly prisma: PrismaService,
         @Inject(Client) private readonly client: Client,
+        private readonly cache: CacheService,
     ) {}
 
-    get(): Settings {
-        if (!this.cached) {
-            const { id: _, ...row } = this.db.query.settings.findFirst().sync() ?? { id: 1, ...EMPTY };
-            this.cached = row;
+    async onModuleInit() {
+        const row = await this.prisma.settings.findUnique({ where: { id: 1 } });
+        if (row) {
+            const { id: _, runnerRoles, ...rest } = row;
+            this.cached = { ...rest, runnerRoles: roleList.parse(runnerRoles) };
         }
+    }
+
+    get(): Settings {
         return this.cached;
     }
 
@@ -50,7 +62,7 @@ export class SettingsService {
 
         // Fixer always stays: it's what makes a runner a fixer
         if (!next.runnerRoles.includes(FIXER_ROLE)) next = { ...next, runnerRoles: [...next.runnerRoles, FIXER_ROLE] };
-        this.db.insert(settings).values({ id: 1, ...next }).onConflictDoUpdate({ target: settings.id, set: next }).run();
+        await this.prisma.settings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
         this.cached = next;
     }
 
@@ -71,10 +83,15 @@ export class SettingsService {
         return this.client.guilds.cache.map((g) => ({ id: g.id, name: g.name })).sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    /** A server's forums and roles, for the dropdowns. */
+    /** A server's forums and roles, for the dropdowns. Cached for 5 minutes: it asks Discord. */
     async options(guildId: string): Promise<GuildOptions> {
         const guild = this.client.guilds.cache.get(guildId);
         if (!guild) throw new NotFoundException('The bot is not in that server.');
+        return this.cache.remember(`guild-options:${guildId}`, 300, () => this.loadOptions(guildId));
+    }
+
+    private async loadOptions(guildId: string): Promise<GuildOptions> {
+        const guild = this.client.guilds.cache.get(guildId)!;
 
         const channels = await guild.channels.fetch();
         const forums = channels

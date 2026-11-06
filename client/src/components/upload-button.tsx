@@ -18,14 +18,14 @@ export function UploadButton({
     className,
 }: {
     options?: UploadOptions;
-    onUploaded: (ids: number[]) => void | Promise<void>;
+    onUploaded: (ids: string[]) => void | Promise<void>;
     multiple?: boolean;
     className?: string;
 }) {
     const input = useRef<HTMLInputElement>(null);
     const [queue, setQueue] = useState<File[]>([]);
     const [index, setIndex] = useState(0);
-    const [ids, setIds] = useState<number[]>([]);
+    const [ids, setIds] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
 
     const pick = (e: ChangeEvent<HTMLInputElement>) => {
@@ -37,7 +37,7 @@ export function UploadButton({
     };
 
     // Whatever made it up still counts, even if the rest was cancelled or failed
-    const finish = async (done: number[]) => {
+    const finish = async (done: string[]) => {
         setQueue([]);
         if (!done.length) return;
         toast.success(done.length === 1 ? 'picture uploaded.' : `${done.length} pictures uploaded.`);

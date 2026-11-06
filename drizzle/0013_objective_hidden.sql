@@ -1,1 +1,0 @@
-ALTER TABLE `gig_objectives` ADD `hidden` integer DEFAULT false NOT NULL;

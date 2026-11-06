@@ -10,6 +10,7 @@ import { RunnersService } from '../runners/runners.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn } from '../shared/permissions';
 import type { Me } from '../shared/schemas';
+import { isUuid } from '../shared/slug';
 import { gigCard, myGigsCard, runnerCard } from './cards';
 import { crewCard } from './crew-messages';
 import { EmojiService } from './emoji.service';
@@ -74,25 +75,19 @@ class Suggestions extends AutocompleteInterceptor {
         super();
     }
 
-    transformOptions(interaction: AutocompleteInteraction) {
+    async transformOptions(interaction: AutocompleteInteraction) {
         const typed = String(interaction.options.getFocused());
         let choices: { name: string; value: string }[] = [];
         switch (interaction.commandName) {
             case 'gig':
-                choices = this.gigs
-                    .live()
-                    .filter((g) => fits(g.name, typed))
-                    .map((g) => ({ name: short(g.name), value: String(g.id) }));
+                choices = (await this.gigs.live()).filter((g) => fits(g.name, typed)).map((g) => ({ name: short(g.name), value: g.id }));
                 break;
             case 'runner':
             case 'fixer':
-                choices = this.runners.search(typed, interaction.commandName === 'fixer').map((r) => ({ name: short(`${r.handle} (${r.role})`), value: String(r.id) }));
+                choices = (await this.runners.search(typed, interaction.commandName === 'fixer')).map((r) => ({ name: short(`${r.handle} (${r.role})`), value: r.id }));
                 break;
             case 'crew':
-                choices = this.crews
-                    .list()
-                    .filter((c) => fits(c.name, typed))
-                    .map((c) => ({ name: short(c.name), value: String(c.id) }));
+                choices = (await this.crews.list()).filter((c) => fits(c.name, typed)).map((c) => ({ name: short(c.name), value: c.id }));
                 break;
             case 'newrunner':
                 choices = this.settings
@@ -120,14 +115,16 @@ export class Commands {
 
     @SlashCommand({ name: 'board', description: 'Link to the gig board' })
     async board(@Context() [interaction]: SlashCommandContext) {
-        await interaction.reply({ content: voice.board(config.PUBLIC_URL, this.gigs.countOpen()), flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: voice.board(config.PUBLIC_URL, await this.gigs.countOpen()), flags: MessageFlags.Ephemeral });
     }
 
     @UseInterceptors(Suggestions)
     @SlashCommand({ name: 'gig', description: 'Show a live gig' })
     async gig(@Context() [interaction]: SlashCommandContext, @Options() { gig }: GigOptions) {
-        const id = Number(gig) || this.gigs.live().find((g) => g.name.toLowerCase() === gig.trim().toLowerCase())?.id;
-        const view = id && this.gigs.live().some((g) => g.id === id) ? this.gigs.view(id) : undefined;
+        // A suggestion's value is the gig's ID; someone may have typed a name instead
+        const live = await this.gigs.live();
+        const id = live.find((g) => g.id === gig)?.id ?? live.find((g) => g.name.toLowerCase() === gig.trim().toLowerCase())?.id;
+        const view = id ? await this.gigs.view(id) : undefined;
         if (!view) return this.oops(interaction, 'no live gig by that name.');
         const image = view.imageId ? this.library.url(view.imageId) : null;
         await interaction.reply(gigCard(view, this.emoji.get, config.PUBLIC_URL, image));
@@ -139,14 +136,14 @@ export class Commands {
         const viewer = await this.viewer(interaction.user.id);
         try {
             if (handle) {
-                const id = this.resolve(handle, false);
+                const id = await this.resolve(handle, false);
                 if (!id) return this.oops(interaction, 'no runner by that handle.');
-                return await interaction.reply(this.card(viewer, id));
+                return await interaction.reply(await this.card(viewer, id));
             }
             // No handle: the player's own runners
-            const mine = this.runners.mine(interaction.user.id);
+            const mine = await this.runners.mine(interaction.user.id);
             if (!mine.length) return this.oops(interaction, "you don't have a runner yet. make one with /newrunner.");
-            const cards = mine.slice(0, 10).map((r) => this.card(viewer, r.id));
+            const cards = await Promise.all(mine.slice(0, 10).map((r) => this.card(viewer, r.id)));
             await interaction.reply(cards.length === 1 ? cards[0] : { embeds: cards.flatMap((c) => c.embeds) });
         } catch {
             await this.oops(interaction, 'no runner by that handle.');
@@ -156,10 +153,10 @@ export class Commands {
     @UseInterceptors(Suggestions)
     @SlashCommand({ name: 'fixer', description: "Show a fixer's profile and rating" })
     async fixer(@Context() [interaction]: SlashCommandContext, @Options() { handle }: FixerOptions) {
-        const id = this.resolve(handle, true);
+        const id = await this.resolve(handle, true);
         if (!id) return this.oops(interaction, 'no fixer by that handle.');
         try {
-            await interaction.reply(this.card(await this.viewer(interaction.user.id), id));
+            await interaction.reply(await this.card(await this.viewer(interaction.user.id), id));
         } catch {
             await this.oops(interaction, 'no fixer by that handle.');
         }
@@ -168,8 +165,8 @@ export class Commands {
     @UseInterceptors(Suggestions)
     @SlashCommand({ name: 'crew', description: 'Show a crew and its ranks' })
     async crew(@Context() [interaction]: SlashCommandContext, @Options() { name }: CrewOptions) {
-        const all = this.crews.list();
-        const crew = all.find((c) => c.id === Number(name)) ?? all.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+        const all = await this.crews.list();
+        const crew = all.find((c) => c.id === name) ?? all.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
         if (!crew) return this.oops(interaction, 'no crew by that name.');
         // Big crews spill over into more messages
         const [first, ...more] = crewCard(crew, this.emoji.get, config.PUBLIC_URL);
@@ -202,25 +199,25 @@ export class Commands {
 
     @SlashCommand({ name: 'mygigs', description: 'Live gigs your runners are on' })
     async myGigs(@Context() [interaction]: SlashCommandContext) {
-        const gigs = this.gigs.forPlayer(interaction.user.id);
+        const gigs = await this.gigs.forPlayer(interaction.user.id);
         await interaction.reply({ ...myGigsCard(gigs, interaction.user.id, config.PUBLIC_URL), flags: MessageFlags.Ephemeral });
     }
 
     @SlashCommand({ name: 'reminders', description: 'Turn session reminder DMs on or off' })
     async reminders(@Context() [interaction]: SlashCommandContext, @Options() { set }: ReminderOptions) {
         const userId = interaction.user.id;
-        this.prefs.set(userId, { ...this.prefs.get(userId), reminders: set === 'on' });
+        await this.prefs.set(userId, { ...(await this.prefs.get(userId)), reminders: set === 'on' });
         await interaction.reply({ content: voice.remindersSet(set === 'on'), flags: MessageFlags.Ephemeral });
     }
 
     /** A suggested ID, or a typed handle. */
-    private resolve(typed: string, fixersOnly: boolean): number | undefined {
-        if (Number(typed)) return Number(typed);
-        return this.runners.search(typed, fixersOnly).find((r) => r.handle.toLowerCase() === typed.trim().toLowerCase())?.id;
+    private async resolve(typed: string, fixersOnly: boolean): Promise<string | undefined> {
+        if (isUuid(typed)) return typed;
+        return (await this.runners.search(typed, fixersOnly)).find((r) => r.handle.toLowerCase() === typed.trim().toLowerCase())?.id;
     }
 
-    private card(viewer: Me, id: number) {
-        const view = this.runners.get(viewer, id); // throws if the runner was deleted since it was suggested
+    private async card(viewer: Me, id: string) {
+        const view = await this.runners.get(viewer, id); // throws if the runner was deleted since it was suggested
         return runnerCard(view, config.PUBLIC_URL, view.imageId ? this.library.url(view.imageId) : null);
     }
 

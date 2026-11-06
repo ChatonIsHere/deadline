@@ -73,7 +73,7 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
 export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
     const act = (action: 'join' | 'confirm' | 'leave', body?: unknown) => api<{ message: string }>(`/api/gigs/${gig.id}/${action}`, 'POST', body);
     const done = ({ message }: { message: string }) => message;
-    const join = useAction((runnerId?: number) => act('join', { runnerId }), done);
+    const join = useAction((runnerId?: string) => act('join', { runnerId }), done);
     const confirm = useAction(() => act('confirm'), done);
     const leave = useAction(() => act('leave'), done);
     const busy = join.isPending || confirm.isPending || leave.isPending;
@@ -104,7 +104,7 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
             )}
             <div className="flex flex-wrap gap-2">
                 {canJoin && (
-                    <Button size="sm" disabled={busy || (!!mine && mine.length > 1 && !picked)} onClick={() => join.mutate(picked ? Number(picked) : undefined)}>
+                    <Button size="sm" disabled={busy || (!!mine && mine.length > 1 && !picked)} onClick={() => join.mutate(picked || undefined)}>
                         {gig.sessionAt ? 'Take the job' : "I'm interested"}
                     </Button>
                 )}
@@ -127,7 +127,7 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
 export function AssignRunner({ gig }: { gig: GigView }) {
     const [runnerId, setRunnerId] = useState('');
     const runners = useRunners().data ?? [];
-    const assign = useAction(() => api(`/api/gigs/${gig.id}/runners`, 'POST', { runnerId: Number(runnerId) }), 'runner added.', () => setRunnerId(''));
+    const assign = useAction(() => api(`/api/gigs/${gig.id}/runners`, 'POST', { runnerId }), 'runner added.', () => setRunnerId(''));
 
     const playersOn = new Set([...gig.slots.map((s) => s.runner?.ownerId), ...gig.reserves.map((r) => r.ownerId)]);
     const options = runners.filter((r) => r.canTakeGigs && !playersOn.has(r.ownerId));

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
+import { keyUrl, mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -54,26 +54,26 @@ export const usePlayers = (enabled: boolean) => useQuery({ queryKey: ['players']
 /** `library` adds it to the picture library (admins). `avatar` makes a square runner picture. */
 export interface UploadOptions {
     library?: boolean;
-    regionId?: number | null;
+    regionId?: string | null;
     kind?: 'gig' | 'avatar';
 }
 
 /** Uploads a picture and returns its ID. Use UploadButton rather than calling this. */
-export async function uploadImage(file: File, opts: UploadOptions = {}): Promise<number> {
+export async function uploadImage(file: File, opts: UploadOptions = {}): Promise<string> {
     const form = new FormData();
     form.append('file', file);
     if (opts.library) form.append('library', 'true');
     if (opts.regionId) form.append('regionId', String(opts.regionId));
     if (opts.kind) form.append('kind', opts.kind);
-    return (await api<{ id: number }>('/api/library/images', 'POST', form)).id;
+    return (await api<{ id: string }>('/api/library/images', 'POST', form)).id;
 }
 
 /** The framed picture for the web (frame to the edge), or the plain one. Discord gets a padded copy. */
-export const imageUrl = (id: number) => `/images/${webFile(id)}`;
-export const plainImageUrl = (id: number) => `/images/${plainFile(id)}`;
+export const imageUrl = (id: string) => keyUrl(webFile(id));
+export const plainImageUrl = (id: string) => keyUrl(plainFile(id));
 /** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
-export const thumbUrl = (id: number) => `/images/${thumbFile(id)}`;
-export const mediumUrl = (id: number) => `/images/${mediumFile(id)}`;
+export const thumbUrl = (id: string) => keyUrl(thumbFile(id));
+export const mediumUrl = (id: string) => keyUrl(mediumFile(id));
 
 /**
  * A change sent to the server. Every one says what happened, as a notification from the

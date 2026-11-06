@@ -10,17 +10,17 @@ export class CrewInteractions {
 
     @Button('crew/accept/:crew/:runner')
     accept(@Context() [interaction]: ButtonContext, @ComponentParam('crew') crew: string, @ComponentParam('runner') runner: string) {
-        return this.answer(interaction, () => this.crews.accept(interaction.user.id, Number(crew), Number(runner)));
+        return this.answer(interaction, () => this.crews.accept(interaction.user.id, crew, runner));
     }
 
     @Button('crew/decline/:crew/:runner')
     decline(@Context() [interaction]: ButtonContext, @ComponentParam('crew') crew: string, @ComponentParam('runner') runner: string) {
-        return this.answer(interaction, () => this.crews.decline(interaction.user.id, Number(crew), Number(runner)));
+        return this.answer(interaction, () => this.crews.decline(interaction.user.id, crew, runner));
     }
 
-    private async answer(interaction: ButtonContext[0], action: () => string) {
+    private async answer(interaction: ButtonContext[0], action: () => Promise<string>) {
         try {
-            await interaction.update({ content: action(), components: [] });
+            await interaction.update({ content: await action(), components: [] });
         } catch (err) {
             await interaction.reply(explain(err));
         }

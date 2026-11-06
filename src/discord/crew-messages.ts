@@ -12,7 +12,7 @@ export const roleIcon = (emoji: EmojiLookup, role: string) => emoji(`role_${role
 export const runnerLine = (emoji: EmojiLookup, r: RunnerCard) => `${roleIcon(emoji, r.role)} **${r.handle}** · ${r.role}`.trim();
 
 /** The DM a runner's player gets when a crew invites them. */
-export function inviteMessage(crew: { id: number; slug: string; name: string; tagline: string }, runner: RunnerCard, from: string, boardUrl: string) {
+export function inviteMessage(crew: { id: string; slug: string; name: string; tagline: string }, runner: RunnerCard, from: string, boardUrl: string) {
     const embed = { color: COLOURS.open, title: crew.name, url: `${boardUrl}/crews/${crew.slug}`, description: crew.tagline || undefined };
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId(`crew/accept/${crew.id}/${runner.id}`).setLabel('Join').setStyle(ButtonStyle.Success),

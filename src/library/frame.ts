@@ -51,7 +51,7 @@ export const VARIANTS: Variant[] = [
 ];
 
 /** Which variant a picture gets. Fixed per picture, so rebuilding keeps its look. */
-export const variantFor = (imageId: number): Variant => VARIANTS[imageId % VARIANTS.length];
+export const variantFor = (imageId: string): Variant => VARIANTS[parseInt(imageId.slice(0, 8), 16) % VARIANTS.length];
 
 /**
  * The frame drawn over a picture, as SVG, sized off the 1280x720 gig frame so it scales

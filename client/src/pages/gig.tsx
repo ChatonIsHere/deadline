@@ -32,9 +32,9 @@ export function Gig() {
     const approve = useAction(() => api(`${url}/approve`, 'POST'), 'approved. posting to discord.');
     const reject = useAction(() => api(`${url}/reject`, 'POST'), 'contract rejected.');
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'status updated.');
-    const kick = useAction((slotId: number) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'runner removed.');
+    const kick = useAction((slotId: string) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'runner removed.');
     const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'removed from the reserves.');
-    const openCrew = useAction((crewId: number) => api(`${url}/open-slots`, 'POST', { crewId }), 'slots opened to freelancers.');
+    const openCrew = useAction((crewId: string) => api(`${url}/open-slots`, 'POST', { crewId }), 'slots opened to freelancers.');
     const remove = useAction(() => api(url, 'DELETE'), 'contract deleted.', () => navigate('/gigs'));
 
     if (isError) return <Say>no such contract.</Say>;

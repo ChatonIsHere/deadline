@@ -1,7 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { DB, Db } from '../db/db';
-import { userPrefs } from '../db/schema';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import type { Prefs } from '../shared/schemas';
 
 const DEFAULTS: Prefs = { reminders: true, playerView: false };
@@ -9,14 +7,14 @@ const DEFAULTS: Prefs = { reminders: true, playerView: false };
 /** Each person's own choices, like whether they get session reminders. */
 @Injectable()
 export class PrefsService {
-    constructor(@Inject(DB) private readonly db: Db) {}
+    constructor(private readonly prisma: PrismaService) {}
 
-    get(userId: string): Prefs {
-        const { userId: _, ...prefs } = this.db.query.userPrefs.findFirst({ where: eq(userPrefs.userId, userId) }).sync() ?? { userId, ...DEFAULTS };
-        return prefs;
+    async get(userId: string): Promise<Prefs> {
+        const row = await this.prisma.userPrefs.findUnique({ where: { userId } });
+        return row ? { reminders: row.reminders, playerView: row.playerView } : DEFAULTS;
     }
 
-    set(userId: string, prefs: Prefs) {
-        this.db.insert(userPrefs).values({ userId, ...prefs }).onConflictDoUpdate({ target: userPrefs.userId, set: prefs }).run();
+    async set(userId: string, prefs: Prefs) {
+        await this.prisma.userPrefs.upsert({ where: { userId }, create: { userId, ...prefs }, update: prefs });
     }
 }

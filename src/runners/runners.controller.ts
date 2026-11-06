@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { MembersService } from '../discord/members.service';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { type Me, runnerInput, type RunnerInput } from '../shared/schemas';
@@ -24,10 +24,10 @@ export class RunnersController {
         return this.runners.mine(user.id);
     }
 
-    /** By numeric or typed ID. */
+    /** By link (name or handle) or UUID. */
     @Get('runners/:id')
-    get(@CurrentUser() user: Me, @Param('id') ref: string) {
-        const id = this.runners.resolve(ref);
+    async get(@CurrentUser() user: Me, @Param('id') ref: string) {
+        const id = await this.runners.resolve(ref);
         return this.runners.get(user, id);
     }
 
@@ -37,14 +37,14 @@ export class RunnersController {
     }
 
     @Patch('runners/:id')
-    update(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number, @Body(new ZodPipe(runnerInput)) body: RunnerInput) {
+    update(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(runnerInput)) body: RunnerInput) {
         return this.runners.update(user, id, body);
     }
 
     @Delete('runners/:id')
     @HttpCode(204)
-    delete(@CurrentUser() user: Me, @Param('id', ParseIntPipe) id: number) {
-        this.runners.delete(user, id);
+    delete(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.runners.delete(user, id);
     }
 
     /** People who can be given a runner. Admins only. */

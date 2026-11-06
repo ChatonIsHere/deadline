@@ -1,1 +1,0 @@
-ALTER TABLE `user_prefs` ADD `player_view` integer DEFAULT false NOT NULL;

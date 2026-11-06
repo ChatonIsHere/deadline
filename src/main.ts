@@ -1,4 +1,4 @@
-import { dirname, join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -9,8 +9,8 @@ import { config, isProd } from './config';
 
 const ROOT = join(__dirname, '..');
 
-/** Requests Nest handles. Everything else is the web app. */
-const isServerRoute = (path: string) => path.startsWith('/api/') || path.startsWith('/auth/');
+/** Requests Nest handles (including stored pictures under /images). Everything else is the web app. */
+const isServerRoute = (path: string) => path.startsWith('/api/') || path.startsWith('/auth/') || path.startsWith('/images/');
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -28,8 +28,6 @@ async function bootstrap() {
         }),
     );
     app.useStaticAssets(join(ROOT, 'assets'));
-    // Gig pictures. A file never changes once written, so it can be cached for good.
-    app.useStaticAssets(resolve(dirname(config.DATABASE_PATH), 'images'), { prefix: '/images/', maxAge: '365d', immutable: true });
 
     if (isProd) {
         const clientDir = join(ROOT, 'dist', 'client');

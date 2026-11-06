@@ -1,8 +1,7 @@
-import '../test-env';
+import { emptyDb, prisma } from '../test-db';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
+import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
-import { openDb } from '../db/db';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
 import { CrewsService } from '../crews/crews.service';
@@ -23,7 +22,7 @@ const members = {
     isFixerRunner: (r: { role: string; ownerId: string | null }) => r.role === 'Fixer' && !r.ownerId,
 } as unknown as MembersService;
 const settings = { get: () => ({ guildId: '1', runnerRoles: CORE_ROLES, reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
-const library = { exists: () => true, pick: () => null } as unknown as LibraryService;
+const library = { exists: async () => true, pick: async () => null, refreshUsage: async () => {} } as unknown as LibraryService;
 const posts = { sync: async () => ({ threadId: 'thread', overflowIds: [] }), askToConfirm: async () => {} } as unknown as GigPostService;
 
 const input = (patch: Partial<RunnerInput> = {}): RunnerInput => ({
@@ -42,11 +41,14 @@ describe('RunnersService', () => {
     let runners: RunnersService;
     let gigs: GigsService;
 
-    beforeEach(() => {
-        const db = openDb(':memory:');
-        gigs = new GigsService(db, members, posts, settings, library, new PrefsService(db));
-        runners = new RunnersService(db, members, settings, library, gigs, new CrewsService(db, members, gigs));
+    beforeEach(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        await emptyDb();
+        gigs = new GigsService(prisma, members, posts, settings, library, new PrefsService(prisma));
+        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs));
     });
+
+    after(() => prisma.$disconnect());
 
     it("makes a player's runner their own", async () => {
         assert.equal((await runners.create(players[1], input())).ownerId, 'a');
@@ -67,15 +69,14 @@ describe('RunnersService', () => {
         assert.equal((await runners.create(admin, input({ ownerId: 'b', handle: 'V' }))).slug, 'v');
     });
 
-    it('finds runners by handle, UUID or old numeric ID, and moves the link on a rename', async () => {
+    it('finds runners by handle or UUID, and moves the link on a rename', async () => {
         const vex = await runners.create(players[1], input({ handle: 'Vex' }));
-        assert.equal(runners.resolve('vex'), vex.id);
-        assert.equal(runners.resolve('VEX'), vex.id);
-        assert.equal(runners.resolve(vex.uuid), vex.id);
-        assert.equal(runners.resolve(String(vex.id)), vex.id);
+        assert.equal(await runners.resolve('vex'), vex.id);
+        assert.equal(await runners.resolve('VEX'), vex.id);
+        assert.equal(await runners.resolve(vex.id), vex.id);
         const renamed = await runners.update(players[1], vex.id, input({ handle: 'Vex Prime' }));
         assert.equal(renamed.slug, 'vex-prime');
-        assert.equal(runners.resolve('vex-prime'), vex.id);
+        assert.equal(await runners.resolve('vex-prime'), vex.id);
         // Saving without a rename keeps the handle and link it already has
         assert.equal((await runners.update(players[1], vex.id, input({ handle: 'Vex Prime' }))).slug, 'vex-prime');
     });
@@ -89,7 +90,19 @@ describe('RunnersService', () => {
         const vex = await runners.create(players[1], input());
         assert.equal((await runners.update(admin, vex.id, input({ ownerId: 'b' }))).ownerId, 'b');
 
-        const gig = gigs.create(admin, { name: 'Job', fixerName: 'Rogue', fixerRunnerId: null, location: 'Watson', type: null, pay: 100, brief: 'Go.', primaryObjective: ['Go.'], imageId: null, objectives: [], slots: [{ crewId: null, count: 1 }] });
+        const gig = await gigs.create(admin, {
+            name: 'Job',
+            fixerName: 'Rogue',
+            fixerRunnerId: null,
+            location: 'Watson',
+            type: null,
+            pay: 100,
+            brief: 'Go.',
+            primaryObjective: ['Go.'],
+            imageId: null,
+            objectives: [],
+            slots: [{ crewId: null, count: 1 }],
+        });
         await gigs.join('b', gig.id);
         await assert.rejects(runners.update(admin, vex.id, input({ ownerId: 'a' })), /off their live gigs/);
         // Editing other things is fine

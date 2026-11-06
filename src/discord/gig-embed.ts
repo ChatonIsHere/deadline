@@ -148,16 +148,16 @@ export function debriefMessages(gig: GigView, emoji: EmojiLookup): { content?: s
     return [{ content: voice.statusChanged.completed, embeds: first }, ...more.map((embeds) => ({ embeds }))];
 }
 
-const confirmButton = (id: number) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
-const dropButton = (id: number) => new ButtonBuilder().setCustomId(`gig/leave/${id}`).setLabel('Pull out').setStyle(ButtonStyle.Secondary);
+const confirmButton = (id: string) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
+const dropButton = (id: string) => new ButtonBuilder().setCustomId(`gig/leave/${id}`).setLabel('Pull out').setStyle(ButtonStyle.Secondary);
 
 /** Confirm and Pull out buttons, for asking runners about a session. */
-export const confirmButtons = (id: number) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
+export const confirmButtons = (id: string) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
 
 const postButton = (threadUrl: string) => new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl);
 
 /** A DM asking a runner to confirm the session time (or nudging them to). */
-export function confirmMessage(gigId: number, content: string, threadUrl: string) {
+export function confirmMessage(gigId: string, content: string, threadUrl: string) {
     return { content, components: [confirmButtons(gigId).addComponents(postButton(threadUrl))] };
 }
 
@@ -191,7 +191,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
 }
 
 /** Lets a player pick which of their runners signs up. */
-export function pickRunnerMessage(gigId: number, choices: RunnerCard[]) {
+export function pickRunnerMessage(gigId: string, choices: RunnerCard[]) {
     const menu = new StringSelectMenuBuilder()
         .setCustomId(`gig/pick/${gigId}`)
         .setPlaceholder('Pick a runner')

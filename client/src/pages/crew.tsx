@@ -19,10 +19,10 @@ export function Crew() {
 
     // The URL may hold the typed ID; the API calls below use the numeric one
     const url = `/api/crews/${crew?.id}`;
-    const setRank = useAction(({ runnerId, rank }: { runnerId: number; rank: string }) => api(`${url}/members/${runnerId}`, 'PATCH', { rank }), 'rank changed.');
-    const removeMember = useAction((runnerId: number) => api(`${url}/members/${runnerId}`, 'DELETE'), 'runner removed from the crew.');
-    const removeAlly = useAction((runnerId: number) => api(`${url}/allies/${runnerId}`, 'DELETE'), 'ally removed.');
-    const cancelInvite = useAction((runnerId: number) => api(`${url}/invites/${runnerId}`, 'DELETE'), 'invite cancelled.');
+    const setRank = useAction(({ runnerId, rank }: { runnerId: string; rank: string }) => api(`${url}/members/${runnerId}`, 'PATCH', { rank }), 'rank changed.');
+    const removeMember = useAction((runnerId: string) => api(`${url}/members/${runnerId}`, 'DELETE'), 'runner removed from the crew.');
+    const removeAlly = useAction((runnerId: string) => api(`${url}/allies/${runnerId}`, 'DELETE'), 'ally removed.');
+    const cancelInvite = useAction((runnerId: string) => api(`${url}/invites/${runnerId}`, 'DELETE'), 'invite cancelled.');
     const invite = useInvite(url);
     const remove = useAction(() => api(url, 'DELETE'), 'crew disbanded.', () => navigate('/crews'));
 
@@ -151,7 +151,7 @@ export function Crew() {
 /** Invites by DM. Says so when the player's DMs are closed: they'll find it on their Me page. */
 function useInvite(url: string) {
     return useAction(
-        (runnerId: number) => api<{ dm: boolean }>(`${url}/invites`, 'POST', { runnerId }),
+        (runnerId: string) => api<{ dm: boolean }>(`${url}/invites`, 'POST', { runnerId }),
         ({ dm }) => (dm ? 'invite sent.' : "invite saved. their DMs are closed, so they'll see it on their Me page."),
     );
 }
@@ -168,10 +168,10 @@ function RunnerRow({ runner, children }: { runner: RunnerCard; children?: ReactN
 }
 
 /** Founders invite a player's runner. Admins can also put them straight in. */
-function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: boolean; onInvite: (runnerId: number) => void }) {
+function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: boolean; onInvite: (runnerId: string) => void }) {
     const runners = useRunners().data ?? [];
     const [runnerId, setRunnerId] = useState('');
-    const add = useAction(() => api(`/api/crews/${crew.id}/members`, 'POST', { runnerId: Number(runnerId) }), 'runner added to the crew.', () => setRunnerId(''));
+    const add = useAction(() => api(`/api/crews/${crew.id}/members`, 'POST', { runnerId }), 'runner added to the crew.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.invites].map((r) => r.id));
     const options = runners.filter((r) => !taken.has(r.id));
 
@@ -187,7 +187,7 @@ function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: bo
             <Button
                 disabled={!runnerId}
                 onClick={() => {
-                    onInvite(Number(runnerId));
+                    onInvite(runnerId);
                     setRunnerId('');
                 }}
             >
@@ -207,7 +207,7 @@ function AddAlly({ crew }: { crew: CrewView }) {
     const runners = useRunners().data ?? [];
     const npcs = (useFixers().data ?? []).filter((f) => !f.ownerId);
     const [runnerId, setRunnerId] = useState('');
-    const add = useAction(() => api(`/api/crews/${crew.id}/allies`, 'POST', { runnerId: Number(runnerId) }), 'ally added.', () => setRunnerId(''));
+    const add = useAction(() => api(`/api/crews/${crew.id}/allies`, 'POST', { runnerId }), 'ally added.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.allies].map((r) => r.id));
     const options = [...runners, ...npcs].filter((r) => !taken.has(r.id)).sort((a, b) => a.handle.localeCompare(b.handle));
 

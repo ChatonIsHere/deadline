@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ActivityType, Client } from 'discord.js';
 import { Once } from 'necord';
@@ -7,7 +5,6 @@ import sharp from 'sharp';
 import { GigsService } from '../gigs/gigs.service';
 import { frameSvg } from '../library/frame';
 import { LibraryService } from '../library/library.service';
-import { plainFile } from '../shared/images';
 import type { BotProfile, BotProfileInput, Me } from '../shared/schemas';
 
 /** Discord shows profile banners at 5:2. */
@@ -31,8 +28,9 @@ export class BotProfileService {
 
     @Once('clientReady')
     startStatus() {
-        this.updateStatus();
-        setInterval(() => this.updateStatus(), STATUS_MS).unref();
+        const update = () => void this.updateStatus().catch((err) => this.logger.warn(`Status not updated: ${err}`));
+        update();
+        setInterval(update, STATUS_MS).unref();
     }
 
     async get(): Promise<BotProfile> {
@@ -47,8 +45,8 @@ export class BotProfileService {
         // About me first, so a banner Discord refuses doesn't lose it
         await this.discord('About me', () => this.client.application!.edit({ description: input.about }));
         if (input.bannerImageId) {
-            if (!this.library.exists(input.bannerImageId)) throw new BadRequestException('That picture is gone. Pick another.');
-            const plain = readFileSync(join(this.library.dir, plainFile(input.bannerImageId)));
+            const plain = await this.library.plain(input.bannerImageId);
+            if (!plain) throw new BadRequestException('That picture is gone. Pick another.');
             const banner = await sharp(plain)
                 .resize(BANNER.width, BANNER.height, { fit: 'cover' })
                 // Banners get a solid margin: Discord shows them on a coloured strip anyway
@@ -72,8 +70,8 @@ export class BotProfileService {
     }
 
     /** "Watching 3 contracts on the wire". Only sent to Discord when the number changes. */
-    private updateStatus() {
-        const open = this.gigs.countOpen();
+    private async updateStatus() {
+        const open = await this.gigs.countOpen();
         const status = `${open} contract${open === 1 ? '' : 's'} on the wire`;
         if (status === this.lastStatus) return;
         this.lastStatus = status;

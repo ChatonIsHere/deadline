@@ -3,12 +3,25 @@ import { z } from 'zod';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
+const optional = z
+    .string()
+    .optional()
+    .transform((s) => s || undefined);
+
 // Only what the bot needs to start. Server, forum and roles are set on the web (see settings/).
 const schema = z.object({
     NODE_ENV: z.string().default('development'),
     PORT: z.coerce.number().default(3003),
     PUBLIC_URL: z.url().transform((url) => url.replace(/\/$/, '')),
-    DATABASE_PATH: z.string().default('./data/deadline.db'),
+    DATABASE_URL: z.string().min(1),
+    // Without it, an in-memory cache (fine for one process; sessions are lost on restart)
+    REDIS_URL: optional,
+    // Pictures. Without these they're kept on disk in ./data/objects (local dev and tests).
+    S3_ENDPOINT: optional,
+    S3_REGION: z.string().default('eu-central'),
+    S3_ACCESS_KEY: optional,
+    S3_SECRET_KEY: optional,
+    S3_BUCKET: optional,
     DISCORD_TOKEN: z.string().min(1),
     DISCORD_CLIENT_SECRET: z.string().min(1),
 });

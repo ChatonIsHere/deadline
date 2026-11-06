@@ -48,8 +48,8 @@ export function LibraryPage() {
     );
 }
 
-function Pictures({ title, ids, region }: { title: string; ids: number[]; region: RegionView | null }) {
-    const remove = useAction((id: number) => api(`/api/library/images/${id}`, 'DELETE'), 'picture removed.');
+function Pictures({ title, ids, region }: { title: string; ids: string[]; region: RegionView | null }) {
+    const remove = useAction((id: string) => api(`/api/library/images/${id}`, 'DELETE'), 'picture removed.');
     const removeRegion = useAction(() => api(`/api/library/regions/${region!.id}`, 'DELETE'), 'region deleted.');
     const queryClient = useQueryClient();
 

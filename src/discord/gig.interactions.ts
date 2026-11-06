@@ -34,26 +34,26 @@ export class GigInteractions {
 
     /** Live gig posts stay open. Discord archives quiet threads after a week, and people can close them by hand. */
     @On('threadUpdate')
-    onThreadUpdate(@Context() [, thread]: ContextOf<'threadUpdate'>) {
-        if ((thread.archived || thread.locked) && this.posts.isGigForum(thread.parentId)) this.gigs.keepOpen(thread.id);
+    async onThreadUpdate(@Context() [, thread]: ContextOf<'threadUpdate'>) {
+        if ((thread.archived || thread.locked) && this.posts.isGigForum(thread.parentId)) await this.gigs.keepOpen(thread.id);
     }
 
     /** Signs up. Players with several runners get a private menu to pick one first. */
     @Button('gig/join/:id')
     async join(@Context() [interaction]: ButtonContext, @ComponentParam('id') id: string) {
-        const choices = this.gigs.runnerChoices(interaction.user.id, Number(id));
+        const choices = await this.gigs.runnerChoices(interaction.user.id, id);
         if (choices.length) {
-            await interaction.reply({ ...pickRunnerMessage(Number(id), choices), flags: MessageFlags.Ephemeral });
+            await interaction.reply({ ...pickRunnerMessage(id, choices), flags: MessageFlags.Ephemeral });
             return;
         }
-        return this.answer(interaction, () => this.gigs.join(interaction.user.id, Number(id)));
+        return this.answer(interaction, () => this.gigs.join(interaction.user.id, id));
     }
 
     /** The runner picked from that menu. */
     @StringSelect('gig/pick/:id')
     async pick(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [runnerId]: string[]) {
         try {
-            const reply = await this.gigs.join(interaction.user.id, Number(id), Number(runnerId));
+            const reply = await this.gigs.join(interaction.user.id, id, runnerId);
             await interaction.update({ content: reply, components: [] });
         } catch (err) {
             await interaction.update({ content: explain(err), components: [] });
@@ -67,12 +67,12 @@ export class GigInteractions {
     @StringSelect('rate/:id')
     async rate(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [stars]: string[]) {
         try {
-            this.debrief.rate(interaction.user.id, Number(id), Number(stars));
+            await this.debrief.rate(interaction.user.id, id, Number(stars));
         } catch (err) {
             return interaction.reply(explain(err));
         }
         const note = new TextInputBuilder().setCustomId('comment').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(300);
-        const existing = this.debrief.myRating(interaction.user.id, Number(id))?.comment;
+        const existing = (await this.debrief.myRating(interaction.user.id, id))?.comment;
         if (existing) note.setValue(existing);
         const modal = new ModalBuilder()
             .setCustomId(`rate/comment/${id}/${stars}`)
@@ -85,7 +85,7 @@ export class GigInteractions {
     async rateComment(@Context() [interaction]: ModalContext, @ModalParam('id') id: string, @ModalParam('stars') stars: string) {
         try {
             const comment = interaction.fields.getTextInputValue('comment').trim().slice(0, 300) || null;
-            await interaction.reply(this.debrief.rate(interaction.user.id, Number(id), Number(stars), comment));
+            await interaction.reply(await this.debrief.rate(interaction.user.id, id, Number(stars), comment));
         } catch (err) {
             await interaction.reply(explain(err));
         }
@@ -93,13 +93,13 @@ export class GigInteractions {
 
     @Button('gig/confirm/:id')
     confirm(@Context() [interaction]: ButtonContext, @ComponentParam('id') id: string) {
-        return this.answer(interaction, () => this.gigs.confirm(interaction.user.id, Number(id)));
+        return this.answer(interaction, () => this.gigs.confirm(interaction.user.id, id));
     }
 
     @Button('gig/leave/:id')
     leave(@Context() [interaction]: ButtonContext, @ComponentParam('id') id: string) {
-        return this.answer(interaction, () => {
-            this.gigs.leave(interaction.user.id, Number(id));
+        return this.answer(interaction, async () => {
+            await this.gigs.leave(interaction.user.id, id);
             return voice.left();
         });
     }
@@ -107,8 +107,8 @@ export class GigInteractions {
     /** From a reminder DM. Turned back on from the web. */
     @Button('prefs/reminders/off')
     remindersOff(@Context() [interaction]: ButtonContext) {
-        return this.answer(interaction, () => {
-            this.prefs.set(interaction.user.id, { ...this.prefs.get(interaction.user.id), reminders: false });
+        return this.answer(interaction, async () => {
+            await this.prefs.set(interaction.user.id, { ...(await this.prefs.get(interaction.user.id)), reminders: false });
             return voice.remindersOff(config.PUBLIC_URL);
         });
     }

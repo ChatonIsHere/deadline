@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type AnyThreadChannel, type APIEmbed, ChannelType, Client, DiscordAPIError, ForumChannel, ForumLayoutType, RESTJSONErrorCodes, ThreadAutoArchiveDuration } from 'discord.js';
 import { Once } from 'necord';
+import { CacheService } from '../cache/cache.service';
 import { config } from '../config';
 import { LibraryService } from '../library/library.service';
 import { SettingsService } from '../settings/settings.service';
@@ -55,6 +56,7 @@ export class GigPostService {
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
         private readonly members: MembersService,
+        private readonly cache: CacheService,
     ) {}
 
     @Once('clientReady')
@@ -77,11 +79,17 @@ export class GigPostService {
         }
     }
 
-    /** Forum tags that aren't statuses or fixers. Offered as gig types, and applied when a gig's type matches. */
+    /**
+     * Forum tags that aren't statuses or fixers. Offered as gig types, and applied when a gig's
+     * type matches. Cached for 10 minutes: the gig form asks every time it opens.
+     */
     async types(): Promise<string[]> {
-        if (!this.settings.get().forumId) return [];
-        const forum = await this.forum();
-        return forum.availableTags.map((t) => t.name).filter((name) => !STATUS_TAGS.includes(name) && !name.startsWith('Fixer: '));
+        const forumId = this.settings.get().forumId;
+        if (!forumId) return [];
+        return this.cache.remember(`gig-types:${forumId}`, 600, async () => {
+            const forum = await this.forum();
+            return forum.availableTags.map((t) => t.name).filter((name) => !STATUS_TAGS.includes(name) && !name.startsWith('Fixer: '));
+        });
     }
 
     isGigForum(channelId: string | null): boolean {
@@ -92,14 +100,14 @@ export class GigPostService {
      * Creates or updates the gig's post. `note` is posted in the thread before a finished
      * gig gets archived. Returns where the post is now.
      */
-    async sync(gig: GigView, post: PostRef, note?: Note): Promise<PostRef> {
-        if (gig.status === 'pending' || gig.status === 'rejected') return post;
+    async sync(gig: GigView, post: PostRef & { cardKey: string | null }, note?: Note): Promise<PostRef> {
+        if (gig.status === 'pending' || gig.status === 'rejected') return { threadId: post.threadId, overflowIds: post.overflowIds };
 
         // Emoji load on startup; posts built before that would fall back to plain text
         await this.emoji.ready;
         const forum = await this.ensureFixerTag(gig.fixerName);
         const images = {
-            gig: gig.imageId ? await this.library.gigCardUrl({ id: gig.id, imageId: gig.imageId, name: gig.name }) : null,
+            gig: gig.imageId ? await this.library.gigCardUrl({ id: gig.id, imageId: gig.imageId, name: gig.name, cardKey: post.cardKey }) : null,
             fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
         };
         const { first, more } = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);

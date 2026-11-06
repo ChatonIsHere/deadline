@@ -1,20 +1,20 @@
 import type { SlotGroup } from '../shared/schemas';
 
 export interface Slot {
-    id: number;
-    crewId: number | null;
+    id: string;
+    crewId: string | null;
     userId: string | null;
 }
 
 /** The slot a runner should take: one of their crews' slots first, then an open one. */
-export function pickSlot<T extends Slot>(slots: T[], crewIds: number[]): T | null {
+export function pickSlot<T extends Slot>(slots: T[], crewIds: string[]): T | null {
     const empty = slots.filter((s) => s.userId === null);
     return empty.find((s) => s.crewId !== null && crewIds.includes(s.crewId)) ?? empty.find((s) => s.crewId === null) ?? null;
 }
 
 export interface SlotChanges {
-    add: (number | null)[];
-    remove: number[];
+    add: (string | null)[];
+    remove: string[];
 }
 
 /**
@@ -22,7 +22,7 @@ export interface SlotChanges {
  * are never removed, so asking for fewer slots than are filled is an error.
  */
 export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
-    const wanted = new Map<number | null, number>();
+    const wanted = new Map<string | null, number>();
     for (const g of groups) wanted.set(g.crewId, (wanted.get(g.crewId) ?? 0) + g.count);
 
     const changes: SlotChanges = { add: [], remove: [] };
@@ -48,17 +48,17 @@ export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
 
 export interface Reserve {
     userId: string;
-    crewIds: number[];
+    crewIds: string[];
 }
 
 /**
  * Moves reserves (oldest first) into empty slots they can take. Crew slots are filled
  * first so a crew member doesn't use up an open slot that someone else could have had.
  */
-export function fillFromReserves(slots: Slot[], reserves: Reserve[]): { slotId: number; userId: string }[] {
+export function fillFromReserves(slots: Slot[], reserves: Reserve[]): { slotId: string; userId: string }[] {
     const waiting = [...reserves];
     const empty = slots.filter((s) => s.userId === null).sort((a, b) => (a.crewId === null ? 1 : 0) - (b.crewId === null ? 1 : 0));
-    const moves: { slotId: number; userId: string }[] = [];
+    const moves: { slotId: string; userId: string }[] = [];
     for (const slot of empty) {
         const i = waiting.findIndex((r) => slot.crewId === null || r.crewIds.includes(slot.crewId));
         if (i === -1) continue;

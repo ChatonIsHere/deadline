@@ -1,1 +1,0 @@
-ALTER TABLE `gigs` ADD `primary_objective` text DEFAULT '' NOT NULL;

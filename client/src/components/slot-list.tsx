@@ -15,10 +15,10 @@ export function SlotList({
     onOpenCrew,
 }: {
     gig: GigView;
-    onKick?: (slotId: number) => void;
+    onKick?: (slotId: string) => void;
     onUnreserve?: (userId: string) => void;
     /** Lets anyone take a crew's reserved slots. */
-    onOpenCrew?: (crewId: number) => void;
+    onOpenCrew?: (crewId: string) => void;
 }) {
     const remove = (onClick: () => void) => (
         <Button variant="ghost" size="icon" className="ml-auto" title="Remove" onClick={onClick}>

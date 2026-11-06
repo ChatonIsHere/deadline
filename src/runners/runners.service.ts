@@ -1,23 +1,24 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { and, avg, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Gig, Runner } from '@prisma/client';
 import { CrewsService } from '../crews/crews.service';
-import { DB, Db } from '../db/db';
-import { gigRef, isFreeSlugWord, isNumericId, isUuid, toSlug } from '../shared/slug';
-import { crewMembers, crews, fixerRatings, gigReserves, gigs, gigSlots, runners } from '../db/schema';
 import { MembersService } from '../discord/members.service';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
+import { stringList } from '../prisma/json';
+import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn, canSeeGig } from '../shared/permissions';
 import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
+import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
 
-type Runner = typeof runners.$inferSelect;
+const UNFINISHED = ['pending', 'open', 'closed'] as const;
+const LIVE = ['open', 'closed'] as const;
 
 /** Players' characters, and the fixers among them (plus NPC fixers that admins add). */
 @Injectable()
-export class RunnersService implements OnModuleInit {
+export class RunnersService {
     constructor(
-        @Inject(DB) private readonly db: Db,
+        private readonly prisma: PrismaService,
         private readonly members: MembersService,
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
@@ -25,93 +26,75 @@ export class RunnersService implements OnModuleInit {
         private readonly crews: CrewsService,
     ) {}
 
-    /** Links follow handles. Runners from before (custom typed IDs) get theirs from the handle, where it's free. */
-    onModuleInit() {
-        for (const r of this.db.select().from(runners).all()) {
-            const slug = toSlug(r.handle);
-            if (r.slug !== slug && isFreeSlugWord(slug) && !this.slugTaken(slug, r.id)) this.db.update(runners).set({ slug }).where(eq(runners.id, r.id)).run();
-        }
-    }
-
-    /** A runner's numeric ID from a URL part: its UUID, its link (the handle), or the old numeric ID. */
-    resolve(ref: string): number {
-        if (isNumericId(ref)) return Number(ref);
-        const where = isUuid(ref) ? eq(runners.uuid, ref.toLowerCase()) : eq(runners.slug, toSlug(ref));
-        const r = this.db.query.runners.findFirst({ where }).sync();
+    /** A runner's ID from a URL part: its link (the handle) or its UUID. */
+    async resolve(ref: string): Promise<string> {
+        const r = await this.prisma.runner.findFirst({ where: isUuid(ref) ? { id: ref.toLowerCase() } : { slug: toSlug(ref) }, select: { id: true } });
         if (!r) throw new NotFoundException('No such runner.');
         return r.id;
     }
 
     /** Every player's runners. NPC fixers only show on the Fixers tab. */
-    list(): RunnerSummary[] {
-        return this.db.query.runners
-            .findMany({ where: isNotNull(runners.ownerId), orderBy: runners.handle })
-            .sync()
-            .map((r) => this.summary(r));
+    async list(): Promise<RunnerSummary[]> {
+        const rows = await this.prisma.runner.findMany({ where: { ownerId: { not: null } }, orderBy: { handle: 'asc' } });
+        return rows.map((r) => this.summary(r));
     }
 
     /** Runners that count as fixers, with their ratings. */
-    fixers(): FixerSummary[] {
-        return this.db.query.runners
-            .findMany({ orderBy: runners.handle })
-            .sync()
-            .filter((r) => this.members.isFixerRunner(r))
-            .map((r) => ({
-                ...this.summary(r),
-                officeLocation: r.officeLocation,
-                specialties: r.specialties,
-                rating: this.rating(r.id),
-                gigCount: this.db.select({ n: count() }).from(gigs).where(eq(gigs.fixerRunnerId, r.id)).get()!.n,
-            }));
+    async fixers(): Promise<FixerSummary[]> {
+        const rows = await this.prisma.runner.findMany({ orderBy: { handle: 'asc' }, include: { _count: { select: { fixedGigs: true } } } });
+        const fixers = rows.filter((r) => this.isFixer(r));
+        const ratings = await this.ratings(fixers.map((r) => r.id));
+        return fixers.map((r) => ({
+            ...this.summary(r),
+            officeLocation: r.officeLocation,
+            specialties: r.specialties,
+            rating: ratings.get(r.id) ?? { average: null, count: 0 },
+            gigCount: r._count.fixedGigs,
+        }));
     }
 
     /** Runners whose handle contains `query`, for Discord command suggestions. */
-    search(query: string, fixersOnly = false): RunnerCard[] {
-        const q = query.trim().toLowerCase();
-        return this.db.query.runners
-            .findMany({ orderBy: runners.handle })
-            .sync()
-            .filter((r) => r.handle.toLowerCase().includes(q) && (fixersOnly ? this.members.isFixerRunner(r) : !!r.ownerId))
+    async search(query: string, fixersOnly = false): Promise<RunnerCard[]> {
+        const rows = await this.prisma.runner.findMany({
+            where: { handle: { contains: query.trim(), mode: 'insensitive' }, ...(fixersOnly ? {} : { ownerId: { not: null } }) },
+            orderBy: { handle: 'asc' },
+        });
+        return rows
+            .filter((r) => !fixersOnly || this.isFixer(r))
             .slice(0, 25)
             .map(toCard);
     }
 
     /** The signed in player's own runners. */
-    mine(userId: string): RunnerCard[] {
-        return this.db.query.runners
-            .findMany({ where: eq(runners.ownerId, userId), orderBy: runners.handle })
-            .sync()
-            .map(toCard);
+    async mine(userId: string): Promise<RunnerCard[]> {
+        return (await this.prisma.runner.findMany({ where: { ownerId: userId }, orderBy: { handle: 'asc' } })).map(toCard);
     }
 
-    get(user: Me, id: number): RunnerView {
-        const r = this.row(id);
-        const visible = (gig: typeof gigs.$inferSelect) => canSeeGig(user, gig);
-        const link = (g: typeof gigs.$inferSelect): GigLink => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null });
+    async get(user: Me, id: string): Promise<RunnerView> {
+        const r = await this.row(id);
+        const visible = (gig: Gig) => canSeeGig(user, gig);
+        const link = (g: Gig): GigLink => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null });
+        const newest = { createdAt: 'desc' } as const;
 
-        const gigIds = this.db
-            .selectDistinct({ id: gigSlots.gigId })
-            .from(gigSlots)
-            .where(eq(gigSlots.runnerId, id))
-            .all()
-            .map((g) => g.id);
-        const ran = gigIds.length ? this.db.query.gigs.findMany({ where: inArray(gigs.id, gigIds) }).sync() : [];
-        const fixed = this.db.query.gigs.findMany({ where: eq(gigs.fixerRunnerId, id) }).sync();
-        const memberOf = this.db.select({ id: crews.id, slug: sql<string>`coalesce(${crews.slug}, ${crews.id})`, name: crews.name }).from(crewMembers).innerJoin(crews, eq(crews.id, crewMembers.crewId)).where(eq(crewMembers.runnerId, id)).all();
-        const newest = (a: typeof gigs.$inferSelect, b: typeof gigs.$inferSelect) => b.createdAt.getTime() - a.createdAt.getTime();
+        const [ran, fixed, memberOf, ratings] = await Promise.all([
+            this.prisma.gig.findMany({ where: { slots: { some: { runnerId: id } } }, orderBy: newest }),
+            this.prisma.gig.findMany({ where: { fixerRunnerId: id }, orderBy: newest }),
+            this.prisma.crewMember.findMany({ where: { runnerId: id }, include: { crew: { select: { id: true, slug: true, name: true } } } }),
+            this.ratings([id]),
+        ]);
+        const isFixer = this.isFixer(r);
 
         return {
             ...this.summary(r),
-            uuid: r.uuid,
             officeLocation: r.officeLocation,
             specialties: r.specialties,
             contact: r.contact,
             bio: r.bio,
-            crews: memberOf,
-            gigs: ran.filter(visible).sort(newest).map(link),
-            fixerGigs: fixed.filter(visible).sort(newest).map(link),
-            rating: this.rating(id),
-            reviews: this.members.isFixerRunner(r) ? this.reviews(id) : [],
+            crews: memberOf.map((m) => m.crew),
+            gigs: ran.filter(visible).map(link),
+            fixerGigs: fixed.filter(visible).map(link),
+            rating: ratings.get(id) ?? { average: null, count: 0 },
+            reviews: isFixer ? await this.reviews(id) : [],
         };
     }
 
@@ -123,40 +106,34 @@ export class RunnersService implements OnModuleInit {
         const { ownerId: requested, ...fields } = input;
         const ownerId = requested === undefined ? user.id : requested;
         await this.checkOwner(user, ownerId, input);
-        this.check(input);
-        const slug = this.handleSlug(input.handle);
-        const [row] = this.db
-            .insert(runners)
-            .values({ ...fields, ownerId, slug })
-            .returning({ id: runners.id })
-            .all();
+        await this.check(input);
+        const slug = await this.handleSlug(input.handle);
+        const row = await this.prisma.runner.create({ data: { ...fields, ownerId, slug } });
+        await this.library.refreshUsage([row.imageId]);
         return this.get(user, row.id);
     }
 
     /** Players edit their own runners. Admins edit any, and can hand a runner to another player. */
-    async update(user: Me, id: number, input: RunnerInput): Promise<RunnerView> {
-        const r = this.row(id);
+    async update(user: Me, id: string, input: RunnerInput): Promise<RunnerView> {
+        const r = await this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
         const { ownerId: requested, ...fields } = input;
         const ownerId = requested === undefined ? r.ownerId : requested;
         if (ownerId !== r.ownerId) {
             await this.checkOwner(user, ownerId, input);
             // Moving a runner mid-gig could give their new player two runners on it
-            if (this.onLiveGigs(id)) throw new BadRequestException('Take this runner off their live gigs before giving them to another player.');
+            if (await this.onUnfinishedGigs(id)) throw new BadRequestException('Take this runner off their live gigs before giving them to another player.');
         } else if (!ownerId && !hasFixerRole(input)) {
             throw new BadRequestException('An NPC needs the Fixer role.');
         }
-        this.check(input, r);
+        await this.check(input, r);
         // A new handle means a new link
-        const slug = this.handleSlug(input.handle, id);
-        this.db
-            .update(runners)
-            .set({ ...fields, ownerId, slug })
-            .where(eq(runners.id, id))
-            .run();
+        const slug = await this.handleSlug(input.handle, id);
+        await this.prisma.runner.update({ where: { id }, data: { ...fields, ownerId, slug } });
         // A fixer character's gigs follow it to its new player
-        if (ownerId !== r.ownerId) this.db.update(gigs).set({ fixerId: ownerId }).where(eq(gigs.fixerRunnerId, id)).run();
-        this.gigs.refresh(this.liveGigs(id));
+        if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
+        await this.library.refreshUsage([input.imageId, r.imageId]);
+        this.gigs.refresh(await this.liveGigs(id));
         return this.get(user, id);
     }
 
@@ -173,34 +150,31 @@ export class RunnersService implements OnModuleInit {
     }
 
     /** In a slot or on the reserves of a gig that isn't finished. */
-    private onLiveGigs(id: number): boolean {
-        const live = ['pending', 'open', 'closed'] as const;
-        const inSlot = this.db
-            .select({ id: gigSlots.id })
-            .from(gigSlots)
-            .innerJoin(gigs, eq(gigs.id, gigSlots.gigId))
-            .where(and(eq(gigSlots.runnerId, id), inArray(gigs.status, [...live])))
-            .get();
-        const reserved = this.db
-            .select({ id: gigReserves.gigId })
-            .from(gigReserves)
-            .innerJoin(gigs, eq(gigs.id, gigReserves.gigId))
-            .where(and(eq(gigReserves.runnerId, id), inArray(gigs.status, [...live])))
-            .get();
+    private async onUnfinishedGigs(id: string): Promise<boolean> {
+        const unfinished = { status: { in: [...UNFINISHED] } };
+        const [inSlot, reserved] = await Promise.all([
+            this.prisma.gigSlot.findFirst({ where: { runnerId: id, gig: unfinished }, select: { id: true } }),
+            this.prisma.gigReserve.findFirst({ where: { runnerId: id, gig: unfinished }, select: { gigId: true } }),
+        ]);
         return !!inSlot || !!reserved;
     }
 
-    delete(user: Me, id: number) {
-        const r = this.row(id);
+    async delete(user: Me, id: string) {
+        const r = await this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
-        this.gigs.dropRunner(id);
-        const crewIds = this.crews.crewsOf(id);
-        this.db.delete(runners).where(eq(runners.id, id)).run();
-        this.crews.keepFounders(crewIds);
+        await this.gigs.dropRunner(id);
+        const crewIds = await this.crews.crewsOf(id);
+        await this.prisma.runner.delete({ where: { id } });
+        await this.crews.keepFounders(crewIds);
+        await this.library.refreshUsage([r.imageId]);
     }
 
     canManage(user: Me, runner: { ownerId: string | null }) {
         return user.isAdmin || runner.ownerId === user.id;
+    }
+
+    private isFixer(r: Runner): boolean {
+        return this.members.isFixerRunner({ role: r.role, extraRoles: stringList(r.extraRoles), ownerId: r.ownerId });
     }
 
     private summary(r: Runner): RunnerSummary {
@@ -208,81 +182,67 @@ export class RunnersService implements OnModuleInit {
             ...toCard(r),
             owner: r.ownerId ? this.members.member(r.ownerId) : null,
             canTakeGigs: !!r.ownerId && this.members.isEdgerunner(r.ownerId),
-            isFixer: this.members.isFixerRunner(r),
+            isFixer: this.isFixer(r),
         };
     }
 
-    /** Average stars from players who went on this fixer's gigs. */
-    private rating(fixerId: number): Rating {
-        const row = this.db
-            .select({ average: avg(fixerRatings.stars), count: count() })
-            .from(fixerRatings)
-            .innerJoin(gigs, eq(gigs.id, fixerRatings.gigId))
-            .where(eq(gigs.fixerRunnerId, fixerId))
-            .get();
-        return { average: row?.average ? Number(row.average) : null, count: row?.count ?? 0 };
+    /** Average stars from players who went on each fixer's gigs, in one query. */
+    private async ratings(fixerIds: string[]): Promise<Map<string, Rating>> {
+        if (!fixerIds.length) return new Map();
+        const rows = await this.prisma.$queryRaw<{ fixer: string; average: number; count: bigint }[]>`
+            SELECT g.fixer_runner_id AS fixer, avg(r.stars)::float AS average, count(*) AS count
+            FROM fixer_ratings r JOIN gigs g ON g.id = r.gig_id
+            WHERE g.fixer_runner_id = ANY(${fixerIds}::uuid[])
+            GROUP BY g.fixer_runner_id`;
+        return new Map(rows.map((r) => [r.fixer, { average: r.average, count: Number(r.count) }]));
     }
 
     /** The fixer's latest five ratings, newest first, with the runner each rater had on the gig. */
-    private reviews(fixerId: number): Review[] {
-        const rows = this.db
-            .select({ stars: fixerRatings.stars, comment: fixerRatings.comment, at: fixerRatings.ratedAt, userId: fixerRatings.userId, gigId: gigs.id, gigUuid: gigs.uuid, gigName: gigs.name })
-            .from(fixerRatings)
-            .innerJoin(gigs, eq(gigs.id, fixerRatings.gigId))
-            .where(eq(gigs.fixerRunnerId, fixerId))
-            .orderBy(desc(fixerRatings.ratedAt), desc(gigs.id))
-            .limit(5)
-            .all();
+    private async reviews(fixerId: string): Promise<Review[]> {
+        const rows = await this.prisma.fixerRating.findMany({
+            where: { gig: { fixerRunnerId: fixerId } },
+            include: { gig: { include: { slots: { include: { runner: true } } } } },
+            orderBy: { ratedAt: 'desc' },
+            take: 5,
+        });
         return rows.map((r) => {
-            const slot = this.db.query.gigSlots.findFirst({ where: and(eq(gigSlots.gigId, r.gigId), eq(gigSlots.userId, r.userId)) }).sync();
-            const by = slot?.runnerId ? this.db.query.runners.findFirst({ where: eq(runners.id, slot.runnerId) }).sync() : undefined;
-            return { stars: r.stars, comment: r.comment, gig: { id: r.gigId, ref: gigRef({ uuid: r.gigUuid, name: r.gigName }), name: r.gigName }, by: by ? toCard(by) : null, at: r.at?.getTime() ?? null };
+            const by = r.gig.slots.find((s) => s.userId === r.userId)?.runner;
+            return { stars: r.stars, comment: r.comment, gig: { id: r.gig.id, ref: gigRef(r.gig), name: r.gig.name }, by: by ? toCard(by) : null, at: r.ratedAt.getTime() };
         });
     }
 
     /** Roles have to come from the list in Settings, but a runner keeps roles that were taken off it since. */
-    private check(input: RunnerInput, existing?: Runner) {
-        const allowed = new Set([...this.settings.get().runnerRoles, ...(existing ? [existing.role, ...existing.extraRoles] : [])]);
+    private async check(input: RunnerInput, existing?: Runner) {
+        const allowed = new Set([...this.settings.get().runnerRoles, ...(existing ? [existing.role, ...stringList(existing.extraRoles)] : [])]);
         for (const role of [input.role, ...input.extraRoles]) {
             if (!allowed.has(role)) throw new BadRequestException(`"${role}" isn't one of the roles.`);
         }
-        if (input.imageId && !this.library.exists(input.imageId)) throw new BadRequestException('That picture is gone. Upload it again.');
+        if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Upload it again.');
     }
 
     /** Live gigs that show this runner, as a runner or the fixer. */
-    private liveGigs(id: number): number[] {
-        const asRunner = this.db
-            .selectDistinct({ id: gigSlots.gigId })
-            .from(gigSlots)
-            .innerJoin(gigs, eq(gigs.id, gigSlots.gigId))
-            .where(and(eq(gigSlots.runnerId, id), inArray(gigs.status, ['open', 'closed'])))
-            .all();
-        const asFixer = this.db
-            .select({ id: gigs.id })
-            .from(gigs)
-            .where(and(eq(gigs.fixerRunnerId, id), inArray(gigs.status, ['open', 'closed'])))
-            .all();
-        return [...new Set([...asRunner, ...asFixer].map((g) => g.id))];
-    }
-
-    private slugTaken(slug: string, except?: number) {
-        const other = this.db.query.runners.findFirst({ where: eq(runners.slug, slug) }).sync();
-        return !!other && other.id !== except;
+    private async liveGigs(id: string): Promise<string[]> {
+        const rows = await this.prisma.gig.findMany({
+            where: { status: { in: [...LIVE] }, OR: [{ fixerRunnerId: id }, { slots: { some: { runnerId: id } } }] },
+            select: { id: true },
+        });
+        return rows.map((g) => g.id);
     }
 
     /**
      * A handle's link. Handles are one of a kind in Night City, so two that would make the same
      * link ("Mr. B" and "Mr B") can't both exist. `except` is the runner being renamed.
      */
-    private handleSlug(handle: string, except?: number) {
+    private async handleSlug(handle: string, except?: string): Promise<string> {
         const slug = toSlug(handle);
         if (!isFreeSlugWord(slug)) throw new BadRequestException("That handle can't be used. It needs a letter in it, and can't be new, edit, mine or invites.");
-        if (this.slugTaken(slug, except)) throw new ConflictException("That handle's taken. Handles are one of a kind in Night City.");
+        const other = await this.prisma.runner.findUnique({ where: { slug }, select: { id: true } });
+        if (other && other.id !== except) throw new ConflictException("That handle's taken. Handles are one of a kind in Night City.");
         return slug;
     }
 
-    private row(id: number): Runner {
-        const r = this.db.query.runners.findFirst({ where: eq(runners.id, id) }).sync();
+    private async row(id: string): Promise<Runner> {
+        const r = await this.prisma.runner.findUnique({ where: { id } });
         if (!r) throw new NotFoundException('No such runner.');
         return r;
     }

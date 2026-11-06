@@ -32,7 +32,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
     const runners = gig.slots.flatMap((s) => (s.runner && s.runner.id ? [s.runner] : []));
     const [summary, setSummary] = useState('');
     const [crew, setCrew] = useState({ ...blank, hqIp: '' });
-    const [extra, setExtra] = useState<Record<number, Amounts>>({});
+    const [extra, setExtra] = useState<Record<string, Amounts>>({});
     const [error, setError] = useState('');
 
     const complete = useAction((input: CompleteInput) => api(`/api/gigs/${gig.id}/complete`, 'POST', input), 'job done. payouts sent.', () => navigate(`/gigs/${gig.ref}`));
@@ -54,7 +54,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
         complete.mutate(result.data);
     };
 
-    const setRunner = (runnerId: number, patch: Partial<Amounts>) => setExtra((x) => ({ ...x, [runnerId]: { ...(x[runnerId] ?? blank), ...patch } }));
+    const setRunner = (runnerId: string, patch: Partial<Amounts>) => setExtra((x) => ({ ...x, [runnerId]: { ...(x[runnerId] ?? blank), ...patch } }));
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">

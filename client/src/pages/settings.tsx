@@ -226,7 +226,7 @@ function BotProfileCard() {
     const { data: profile } = useQuery({ queryKey: ['bot-profile'], queryFn: () => api<BotProfile>('/api/settings/bot-profile') });
     const library = useLibrary().data;
     const [about, setAbout] = useState<string | null>(null);
-    const [bannerImageId, setBannerImageId] = useState<number | null>(null);
+    const [bannerImageId, setBannerImageId] = useState<string | null>(null);
     const save = useAction(() => api('/api/settings/bot-profile', 'PUT', { about: about ?? profile?.about ?? '', bannerImageId }), 'bot profile updated.', () => setBannerImageId(null));
 
     const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
