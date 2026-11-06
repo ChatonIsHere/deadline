@@ -83,8 +83,15 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         }
         // Uploads for one gig or runner count as unused until they're saved with it
         const row = await this.prisma.image.create({ data: { ...opts, kind, unusedSince: opts.inLibrary ? null : new Date() } });
-        await this.storage.put(plainFile(row.id), plain, 'image/webp');
-        await this.writeCopies(row.id, kind, plain);
+        try {
+            await this.storage.put(plainFile(row.id), plain, 'image/webp');
+            await this.writeCopies(row.id, kind, plain);
+        } catch (err) {
+            // No row without its files: storage refused, so the picture doesn't exist
+            await this.storage.delete(await this.storage.list(imagePrefix(row.id))).catch(() => undefined);
+            await this.prisma.image.delete({ where: { id: row.id } });
+            throw err;
+        }
         return row.id;
     }
 
