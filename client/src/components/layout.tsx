@@ -39,8 +39,8 @@ interface Channel {
 }
 
 /**
- * The board's terminal. Desktop: a rail on the left with numbered channels. Phones: the channels along the bottom (easier to reach with a thumb) and a
- * floating button for new gigs. Everyone gets the prompt bar on top, which shows where
+ * The board's terminal. Desktop (1280px and up): a channel tab stuck to the left edge. Phones and tablets: the channels along the bottom (easier to reach with a thumb) and a
+ * floating button for new gigs. Everyone gets the prompt bar (top on phones, bottom on desktop), which shows where
  * you are and opens the command palette (Ctrl+K).
  */
 export function Layout() {
@@ -101,13 +101,14 @@ export function Layout() {
         // page that could scroll even a little let Firefox slide its toolbar away and took our
         // bars with it. Desktop scrolls the page, and the prompt bar sticks to the bottom of the
         // window, like a terminal's command line.
-        <div className="fixed inset-0 flex flex-col md:static md:grid md:min-h-screen md:grid-cols-[13rem_1fr]">
+        <div className="fixed inset-0 flex flex-col xl:static xl:block xl:min-h-screen">
             <Rail channels={channels} />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col md:min-h-screen">
-                <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-visible">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:min-h-screen">
+                <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-visible">
                     {/* Bottom padding keeps content clear of the corner + */}
-                    <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8">
+                    {/* Desktop: centred on the whole window, and narrow enough to clear the channel tab on the left (13rem tab, then the 2rem padding as a gap) */}
+                    <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))]">
                         {me.isAdmin && <SetupReminder />}
                         <Outlet />
                     </main>
@@ -120,7 +121,7 @@ export function Layout() {
                     asChild
                     size="icon"
                     // Above the channel bar on phones, and the prompt bar on desktop
-                    className="fixed right-4 bottom-20 z-30 size-14 [--cut:12px] md:right-8 md:bottom-16"
+                    className="fixed right-4 bottom-20 z-30 size-14 [--cut:12px] xl:right-8 xl:bottom-16"
                 >
                     <Link to={fab.to} aria-label={fab.label} title={fab.label}>
                         <Plus className="size-6" />
@@ -128,7 +129,7 @@ export function Layout() {
                 </Button>
             )}
 
-            <nav className="shrink-0 border-t-2 border-primary/40 bg-background md:hidden">
+            <nav className="shrink-0 border-t-2 border-primary/40 bg-background xl:hidden">
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
@@ -145,12 +146,16 @@ export function Layout() {
 
 const channelNo = (n: number) => String(n).padStart(2, '0');
 
-/** Desktop: the board's bezel. Logo and numbered channels. You are in the prompt bar. */
+/**
+ * Desktop: the channel tab, a panel stuck to the left edge of the window. Logo and numbered
+ * channels. It floats beside the page rather than taking a column, so the page centres on
+ * the whole window and the prompt bar runs the full width under it. You are in the prompt bar.
+ */
 function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
     return (
-        <aside className="sticky top-0 hidden h-screen flex-col border-r-2 border-primary/40 bg-card/60 md:flex">
+        <aside className="fixed top-6 left-0 z-30 hidden w-52 flex-col border-y-2 border-r-2 border-primary/40 bg-card pb-3 xl:flex">
             <Link to="/gigs" className="flex h-12 items-center gap-2 border-b-2 border-primary/40 px-4">
                 <img src="/logo.svg" alt="" className="size-6" />
                 <span className="font-display text-lg font-bold tracking-[0.2em] text-primary">DEADLINE</span>
@@ -189,7 +194,7 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
     const path = usePath();
     return (
         // Phones: the first row, under the browser bar. Desktop: stuck to the bottom of the window.
-        <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
+        <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm xl:sticky xl:bottom-0 xl:z-20 xl:order-none xl:border-t xl:border-b-0 xl:px-8">
             <span className="flex min-w-0 flex-1 items-center self-stretch">
                 {me && (
                     // The whole of picture, name and @DEADLINE, full height, goes to your settings
@@ -211,7 +216,7 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
                 </button>
             </span>
             {/* Desktop only: on phones the prompt itself is the button */}
-            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="hidden shrink-0 cursor-pointer items-center text-muted-foreground outline-none md:flex">
+            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="hidden shrink-0 cursor-pointer items-center text-muted-foreground outline-none xl:flex">
                 <kbd className="cut bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px]">CTRL K</kbd>
             </button>
         </div>
