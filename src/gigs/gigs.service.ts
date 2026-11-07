@@ -548,7 +548,7 @@ export class GigsService {
             const runner = await this.prisma.runner.findUnique({ where: { id: input.fixerRunnerId } });
             if (!runner || !this.members.isFixerRunner({ ...runner, extraRoles: stringList(runner.extraRoles) })) throw new BadRequestException("That character isn't a fixer.");
             if (!user.isAdmin && runner.ownerId !== user.id) throw new ForbiddenException();
-            return { name: runner.handle, runnerId: runner.id, userId: runner.ownerId };
+            return { name: runner.fixerAlias ?? runner.handle, runnerId: runner.id, userId: runner.ownerId };
         }
         if (user.isAdmin) {
             if (!input.fixerName) throw new BadRequestException('Pick a fixer or type a name.');
@@ -556,7 +556,7 @@ export class GigsService {
         }
         // A fixer with a single fixer character doesn't need to pick
         const own = (await this.runnersOf(user.id)).filter((r) => this.members.isFixerRunner({ ...r, extraRoles: stringList(r.extraRoles) }));
-        if (own.length === 1) return { name: own[0].handle, runnerId: own[0].id, userId: user.id };
+        if (own.length === 1) return { name: own[0].fixerAlias ?? own[0].handle, runnerId: own[0].id, userId: user.id };
         throw new BadRequestException(own.length ? 'Pick which of your fixers this gig is from.' : 'Make a fixer character first: a runner with the Fixer role.');
     }
 
@@ -628,7 +628,7 @@ export class GigsService {
             id: gig.id,
             ref: gigRef(gig),
             name: gig.name,
-            fixerName: fixer?.handle ?? gig.fixerName,
+            fixerName: fixer ? (fixer.fixerAlias ?? fixer.handle) : gig.fixerName,
             fixerRunnerId: gig.fixerRunnerId,
             fixerImageId: fixer?.imageId ?? null,
             fixerId: gig.fixerId,

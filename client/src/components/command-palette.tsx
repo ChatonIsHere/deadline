@@ -96,11 +96,12 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                                 ))}
                             </Group>
                             <Group heading="Fixers">
+                                {/* Player fixers without an alias are under Runners, with the same name */}
                                 {fixers
-                                    .filter((f) => !f.ownerId)
+                                    .filter((f) => !f.ownerId || f.fixerName !== f.handle)
                                     .map((f) => (
-                                        <Item key={f.id} value={`fixer ${f.id} ${f.slug} ${f.handle}`} tag="NPC" onSelect={() => go(`/fixers/${f.slug}`)}>
-                                            {f.handle}
+                                        <Item key={f.id} value={`fixer ${f.id} ${f.fixerSlug} ${f.fixerName}`} tag={f.ownerId ? 'FIXER' : 'NPC'} onSelect={() => go(`/fixers/${f.fixerSlug}`)}>
+                                            {f.fixerName}
                                         </Item>
                                     ))}
                             </Group>

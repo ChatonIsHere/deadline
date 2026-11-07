@@ -30,6 +30,7 @@ const input = (patch: Partial<RunnerInput> = {}): RunnerInput => ({
     role: 'Netrunner',
     extraRoles: [],
     imageId: null,
+    fixerAlias: null,
     officeLocation: null,
     specialties: null,
     contact: null,
@@ -67,6 +68,19 @@ describe('RunnersService', () => {
         await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: '2077' })), /can't be used/);
         // One letter is fine
         assert.equal((await runners.create(admin, input({ ownerId: 'b', handle: 'V' }))).slug, 'v');
+    });
+
+    it('gives a fixer alias its own link, one of a kind with the handles', async () => {
+        const vex = await runners.create(players[1], input({ handle: 'Vex', fixerAlias: 'Mr. Hands' }));
+        assert.equal(vex.fixerName, 'Mr. Hands');
+        assert.equal(vex.fixerSlug, 'mr-hands');
+        assert.equal(await runners.resolve('mr-hands'), vex.id);
+        await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: 'Mr Hands' })), /taken/);
+        await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: 'Kit', fixerAlias: 'vex' })), /taken/);
+        // The same as their own handle is no alias
+        const same = await runners.update(players[1], vex.id, input({ handle: 'Vex', fixerAlias: 'VEX' }));
+        assert.equal(same.fixerAlias, null);
+        assert.equal(same.fixerSlug, 'vex');
     });
 
     it('finds runners by handle or UUID, and moves the link on a rename', async () => {

@@ -162,6 +162,10 @@ model Runner {
   extraRoles     Json         @default("[]") @map("extra_roles")
   imageId        String?      @map("image_id") @db.Uuid
   // Fixer profile
+  /// The name they go by as a fixer, if not their handle. Shown on the fixer side only.
+  fixerAlias     String?      @map("fixer_alias")
+  /// The fixer profile's link, made from the alias: /fixers/mr-hands. Shares the handles' namespace.
+  fixerSlug      String?      @unique @map("fixer_slug")
   officeLocation String?      @map("office_location")
   specialties    String?
   contact        String?

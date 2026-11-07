@@ -25,6 +25,8 @@ export function FixerPage() {
     if (!fixer) return <Loading>pulling records...</Loading>;
     // Not (or no longer) a fixer: their runner profile is all there is
     if (!fixer.isFixer) return <Navigate to={`/runners/${fixer.slug}`} replace />;
+    // Handle and UUID links (gig pages use those) go to the fixer's own link
+    if (id !== fixer.fixerSlug) return <Navigate to={`/fixers/${fixer.fixerSlug}`} replace />;
 
     const canManage = me.isAdmin || fixer.ownerId === me.id;
     const fields = [
@@ -35,12 +37,12 @@ export function FixerPage() {
 
     return (
         <div className="space-y-6">
-            <Live value={[fixer.handle, fixer.imageId, fixer.rating, fixer.fixerGigs.length, fields, fixer.owner]}>
+            <Live value={[fixer.fixerName, fixer.imageId, fixer.rating, fixer.fixerGigs.length, fields, fixer.owner]}>
                 <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
-                    <RunnerAvatar runner={fixer} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
+                    <RunnerAvatar runner={{ handle: fixer.fixerName, imageId: fixer.imageId }} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
                     <div className="min-w-0 space-y-3">
                         <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
-                        <h1 className="text-3xl break-words text-accent">{fixer.handle}</h1>
+                        <h1 className="text-3xl break-words text-accent">{fixer.fixerName}</h1>
                         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
                             <RatingLine rating={fixer.rating} />
                             <span className="text-xs text-muted-foreground">
@@ -73,7 +75,7 @@ export function FixerPage() {
                                 <ConfirmButton
                                     size="sm"
                                     label="Delete"
-                                    title={`Delete ${fixer.handle}?`}
+                                    title={`Delete ${fixer.fixerName}?`}
                                     description="They're taken off any live gigs. Finished gigs keep the record."
                                     onConfirm={() => remove.mutate()}
                                 />

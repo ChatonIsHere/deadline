@@ -112,6 +112,8 @@ export const runnerInput = z.object({
     extraRoles: z.array(text(30)).max(9),
     imageId: id.nullable(),
     // Fixer profile, shown when the runner counts as a fixer
+    /** The name they go by as a fixer, if not their handle. One of a kind, like handles. */
+    fixerAlias: optionalText(40),
     officeLocation: optionalText(100),
     specialties: optionalText(150),
     contact: optionalText(150),
@@ -303,6 +305,10 @@ export interface RunnerSummary extends RunnerCard {
     isFixer: boolean;
     /** Unix ms. When they retired or died. */
     retiredAt: number | null;
+    /** What they go by as a fixer: the alias, or the handle without one. */
+    fixerName: string;
+    /** The fixer profile's link: from the alias, or the handle without one. */
+    fixerSlug: string;
 }
 
 export interface FixerSummary extends RunnerSummary {
@@ -327,6 +333,7 @@ export interface GigLink {
 }
 
 export interface RunnerView extends RunnerSummary {
+    fixerAlias: string | null;
     officeLocation: string | null;
     specialties: string | null;
     contact: string | null;

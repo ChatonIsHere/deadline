@@ -43,6 +43,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         role: runner?.role ?? '',
         extraRoles: runner?.extraRoles ?? [],
         imageId: runner?.imageId ?? null,
+        fixerAlias: runner?.fixerAlias ?? null,
         officeLocation: runner?.officeLocation ?? null,
         specialties: runner?.specialties ?? null,
         contact: runner?.contact ?? null,
@@ -145,6 +146,17 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                     <CardTitle help="shown on the Fixers tab. a player's fixer only counts once an admin gives them the fixer role in Discord.">Fixer profile</CardTitle>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
+                            <Label htmlFor="alias">Fixer alias</Label>
+                            <Input
+                                id="alias"
+                                value={form.fixerAlias ?? ''}
+                                onChange={(e) => set({ fixerAlias: e.target.value })}
+                                maxLength={40}
+                                placeholder={form.handle || 'Their handle'}
+                            />
+                            <p className="mt-1 text-xs text-muted-foreground">the name they go by as a fixer. empty uses their handle.</p>
+                        </div>
+                        <div>
                             <Label htmlFor="office">Office location</Label>
                             <Input id="office" value={form.officeLocation ?? ''} onChange={(e) => set({ officeLocation: e.target.value })} maxLength={100} />
                         </div>
@@ -152,10 +164,10 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                             <Label htmlFor="contact">How to reach them</Label>
                             <Input id="contact" value={form.contact ?? ''} onChange={(e) => set({ contact: e.target.value })} maxLength={150} />
                         </div>
-                    </div>
-                    <div>
-                        <Label htmlFor="specialties">Specialties</Label>
-                        <Input id="specialties" value={form.specialties ?? ''} onChange={(e) => set({ specialties: e.target.value })} maxLength={150} />
+                        <div>
+                            <Label htmlFor="specialties">Specialties</Label>
+                            <Input id="specialties" value={form.specialties ?? ''} onChange={(e) => set({ specialties: e.target.value })} maxLength={150} />
+                        </div>
                     </div>
                     <div>
                         <Label>Bio</Label>

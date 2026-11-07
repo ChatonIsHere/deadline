@@ -21,7 +21,7 @@ export function RunnerPage() {
     if (isError) return <Say>no such runner.</Say>;
     if (!runner) return <Loading>pulling records...</Loading>;
     // NPC fixers only exist as fixers
-    if (!runner.owner) return <Navigate to={`/fixers/${runner.slug}`} replace />;
+    if (!runner.owner) return <Navigate to={`/fixers/${runner.fixerSlug}`} replace />;
 
     const canManage = me.isAdmin || runner.ownerId === me.id;
     const gone = runner.status !== 'active';
@@ -50,7 +50,7 @@ export function RunnerPage() {
                 <div className="flex flex-wrap gap-2">
                     {runner.isFixer && (
                         <Button asChild variant="outline" size="sm">
-                            <Link to={`/fixers/${runner.slug}`}>View fixer profile</Link>
+                            <Link to={`/fixers/${runner.fixerSlug}`}>View fixer profile</Link>
                         </Button>
                     )}
                     {canManage && (

@@ -26,9 +26,10 @@ export class RunnersService {
         private readonly crews: CrewsService,
     ) {}
 
-    /** A runner's ID from a URL part: its link (the handle) or its UUID. */
+    /** A runner's ID from a URL part: its link (the handle, or a fixer's alias) or its UUID. */
     async resolve(ref: string): Promise<string> {
-        const r = await this.prisma.runner.findFirst({ where: isUuid(ref) ? { id: ref.toLowerCase() } : { slug: toSlug(ref) }, select: { id: true } });
+        const slug = toSlug(ref);
+        const r = await this.prisma.runner.findFirst({ where: isUuid(ref) ? { id: ref.toLowerCase() } : { OR: [{ slug }, { fixerSlug: slug }] }, select: { id: true } });
         if (!r) throw new NotFoundException('No such runner.');
         return r.id;
     }
@@ -55,14 +56,18 @@ export class RunnersService {
 
     /** Runners whose handle contains `query`, for Discord command suggestions. */
     async search(query: string, fixersOnly = false): Promise<RunnerCard[]> {
-        const rows = await this.prisma.runner.findMany({
-            where: { handle: { contains: query.trim(), mode: 'insensitive' }, ...(fixersOnly ? {} : { ownerId: { not: null } }) },
-            orderBy: { handle: 'asc' },
-        });
-        return rows
-            .filter((r) => !fixersOnly || this.isFixer(r))
-            .slice(0, 25)
-            .map(toCard);
+        const typed = query.trim().toLowerCase();
+        if (fixersOnly) {
+            // Fixers go by their alias, and are found by it (not their handle): the card's handle is the fixer name
+            const rows = await this.prisma.runner.findMany({ where: { status: 'active' } });
+            return rows
+                .filter((r) => this.isFixer(r) && (r.fixerAlias ?? r.handle).toLowerCase().includes(typed))
+                .map((r) => ({ ...toCard(r), handle: r.fixerAlias ?? r.handle }))
+                .sort((a, b) => a.handle.localeCompare(b.handle))
+                .slice(0, 25);
+        }
+        const rows = await this.prisma.runner.findMany({ where: { handle: { contains: query.trim(), mode: 'insensitive' }, ownerId: { not: null } }, orderBy: { handle: 'asc' } });
+        return rows.slice(0, 25).map(toCard);
     }
 
     /** The signed in player's runners still taking gigs. */
@@ -86,6 +91,7 @@ export class RunnersService {
 
         return {
             ...this.summary(r),
+            fixerAlias: r.fixerAlias,
             officeLocation: r.officeLocation,
             specialties: r.specialties,
             contact: r.contact,
@@ -109,7 +115,8 @@ export class RunnersService {
         await this.checkOwner(user, ownerId, input);
         await this.check(input);
         const slug = await this.handleSlug(input.handle);
-        const row = await this.prisma.runner.create({ data: { ...fields, ownerId, slug } });
+        const alias = await this.alias(fields.fixerAlias, slug);
+        const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ownerId, slug } });
         await this.library.refreshUsage([row.imageId]);
         return this.get(user, row.id);
     }
@@ -130,7 +137,8 @@ export class RunnersService {
         await this.check(input, r);
         // A new handle means a new link
         const slug = await this.handleSlug(input.handle, id);
-        await this.prisma.runner.update({ where: { id }, data: { ...fields, ownerId, slug } });
+        const alias = await this.alias(fields.fixerAlias, slug, id);
+        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ownerId, slug } });
         // A fixer character's gigs follow it to its new player
         if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
         await this.library.refreshUsage([input.imageId, r.imageId]);
@@ -212,6 +220,8 @@ export class RunnersService {
             canTakeGigs: !!r.ownerId && r.status === 'active' && this.members.isEdgerunner(r.ownerId),
             isFixer: this.isFixer(r),
             retiredAt: r.retiredAt?.getTime() ?? null,
+            fixerName: r.fixerAlias ?? r.handle,
+            fixerSlug: r.fixerSlug ?? r.slug,
         };
     }
 
@@ -265,9 +275,26 @@ export class RunnersService {
     private async handleSlug(handle: string, except?: string): Promise<string> {
         const slug = toSlug(handle);
         if (!isFreeSlugWord(slug)) throw new BadRequestException("That handle can't be used. It needs a letter in it, and can't be new, edit, mine or invites.");
-        const other = await this.prisma.runner.findUnique({ where: { slug }, select: { id: true } });
-        if (other && other.id !== except) throw new ConflictException("That handle's taken. Handles are one of a kind in Night City.");
+        if (await this.slugTaken(slug, except)) throw new ConflictException("That handle's taken. Handles are one of a kind in Night City.");
         return slug;
+    }
+
+    /**
+     * A fixer alias and its link. Aliases are one of a kind too, and can't match anyone's handle.
+     * One that's the same as the runner's own handle is no alias at all.
+     */
+    private async alias(alias: string | null, handleSlug: string, except?: string): Promise<{ fixerAlias: string | null; fixerSlug: string | null }> {
+        const fixerSlug = alias ? toSlug(alias) : '';
+        if (!alias || fixerSlug === handleSlug) return { fixerAlias: null, fixerSlug: null };
+        if (!isFreeSlugWord(fixerSlug)) throw new BadRequestException("That alias can't be used. It needs a letter in it, and can't be new, edit, mine or invites.");
+        if (await this.slugTaken(fixerSlug, except)) throw new ConflictException("That alias is taken. Names are one of a kind in Night City.");
+        return { fixerAlias: alias, fixerSlug };
+    }
+
+    /** Someone else already has this link, as a handle or a fixer alias. */
+    private async slugTaken(slug: string, except?: string): Promise<boolean> {
+        const other = await this.prisma.runner.findFirst({ where: { OR: [{ slug }, { fixerSlug: slug }], ...(except && { NOT: { id: except } }) }, select: { id: true } });
+        return !!other;
     }
 
     private async row(id: string): Promise<Runner> {

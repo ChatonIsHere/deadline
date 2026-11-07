@@ -157,7 +157,7 @@ export class Commands {
         const id = await this.resolve(handle, true);
         if (!id) return this.oops(interaction, 'no fixer by that handle.');
         try {
-            await interaction.reply(await this.card(await this.viewer(interaction.user.id), id));
+            await interaction.reply(await this.card(await this.viewer(interaction.user.id), id, 'fixer'));
         } catch {
             await this.oops(interaction, 'no fixer by that handle.');
         }
@@ -186,6 +186,7 @@ export class Commands {
                 role: role.trim(),
                 extraRoles: [],
                 imageId: null,
+                fixerAlias: null,
                 officeLocation: null,
                 specialties: null,
                 contact: null,
@@ -217,11 +218,11 @@ export class Commands {
         return (await this.runners.search(typed, fixersOnly)).find((r) => r.handle.toLowerCase() === typed.trim().toLowerCase())?.id;
     }
 
-    private async card(viewer: Me, id: string) {
+    private async card(viewer: Me, id: string, side: 'runner' | 'fixer' = 'runner') {
         const view = await this.runners.get(viewer, id); // throws if the runner was deleted since it was suggested
         // Uploaded with the reply, so Discord serves it (see LibraryService.attachment)
         const image = view.imageId ? await this.library.attachment(framedFile(view.imageId)) : null;
-        return { ...runnerCard(view, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] };
+        return { ...runnerCard(view, side, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] };
     }
 
     /** Who's asking, so pending gigs stay hidden from people who can't see them. */

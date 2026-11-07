@@ -75,13 +75,13 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
     const picture = '-mx-4 -mt-4 mb-3 aspect-square w-[calc(100%+2rem)] max-w-none';
     return (
         <div className="@container">
-            <LinkCard to={`/fixers/${f.slug}`} className={f.imageId ? 'flex h-full flex-col [--cut:11.1cqw]' : 'flex h-full flex-col'}>
+            <LinkCard to={`/fixers/${f.fixerSlug}`} className={f.imageId ? 'flex h-full flex-col [--cut:11.1cqw]' : 'flex h-full flex-col'}>
                 {f.imageId ? (
                     <img src={imageUrl(f.imageId)} alt="" loading="lazy" className={picture} />
                 ) : (
-                    <span className={cn(picture, 'grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{f.handle[0]?.toUpperCase()}</span>
+                    <span className={cn(picture, 'grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{f.fixerName[0]?.toUpperCase()}</span>
                 )}
-                <h3 className="mb-1 truncate text-lg leading-tight">{f.handle}</h3>
+                <h3 className="mb-1 truncate text-lg leading-tight">{f.fixerName}</h3>
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
                 <div className="mt-auto flex justify-end text-right">
                     <RatingLine rating={f.rating} count={false} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />

@@ -36,6 +36,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
         role: FIXER_ROLE,
         extraRoles: [],
         imageId: fixer?.imageId ?? null,
+        fixerAlias: null,
         officeLocation: fixer?.officeLocation ?? null,
         specialties: fixer?.specialties ?? null,
         contact: fixer?.contact ?? null,
@@ -47,7 +48,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
     const save = useAction(
         (input: RunnerInput) => (fixer ? api<RunnerView>(`/api/runners/${fixer.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),
         fixer ? 'fixer saved.' : 'fixer on file.',
-        (saved) => navigate(`/fixers/${saved.slug}`),
+        (saved) => navigate(`/fixers/${saved.fixerSlug}`),
     );
 
     const submit = (e: FormEvent) => {

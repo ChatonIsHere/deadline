@@ -283,10 +283,10 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                 id="fixer"
                                 value={form.fixerName}
                                 onChange={(fixerName) => {
-                                    const match = fixers.find((f) => f.handle.toLowerCase() === fixerName.trim().toLowerCase());
+                                    const match = fixers.find((f) => f.fixerName.toLowerCase() === fixerName.trim().toLowerCase());
                                     set({ fixerName, fixerRunnerId: match ? String(match.id) : '' });
                                 }}
-                                suggestions={fixers.map((f) => ({ value: f.handle, hint: f.owner?.name ?? 'NPC' }))}
+                                suggestions={fixers.map((f) => ({ value: f.fixerName, hint: f.owner?.name ?? 'NPC' }))}
                                 maxLength={60}
                             />
                         ) : fixers.length > 1 ? (
@@ -295,11 +295,11 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                 value={form.fixerRunnerId}
                                 onChange={(fixerRunnerId) => set({ fixerRunnerId })}
                                 placeholder="Which of your fixers?"
-                                options={fixers.map((f) => ({ value: String(f.id), label: f.handle }))}
+                                options={fixers.map((f) => ({ value: String(f.id), label: f.fixerName }))}
                             />
                         ) : fixers.length === 1 ? (
                             <p className="flex h-9 items-center gap-2">
-                                <RunnerAvatar runner={fixers[0]} /> {fixers[0].handle}
+                                <RunnerAvatar runner={{ handle: fixers[0].fixerName, imageId: fixers[0].imageId }} /> {fixers[0].fixerName}
                             </p>
                         ) : fixerQuery.isPending ? (
                             <Loading>checking your fixers...</Loading>

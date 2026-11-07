@@ -42,11 +42,11 @@ A crew is a group of runners with ranks. A gig can hold slots for a crew, and on
 Every gig, runner (and so fixer) and crew is keyed by a UUID, and `/gigs/<uuid>`, `/runners/<uuid>`, `/fixers/<uuid>` and `/crews/<uuid>` always work. Every link the site and the bot hand out is the readable one:
 
 - Gigs: the first part of the UUID and the name, `/gigs/3f2a9c1b-overzealous-squanch`. The deadline:// bar shows it in capitals. Only the UUID part is matched, so links from before a rename still work.
-- Runners and fixers: the handle, `/runners/vex`. Crews: the name, `/crews/static-wolves`. These follow renames.
+- Runners: the handle, `/runners/vex`. Fixers: their fixer alias, or the handle without one, `/fixers/mr-hands`. Crews: the name, `/crews/static-wolves`. These follow renames.
 
 Runners can retire (a break, they can come back) or flatline (dead, with an obituary on their profile). Either takes them off live gigs, and they move to the Runners page's Retired tab. Their player or an admin does it; only admins can bring back the dead.
 
-Handles and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
+Handles, fixer aliases and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist, as handles or aliases. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
 ## Sessions
 

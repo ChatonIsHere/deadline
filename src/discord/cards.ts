@@ -35,16 +35,21 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
 }
 
 /** /runner and /fixer: who they are, and for fixers, how to find them and how they rate. */
-export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: string | null) {
+/**
+ * /runner and /fixer. The runner side has roles and crews; the fixer side (for fixers) goes by
+ * their alias, with their office, rating and the gigs they put out.
+ */
+export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', boardUrl: string, imageUrl: string | null) {
+    const fixer = side === 'fixer' && runner.isFixer;
     const roles = [runner.role, ...runner.extraRoles].join(', ');
-    const recent = (runner.isFixer ? runner.fixerGigs : runner.gigs).slice(0, 5);
+    const recent = (fixer ? runner.fixerGigs : runner.gigs).slice(0, 5);
     const fields = [
-        { name: 'Roles', value: roles, inline: true },
+        ...(fixer ? [] : [{ name: 'Roles', value: roles, inline: true }]),
         { name: 'Played by', value: runner.ownerId ? `<@${runner.ownerId}>` : 'NPC', inline: true },
         ...(runner.status !== 'active' ? [{ name: 'Status', value: runner.status === 'dead' ? 'Flatlined' : 'Retired', inline: true }] : []),
-        ...(runner.crews.length ? [{ name: 'Crews', value: runner.crews.map((c) => c.name).join(', '), inline: true }] : []),
+        ...(!fixer && runner.crews.length ? [{ name: 'Crews', value: runner.crews.map((c) => c.name).join(', '), inline: true }] : []),
     ];
-    if (runner.isFixer) {
+    if (fixer) {
         fields.push(
             { name: 'Rating', value: runner.rating.average ? `${stars(runner.rating.average)} (${runner.rating.count})` : 'Not rated yet', inline: true },
             ...(runner.officeLocation ? [{ name: 'Office', value: runner.officeLocation, inline: true }] : []),
@@ -59,20 +64,22 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
     }
     if (recent.length) {
         fields.push({
-            name: runner.isFixer ? 'Recent gigs put out' : 'Recent gigs',
+            name: fixer ? 'Recent gigs put out' : 'Recent gigs',
             value: recent.map((g) => `[${g.name}](${boardUrl}/gigs/${g.ref}) · ${g.status}`).join('\n'),
             inline: false,
         });
     }
 
+    const name = fixer ? runner.fixerName : runner.handle;
+    const url = fixer ? `${boardUrl}/fixers/${runner.fixerSlug}` : `${boardUrl}/runners/${runner.slug}`;
     const embed = new EmbedBuilder()
         .setColor(runner.status === 'active' ? COLOURS.open : COLOURS.pending)
-        .setTitle(runner.status === 'dead' ? `${runner.handle} †` : runner.handle)
-        .setURL(`${boardUrl}/runners/${runner.slug}`)
-        .setDescription(runner.obituary ? cut(runner.obituary, 400) : runner.isFixer && runner.bio ? cut(runner.bio, 400) : null)
+        .setTitle(runner.status === 'dead' ? `${name} †` : name)
+        .setURL(url)
+        .setDescription(runner.obituary ? cut(runner.obituary, 400) : fixer && runner.bio ? cut(runner.bio, 400) : null)
         .addFields(fields)
         .setThumbnail(imageUrl);
-    return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', `${boardUrl}/runners/${runner.slug}`))] };
+    return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', url))] };
 }
 
 /** /mygigs: where each of the player's runners stands. */

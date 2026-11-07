@@ -244,7 +244,7 @@ function usePath(): string {
     const gig = useGig(kind === 'gigs' && record ? id : undefined).data;
     const runner = useRunner((kind === 'runners' || kind === 'fixers') && record ? id : undefined).data;
     const crew = useCrew(kind === 'crews' && record ? id : undefined).data;
-    const name = gig ? gig.ref.toUpperCase() : (runner?.slug ?? crew?.slug);
+    const name = gig ? gig.ref.toUpperCase() : runner ? (kind === 'fixers' ? runner.fixerSlug : runner.slug) : crew?.slug;
     if (record && name) parts[1] = name;
     return parts.join('/');
 }
