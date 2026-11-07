@@ -1,35 +1,25 @@
 import type { FixerSummary, RunnerSummary } from '@shared/schemas';
 import { LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RatingLine, RunnerTile } from '@/components/runner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageTabs } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-/** Runners taking gigs, and a Retired tab (retired and flatlined, latest first) once there are any. */
+/** Runners taking gigs, and retired and flatlined ones (latest first). */
 export function RunnersPage() {
     const { data: runners, isPending } = useRunners();
+    if (isPending) return <Loading>pulling records...</Loading>;
     const active = runners?.filter((r) => r.status === 'active') ?? [];
     const retired = (runners?.filter((r) => r.status !== 'active') ?? []).sort((a, b) => (b.retiredAt ?? 0) - (a.retiredAt ?? 0));
-    const activeGrid = <RunnerGrid runners={active} loading={isPending} empty="no runners on the board yet." />;
 
-    if (!retired.length) return <div className="space-y-5">{activeGrid}</div>;
     return (
-        <div className="space-y-5">
-            <Tabs defaultValue="active">
-                <TabsList>
-                    <TabsTrigger value="active">
-                        Active <span className="text-xs opacity-60">{active.length}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="retired">
-                        Retired <span className="text-xs opacity-60">{retired.length}</span>
-                    </TabsTrigger>
-                </TabsList>
-                <TabsContent value="active">{activeGrid}</TabsContent>
-                <TabsContent value="retired">
-                    <RunnerGrid runners={retired} loading={false} empty="" />
-                </TabsContent>
-            </Tabs>
-        </div>
+        <PageTabs
+            empty={<Say>no runners on the board yet.</Say>}
+            tabs={[
+                { key: 'active', label: 'Active', count: active.length, content: <RunnerGrid runners={active} /> },
+                { key: 'retired', label: 'Retired', count: retired.length, content: <RunnerGrid runners={retired} /> },
+            ]}
+        />
     );
 }
 
@@ -54,9 +44,7 @@ export function FixersPage() {
     );
 }
 
-function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loading: boolean; empty: string }) {
-    if (loading) return <Loading>pulling records...</Loading>;
-    if (!runners.length) return <Say>{empty}</Say>;
+function RunnerGrid({ runners }: { runners: RunnerSummary[] }) {
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {runners.map((r) => (
