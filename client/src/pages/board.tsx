@@ -7,10 +7,12 @@ import { useGigs, useUser } from '@/lib/api';
 interface Tab {
     key: string;
     label: string;
-    show?: (me: Me) => boolean;
+    show?: (me: Me, gigs: GigView[]) => boolean;
     filter: (gig: GigView, me: Me) => boolean;
 }
 
+
+const isPendingGig = (g: GigView) => g.status === 'pending' || g.status === 'rejected';
 
 const isMine = (g: GigView, me: Me) =>
     g.createdBy.id === me.id || g.fixerId === me.id || g.slots.some((s) => s.runner?.ownerId === me.id) || g.reserves.some((r) => r.ownerId === me.id);
@@ -20,8 +22,9 @@ const TABS: Tab[] = [
     {
         key: 'pending',
         label: 'Pending',
-        show: (me) => me.isAdmin || me.isFixer,
-        filter: (g) => g.status === 'pending' || g.status === 'rejected',
+        // Admins (not in player view, which turns isAdmin off), and anyone with a gig of their own waiting
+        show: (me, gigs) => me.isAdmin || gigs.some((g) => isPendingGig(g) && g.createdBy.id === me.id),
+        filter: isPendingGig,
     },
     // Anything of yours that isn't finished
     { key: 'mine', label: 'Mine', filter: (g, me) => isMine(g, me) && g.status !== 'completed' && g.status !== 'cancelled' },
@@ -31,7 +34,7 @@ const TABS: Tab[] = [
 export function Board() {
     const me = useUser();
     const { data: gigs, isPending } = useGigs();
-    const tabs = TABS.filter((t) => !t.show || t.show(me));
+    const tabs = TABS.filter((t) => !t.show || t.show(me, gigs ?? []));
 
     return (
         <Tabs defaultValue="live">
