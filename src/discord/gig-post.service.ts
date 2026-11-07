@@ -12,7 +12,7 @@ import { MembersService } from './members.service';
 import { NotifyService } from './notify.service';
 import { gigCard } from './cards';
 import type { Payout } from '../gigs/debrief.service';
-import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
+import { confirmButtons, confirmMessage, gigLineMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
 import { lineEmbed, lineMessage } from './colours';
 import { type Said, voice } from './voice';
 
@@ -209,7 +209,7 @@ export class GigPostService {
     async askToConfirm(gig: GigView, threadId: string, userIds: string[], confirmBy: number, nudge = false) {
         if (!gig.sessionAt) return;
         const said = (nudge ? voice.nudge : voice.confirmAsk)(gig.name, gig.sessionAt, confirmBy);
-        const failed = await this.members.dm(userIds, confirmMessage(gig.id, said, this.threadUrl(threadId)));
+        const failed = await this.members.dm(userIds, confirmMessage(gig, said, this.threadUrl(threadId), config.PUBLIC_URL));
         if (!failed.length) return;
 
         const thread = await this.client.channels.fetch(threadId);
@@ -227,7 +227,7 @@ export class GigPostService {
     async remind(gig: GigView, threadId: string, userIds: string[], kind: 'day' | 'soon') {
         if (!gig.sessionAt) return;
         const said = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
-        await this.members.dm(userIds, reminderMessage(said, this.threadUrl(threadId)));
+        await this.members.dm(userIds, reminderMessage(gig, said, this.threadUrl(threadId), config.PUBLIC_URL));
 
         const thread = await this.client.channels.fetch(threadId);
         if (thread?.isThread()) await thread.send(lineMessage((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt)));
@@ -235,14 +235,14 @@ export class GigPostService {
 
     /** Tells runners they were dropped for not confirming. */
     async notifyDropped(gig: GigView, userIds: string[]) {
-        await this.notify.send('gigUpdates', userIds, lineMessage(voice.dropped(gig.name)));
+        await this.notify.send('gigUpdates', userIds, gigLineMessage(gig, voice.dropped(gig.name), gig.threadUrl, config.PUBLIC_URL));
     }
 
     /** DMs each runner's player what they earned, with a menu to rate the fixer. */
     async sendPayouts(gig: GigView, payouts: Payout[]) {
         const threadUrl = gig.threadUrl;
         for (const payout of payouts) {
-            await this.notify.send('payouts', [payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
+            await this.notify.send('payouts', [payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl, config.PUBLIC_URL));
         }
     }
 

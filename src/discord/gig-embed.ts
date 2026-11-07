@@ -147,21 +147,31 @@ const dropButton = (id: string) => new ButtonBuilder().setCustomId(`gig/leave/${
 export const confirmButtons = (id: string) => new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(id), dropButton(id));
 
 const postButton = (threadUrl: string) => new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl);
+const boardButton = (gig: GigView, boardUrl: string) => new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/gigs/${gig.ref}`);
+
+/** Links every gig DM carries: the forum post (once there is one) and the gig on the board. */
+const gigLinks = (gig: GigView, threadUrl: string | null, boardUrl: string) => [...(threadUrl ? [postButton(threadUrl)] : []), boardButton(gig, boardUrl)];
+
+/** A gig DM that's just a line, such as being dropped for not confirming. */
+export function gigLineMessage(gig: GigView, said: Said, threadUrl: string | null, boardUrl: string) {
+    return { embeds: [lineEmbed(said)], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(gigLinks(gig, threadUrl, boardUrl))] };
+}
 
 /** A DM asking a runner to confirm the session time (or nudging them to). */
-export function confirmMessage(gigId: string, said: Said, threadUrl: string) {
-    return { embeds: [lineEmbed(said)], components: [confirmButtons(gigId).addComponents(postButton(threadUrl))] };
+export function confirmMessage(gig: GigView, said: Said, threadUrl: string, boardUrl: string) {
+    return { embeds: [lineEmbed(said)], components: [confirmButtons(gig.id).addComponents(gigLinks(gig, threadUrl, boardUrl))] };
 }
 
 /**
  * A runner's payout DM: what they earned, and a star rating menu for the fixer when the
  * gig had a fixer character.
  */
-export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, threadUrl: string | null) {
+export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, threadUrl: string | null, boardUrl: string) {
     const embed = new EmbedBuilder()
         // Yellow: it's money, and it's yours
         .setColor(SITE.yellow)
         .setTitle(`Payout // ${gig.name}`)
+        .setURL(`${boardUrl}/gigs/${gig.ref}`)
         .setDescription(gig.summary ? cut(gig.summary, 2000) : null)
         .addFields(
             { name: 'Runner', value: payout.handle, inline: true },
@@ -179,7 +189,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
             .addOptions([5, 4, 3, 2, 1].map((n) => ({ label: `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`, value: String(n) })));
         rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu));
     }
-    if (threadUrl) rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl)));
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(gigLinks(gig, threadUrl, boardUrl)));
     return { embeds: [embed], components: rows };
 }
 
@@ -193,7 +203,7 @@ export function pickRunnerMessage(gigId: string, choices: RunnerCard[]) {
 }
 
 /** A session reminder DM, with a way to turn reminders off. */
-export function reminderMessage(said: Said, threadUrl: string) {
+export function reminderMessage(gig: GigView, said: Said, threadUrl: string, boardUrl: string) {
     const stop = new ButtonBuilder().setCustomId('prefs/reminders/off').setLabel('Stop reminders').setStyle(ButtonStyle.Secondary);
-    return { embeds: [lineEmbed(said)], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl), stop)] };
+    return { embeds: [lineEmbed(said)], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(...gigLinks(gig, threadUrl, boardUrl), stop)] };
 }
