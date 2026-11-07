@@ -22,56 +22,66 @@ export function RunnerPage() {
 
     const canManage = me.isAdmin || runner.ownerId === me.id;
 
-    return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap items-start gap-5">
-                <RunnerAvatar runner={runner} framed className="aspect-square h-auto w-40 text-5xl sm:w-48" />
-                <div className="min-w-0 flex-1 space-y-2">
-                    <p className="text-xs tracking-widest text-muted-foreground">// RUNNER</p>
-                    <h1 className="text-3xl break-words text-primary">{runner.handle}</h1>
-                    <Roles runner={runner} />
-                    <p className="text-xs text-muted-foreground">
-                        played by <Person member={runner.owner} />
-                    </p>
-                    {runner.crews.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {runner.crews.map((c) => (
-                                <Link
-                                    key={c.id}
-                                    to={`/crews/${c.slug}`}
-                                    title="Crew"
-                                    className="cut-frame inline-flex items-center gap-2 px-3 py-1.5 font-display text-sm tracking-wider text-accent uppercase [--cut:8px] [--frame:var(--color-accent)] hover:[--fill:var(--color-muted)]"
-                                >
-                                    <Icon name="crew" />
-                                    {c.name}
-                                </Link>
-                            ))}
-                        </div>
+    const details = (
+        <>
+            <p className="text-xs text-muted-foreground">
+                played by <Person member={runner.owner} />
+            </p>
+            {runner.crews.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {runner.crews.map((c) => (
+                        <Link
+                            key={c.id}
+                            to={`/crews/${c.slug}`}
+                            title="Crew"
+                            className="cut-frame inline-flex items-center gap-2 px-3 py-1.5 font-display text-sm tracking-wider text-accent uppercase [--cut:8px] [--frame:var(--color-accent)] hover:[--fill:var(--color-muted)]"
+                        >
+                            <Icon name="crew" />
+                            {c.name}
+                        </Link>
+                    ))}
+                </div>
+            )}
+            {(canManage || runner.isFixer) && (
+                <div className="flex flex-wrap gap-2">
+                    {runner.isFixer && (
+                        <Button asChild variant="outline" size="sm">
+                            <Link to={`/fixers/${runner.slug}`}>View fixer profile</Link>
+                        </Button>
+                    )}
+                    {canManage && (
+                        <Button asChild variant="outline" size="sm">
+                            <Link to={`/runners/${runner.slug}/edit`}>Edit</Link>
+                        </Button>
+                    )}
+                    {canManage && (
+                        <ConfirmButton
+                            size="sm"
+                            label="Delete"
+                            title={`Delete ${runner.handle}?`}
+                            description="They're taken off any live gigs. Finished gigs keep the record."
+                            onConfirm={() => remove.mutate()}
+                        />
                     )}
                 </div>
-                {(canManage || runner.isFixer) && (
-                    <div className="flex flex-wrap gap-2">
-                        {runner.isFixer && (
-                            <Button asChild variant="outline" size="sm">
-                                <Link to={`/fixers/${runner.slug}`}>View fixer profile</Link>
-                            </Button>
-                        )}
-                        {canManage && (
-                            <Button asChild variant="outline" size="sm">
-                                <Link to={`/runners/${runner.slug}/edit`}>Edit</Link>
-                            </Button>
-                        )}
-                        {canManage && (
-                            <ConfirmButton
-                                size="sm"
-                                label="Delete"
-                                title={`Delete ${runner.handle}?`}
-                                description="They're taken off any live gigs. Finished gigs keep the record."
-                                onConfirm={() => remove.mutate()}
-                            />
-                        )}
+            )}
+        </>
+    );
+
+    return (
+        <div className="space-y-6">
+            {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
+            <div className="space-y-4">
+                <div className="flex items-start gap-4 sm:gap-5">
+                    <RunnerAvatar runner={runner} framed className="aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl" />
+                    <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+                        <p className="text-xs tracking-widest text-muted-foreground">// RUNNER</p>
+                        <h1 className="text-2xl break-words text-primary sm:text-3xl">{runner.handle}</h1>
+                        <Roles runner={runner} />
+                        <div className="hidden space-y-3 sm:block">{details}</div>
                     </div>
-                )}
+                </div>
+                <div className="space-y-3 sm:hidden">{details}</div>
             </div>
 
             <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />

@@ -1,5 +1,5 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
@@ -135,9 +135,6 @@ export function Layout() {
                             <span className="font-display text-sm tracking-widest">{c.short}</span>
                         </BarLink>
                     ))}
-                    <BarLink to="/me" label="You">
-                        <Avatar member={me} className="size-6" />
-                    </BarLink>
                 </div>
             </nav>
 
@@ -210,9 +207,9 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
                     </span>
                 </button>
             </span>
-            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex shrink-0 cursor-pointer items-center text-muted-foreground outline-none">
-                <Search className="size-4 md:hidden" />
-                <kbd className="cut hidden bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px] md:block">CTRL K</kbd>
+            {/* Desktop only: on phones the prompt itself is the button */}
+            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="hidden shrink-0 cursor-pointer items-center text-muted-foreground outline-none md:flex">
+                <kbd className="cut bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px]">CTRL K</kbd>
             </button>
         </div>
     );

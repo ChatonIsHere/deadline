@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { logout } from '@/components/layout';
 import { api, useAction, useCrews, useFixers, useGigs, useRunners, useUser } from '@/lib/api';
+import { usePhone, useVisualViewport } from '@/lib/media';
 
 /**
  * Ctrl+K (or a click on the prompt bar): type to jump to any page, gig, runner, fixer or
@@ -12,6 +13,8 @@ import { api, useAction, useCrews, useFixers, useGigs, useRunners, useUser } fro
  */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const me = useUser();
+    const phone = usePhone();
+    const visible = useVisualViewport();
     const navigate = useNavigate();
     const gigs = useGigs().data ?? [];
     const runners = useRunners().data ?? [];
@@ -50,10 +53,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <D.Portal>
                 {/* No blur here: it made the browser redraw the whole page under the palette on every frame */}
                 <D.Overlay className="fixed inset-0 z-40 bg-background/90" />
-                <D.Content className="cut-frame fixed top-[12vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 [--frame:var(--color-primary)]" aria-describedby={undefined}>
+                <D.Content
+                    className="cut-frame fixed top-[12vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 [--frame:var(--color-primary)]"
+                    style={phone && visible ? { top: visible.offsetTop + 16 } : undefined}
+                    aria-describedby={undefined}
+                >
                     <D.Title className="sr-only">Jump to</D.Title>
                     {/* The mouse highlights with CSS hover; only the keyboard moves the selection, so hovering costs nothing */}
-                    <Command loop disablePointerSelection className="flex max-h-[70vh] flex-col">
+                    <Command loop disablePointerSelection className="flex max-h-[70vh] flex-col" style={phone && visible ? { maxHeight: visible.height - 32 } : undefined}>
                         <div className="flex items-center gap-2 border-b-2 border-border px-4">
                             <span className="font-display text-primary">&gt;</span>
                             <Command.Input autoFocus placeholder="jump to..." className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />

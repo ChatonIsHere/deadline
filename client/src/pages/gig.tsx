@@ -3,7 +3,7 @@ import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Money, Pay, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, DiscordIcon, Icon, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -48,18 +48,21 @@ export function Gig() {
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-start gap-4">
-                <div className="flex-1">
+                <div className="min-w-0 flex-[1_1_16rem]">
                     <div className="mb-2 flex items-center gap-2">
                         <StatusBadge status={gig.status} />
                         {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}
                     </div>
-                    <h1 className="text-3xl text-primary">{gig.name}</h1>
+                    <h1 className="text-3xl break-words text-primary">{gig.name}</h1>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {gig.threadUrl && (
-                        <Button asChild variant="accent">
-                            <a href={gig.threadUrl} target="_blank" rel="noreferrer">
-                                Open in Discord <ExternalLink className="size-4" />
+                        // Just the logo on phones, so it doesn't crowd the title
+                        <Button asChild variant="accent" className="max-sm:px-3">
+                            <a href={gig.threadUrl} target="_blank" rel="noreferrer" title="Open in Discord" aria-label="Open in Discord">
+                                <DiscordIcon className="size-5" />
+                                <span className="max-sm:hidden">Open in Discord</span>
+                                <ExternalLink className="size-4 max-sm:hidden" />
                             </a>
                         </Button>
                     )}

@@ -42,7 +42,7 @@ export function FixersPage() {
             {isPending ? (
                 <Say>pinging contacts...</Say>
             ) : fixers?.length ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                     {fixers.map((f) => (
                         <FixerCard key={f.id} fixer={f} />
                     ))}
@@ -83,8 +83,8 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
                 )}
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.handle}</h3>
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
-                <div className="mt-auto flex justify-end">
-                    <RatingLine rating={f.rating} />
+                <div className="mt-auto flex justify-end text-right">
+                    <RatingLine rating={f.rating} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />
                 </div>
             </LinkCard>
         </div>

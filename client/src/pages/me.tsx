@@ -1,12 +1,14 @@
 import type { PrefsInput } from '@shared/schemas';
-import { LogOut } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availability';
 import { Avatar, Say } from '@/components/common';
 import { logout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { api, useAction, useCrewInvites, useMyAvailability, usePrefs, useUser } from '@/lib/api';
+import { usePhone } from '@/lib/media';
 import { browserTimeZone } from '@/lib/time';
 import { RunnerChip } from '@/components/runner';
 import { Link } from 'react-router';
@@ -123,42 +125,84 @@ function TimezoneCard({ current }: { current: string | null }) {
     );
 }
 
-/** The hours they can usually play. Admins see everyone's as a heatmap when picking session times. */
+/**
+ * The hours they can usually play. Admins see everyone's as a heatmap when picking session
+ * times. Phones get a summary and open the grid full screen: dragging across it inline made
+ * the page impossible to scroll.
+ */
 function AvailabilityCard() {
+    const phone = usePhone();
     const { data } = useMyAvailability();
     const [hours, setHours] = useState<number[] | null>(null);
+    const [open, setOpen] = useState(false);
     useEffect(() => {
         if (data) setHours(data.hours);
     }, [data]);
     const save = useAction((next: number[]) => api('/api/availability/mine', 'PUT', { hours: next }), 'availability saved.');
     const changed = !!data && !!hours && hours.join() !== data.hours.join();
+    const title = 'click or drag across the hours you can usually play. admins see everyone\'s when picking a session time.';
+
+    if (!data || !hours) {
+        return (
+            <Card id="availability">
+                <CardTitle help={title}>Availability</CardTitle>
+                <Say>loading...</Say>
+            </Card>
+        );
+    }
+
+    const editor = (
+        <>
+            <p className="text-xs text-muted-foreground">Your usual week, in {data.timezone ?? `${browserTimeZone()} (your browser's zone, until you save one)`}.</p>
+            <WeekGrid hours={hours} onChange={setHours} />
+            <div className="flex flex-wrap gap-2">
+                <Button size="sm" disabled={!changed || save.isPending} onClick={() => save.mutate(hours)}>
+                    Save
+                </Button>
+                <Button size="sm" variant="outline" disabled={!hours.length} onClick={() => setHours([])}>
+                    Clear
+                </Button>
+                {changed && (
+                    <Button size="sm" variant="ghost" onClick={() => setHours(data.hours)}>
+                        Undo changes
+                    </Button>
+                )}
+            </div>
+        </>
+    );
+
+    if (!phone) {
+        return (
+            <Card id="availability" className="space-y-3">
+                <CardTitle help={title}>Availability</CardTitle>
+                {editor}
+            </Card>
+        );
+    }
 
     return (
         <Card id="availability" className="space-y-3">
-            <CardTitle help="click or drag across the hours you can usually play. admins see everyone's when picking a session time.">Availability</CardTitle>
-            {!data || !hours ? (
-                <Say>loading...</Say>
-            ) : (
-                <>
-                    <p className="text-xs text-muted-foreground">
-                        Your usual week, in {data.timezone ?? `${browserTimeZone()} (your browser's zone, until you save one)`}.
-                    </p>
-                    <WeekGrid hours={hours} onChange={setHours} />
-                    <div className="flex flex-wrap gap-2">
-                        <Button size="sm" disabled={!changed || save.isPending} onClick={() => save.mutate(hours)}>
-                            Save
-                        </Button>
-                        <Button size="sm" variant="outline" disabled={!hours.length} onClick={() => setHours([])}>
-                            Clear
-                        </Button>
-                        {changed && (
-                            <Button size="sm" variant="ghost" onClick={() => setHours(data.hours)}>
-                                Undo changes
+            <CardTitle help={title}>Availability</CardTitle>
+            <p>{data.hours.length ? `${data.hours.length} hour${data.hours.length === 1 ? '' : 's'} a week marked.` : 'Nothing marked yet.'}</p>
+            <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
+                Edit availability
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="inset-0 h-dvh w-full max-w-none translate-none space-y-3 overflow-y-auto p-4 [--cut:0px]">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <DialogTitle>Availability</DialogTitle>
+                            <DialogDescription className="text-xs">Tap or drag across the hours you can usually play.</DialogDescription>
+                        </div>
+                        <DialogClose asChild>
+                            <Button variant="ghost" size="icon" title="Close" aria-label="Close">
+                                <X className="size-5" />
                             </Button>
-                        )}
+                        </DialogClose>
                     </div>
-                </>
-            )}
+                    {editor}
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

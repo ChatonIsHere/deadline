@@ -85,10 +85,10 @@ export function Stars({ value, className }: { value: number; className?: string 
     );
 }
 
-export function RatingLine({ rating }: { rating: Rating }) {
+export function RatingLine({ rating, className }: { rating: Rating; className?: string }) {
     if (!rating.average) return <span className="text-xs text-muted-foreground">no ratings yet</span>;
     return (
-        <span className="inline-flex items-center gap-2">
+        <span className={cn('inline-flex items-center gap-2', className)}>
             <Stars value={rating.average} />
             <span className="text-xs text-muted-foreground">
                 {rating.average.toFixed(1)} · {rating.count} rating{rating.count === 1 ? '' : 's'}
