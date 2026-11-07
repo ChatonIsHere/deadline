@@ -21,8 +21,8 @@ async function bootstrap() {
             contentSecurityPolicy: isProd && {
                 directives: {
                     defaultSrc: ["'self'"],
-                    // Pictures come straight from the bucket
-                    imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', ...(config.S3_ENDPOINT ? [new URL(config.S3_ENDPOINT).origin] : [])],
+                    // Pictures come straight from the bucket. blob: is the crop tool's preview of a picked file.
+                    imgSrc: ["'self'", 'data:', 'blob:', 'https://cdn.discordapp.com', ...(config.S3_ENDPOINT ? [new URL(config.S3_ENDPOINT).origin] : [])],
                     styleSrc: ["'self'", "'unsafe-inline'"],
                 },
             },
