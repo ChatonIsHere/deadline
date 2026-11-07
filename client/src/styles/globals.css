@@ -17,11 +17,12 @@
     --color-primary-foreground: #0a0a12;
     --color-accent: #00e5ff;
     --color-accent-foreground: #0a0a12;
-    --color-destructive: #ff2a6d;
+    /* Danger is a plain red, so it stays apart from the pink */
+    --color-destructive: #ff3b30;
     --color-destructive-foreground: #ffffff;
     --color-success: #39ff88;
-    /* Who a character is: role tags. Kept apart from yellow (act, yours) and cyan (information, links). */
-    --color-role: #b48cff;
+    /* The third of yellow, cyan and pink. Who a character is: role tags. */
+    --color-role: #ff2a6d;
 
     --font-display: 'Chakra Petch', sans-serif;
     --font-mono: 'JetBrains Mono Variable', monospace;

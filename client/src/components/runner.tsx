@@ -61,7 +61,7 @@ export function RoleIcon({ role, className }: { role: string; className?: string
     return CORE_ROLES.includes(role) ? <Icon name={`role_${role.toLowerCase()}`} className={className} /> : null;
 }
 
-/** Main role first (with its icon), then any extras, fainter. Violet tints, since filled colours mean a gig's status. */
+/** Main role first (with its icon), then any extras, fainter. Pink tints, since filled colours mean a gig's status. */
 export function Roles({ runner, className }: { runner: Pick<RunnerCard, 'role' | 'extraRoles'>; className?: string }) {
     return (
         <span className={cn('inline-flex flex-wrap gap-1', className)}>

@@ -11,8 +11,8 @@ export const COLOURS: Record<GigStatus, number> = {
     open: 0xf3e600,
     closed: 0x00e5ff,
     completed: 0x39ff88,
-    cancelled: 0xff2a6d,
-    rejected: 0xff2a6d,
+    cancelled: 0xff3b30,
+    rejected: 0xff3b30,
 };
 
 /** "2,000eb", or the eb emoji followed by the number when it's uploaded. */
