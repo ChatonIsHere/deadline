@@ -5,7 +5,7 @@ import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFixers, useRunners, useUser } from '@/lib/api';
 
-/** Everyone's runners, with your own on their own tab. */
+/** Everyone's runners, with your own on a second tab. */
 export function RunnersPage() {
     const me = useUser();
     const { data: runners, isPending } = useRunners();
@@ -13,20 +13,20 @@ export function RunnersPage() {
 
     return (
         <div className="space-y-5">
-            <Tabs defaultValue="mine">
+            <Tabs defaultValue="all">
                 <TabsList>
-                    <TabsTrigger value="mine">
-                        Mine <span className="text-xs opacity-60">{mine.length}</span>
-                    </TabsTrigger>
                     <TabsTrigger value="all">
                         All <span className="text-xs opacity-60">{runners?.length}</span>
                     </TabsTrigger>
+                    <TabsTrigger value="mine">
+                        Mine <span className="text-xs opacity-60">{mine.length}</span>
+                    </TabsTrigger>
                 </TabsList>
+                <TabsContent value="all">
+                    <RunnerGrid runners={runners ?? []} loading={isPending} empty="no runners on the board yet." />
+                </TabsContent>
                 <TabsContent value="mine">
                     <RunnerGrid runners={mine} loading={isPending} empty="no runners yet. make one to start taking gigs." />
-                </TabsContent>
-                <TabsContent value="all">
-                    <RunnerGrid runners={runners ?? []} loading={isPending} empty="no runners on the board yet." showPlayer />
                 </TabsContent>
             </Tabs>
         </div>
@@ -65,7 +65,7 @@ export function FixersPage() {
     );
 }
 
-function RunnerGrid({ runners, loading, empty, showPlayer }: { runners: RunnerSummary[]; loading: boolean; empty: string; showPlayer?: boolean }) {
+function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loading: boolean; empty: string }) {
     if (loading) return <Say>pulling records...</Say>;
     if (!runners.length) return <Say>{empty}</Say>;
     return (
@@ -76,7 +76,6 @@ function RunnerGrid({ runners, loading, empty, showPlayer }: { runners: RunnerSu
                     <div className="min-w-0 space-y-1.5">
                         <h3 className="truncate text-lg">{r.handle}</h3>
                         <Roles runner={r} />
-                        {showPlayer && r.owner && <p className="truncate text-xs text-muted-foreground">{r.owner.name}</p>}
                     </div>
                 </LinkCard>
             ))}
