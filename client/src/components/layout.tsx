@@ -200,10 +200,14 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
         <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm xl:sticky xl:bottom-0 xl:z-20 xl:order-none xl:border-t xl:border-b-0 xl:px-8">
             <span className="flex min-w-0 flex-1 items-center self-stretch">
                 {me && (
-                    // The whole of picture, name and @DEADLINE, full height, goes to your settings
-                    <Link to="/me" title="Your settings" className="group flex max-w-[60%] shrink-0 items-center gap-2 self-stretch text-primary">
+                    // Picture, name and @DEADLINE go to your settings, highlighting like a button over the bar's full height
+                    <Link
+                        to="/me"
+                        title="Your settings"
+                        className="-ml-2 flex max-w-[60%] shrink-0 items-center gap-2 self-stretch px-2 text-primary outline-none hover:bg-primary/15 focus-visible:bg-primary/15"
+                    >
                         <Avatar member={me} />
-                        <span className="flex min-w-0 group-hover:underline">
+                        <span className="flex min-w-0">
                             <span className="truncate">{me.name}</span>
                             <span>@DEADLINE</span>
                         </span>
