@@ -1,8 +1,8 @@
 import { completeInput, type CompleteInput, type GigView, isLive } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Icon, Say } from '@/components/common';
-import { MarkdownEditor } from '@/components/markdown';
+import { Icon, Money, Pay, Say } from '@/components/common';
+import { Markdown, MarkdownEditor } from '@/components/markdown';
 import { RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -45,7 +45,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
             ip: num(crew.ip),
             hqIp: num(crew.hqIp),
             text: crew.text,
-            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId: Number(runnerId), eb: num(a.eb), ip: num(a.ip), text: a.text })),
+            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId, eb: num(a.eb), ip: num(a.ip), text: a.text })),
         });
         if (!result.success) {
             setError(firstIssue(result.error));
@@ -65,6 +65,8 @@ function DebriefForm({ gig }: { gig: GigView }) {
                 <CardTitle>What happened</CardTitle>
                 <MarkdownEditor value={summary} onChange={setSummary} max={2000} />
             </Card>
+
+            <PayOnOffer gig={gig} />
 
             <Card className="space-y-4">
                 <CardTitle help="everyone on the gig gets these. all optional.">Crew rewards</CardTitle>
@@ -105,6 +107,60 @@ function DebriefForm({ gig }: { gig: GigView }) {
                 Complete the gig
             </Button>
         </form>
+    );
+}
+
+/** What the gig offered, to work the rewards out from. Admins see every objective, undisclosed ones included. */
+function PayOnOffer({ gig }: { gig: GigView }) {
+    return (
+        <Card className="space-y-3">
+            <CardTitle>Pay on offer</CardTitle>
+            <div className="flex justify-between gap-4">
+                <div>
+                    <p className="mb-1 flex items-center gap-2 text-xs text-muted-foreground uppercase">
+                        <Icon name="objective" /> Primary objective
+                    </p>
+                    <ul className="space-y-1">
+                        {gig.primaryObjective.map((part, i) => (
+                            <li key={i}>
+                                - <Markdown inline text={part} />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                <Money amount={gig.pay} className="shrink-0 self-start" />
+            </div>
+            {gig.objectives.length > 0 && (
+                <div>
+                    <p className="mb-1 flex items-center gap-2 text-xs text-muted-foreground uppercase">
+                        <Icon name="bonus" /> Secondary objectives
+                    </p>
+                    <ul className="space-y-1">
+                        {gig.objectives.map((o, i) => (
+                            <li key={i} className="flex justify-between gap-4">
+                                <span>
+                                    - <Markdown inline text={o.text} />
+                                    {o.hidden && <span className="ml-2 text-xs text-accent uppercase">{o.secret ? 'not disclosed yet' : 'was hidden'}</span>}
+                                </span>
+                                {o.bonus ? (
+                                    <span className="flex shrink-0 items-center gap-1 self-start">
+                                        <span className="font-semibold text-primary">+</span>
+                                        <Money amount={o.bonus} />
+                                        {o.each && <span className="text-muted-foreground">each</span>}
+                                    </span>
+                                ) : (
+                                    <span className="shrink-0 self-start text-muted-foreground">no bonus</span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            <div className="flex justify-between gap-4 border-t-2 border-border pt-3">
+                <span className="text-xs text-muted-foreground uppercase">Total</span>
+                <Pay gig={{ ...gig, objectives: gig.objectives.map((o) => ({ ...o, secret: false })) }} />
+            </div>
+        </Card>
     );
 }
 
