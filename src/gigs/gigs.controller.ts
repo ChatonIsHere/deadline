@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { GigPostService } from '../discord/gig-post.service';
-import { plainVoice, voice } from '../discord/voice';
+import { plainVoice, type Said, voice } from '../discord/voice';
 import {
     completeInput,
     type CompleteInput,
@@ -138,8 +138,5 @@ export class GigsController {
     }
 }
 
-/**
- * Bot lines come as Discord code blocks; the web wants the text. These end up in the web's
- * notifications, which put "// DEADLINE:" on themselves, so it's taken off here.
- */
-const plain = (said: string) => plainVoice(said).replace(/^\/\/ DEADLINE:\s*/, '');
+/** Bot lines carry Discord markdown; the web's notifications want the plain text. */
+const plain = (said: Said) => plainVoice(said);

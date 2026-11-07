@@ -1,19 +1,11 @@
 import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import type { Payout } from '../gigs/debrief.service';
 import { groupSlots } from '../shared/slots';
-import { type GigStatus, type GigView, payRange, type RunnerCard } from '../shared/schemas';
+import { type GigView, payRange, type RunnerCard } from '../shared/schemas';
 import { layoutEmbeds, packEmbeds, toMessages } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
-import { voice } from './voice';
-
-export const COLOURS: Record<GigStatus, number> = {
-    pending: 0x8b8ba7,
-    open: 0xf3e600,
-    closed: 0x00e5ff,
-    completed: 0x39ff88,
-    cancelled: 0xff3b30,
-    rejected: 0xff3b30,
-};
+import { COLOURS, lineEmbed, SITE } from './colours';
+import { type Said, voice } from './voice';
 
 /** "2,000eb", or the eb emoji followed by the number when it's uploaded. */
 export function money(amount: number, emoji: EmojiLookup): string {
@@ -111,7 +103,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         url: `${boardUrl}/gigs/${gig.ref}`,
         description: gig.brief,
         // Footers can't hold links, so the link to the board goes on the author line, which can
-        author: { name: 'DEADLINE // GIG BOARD', url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
+        author: { name: 'Gig board', url: `${boardUrl}/gigs`, icon_url: `${boardUrl}/logo.png` },
         thumbnail: images.fixer ? { url: images.fixer } : undefined,
         image: images.gig ? { url: images.gig } : undefined,
     };
@@ -137,7 +129,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
  * The last message in a finished gig's thread: the GM's summary, the rewards and who went.
  * The post itself keeps the same details in its fields.
  */
-export function debriefMessages(gig: GigView, emoji: EmojiLookup): { content?: string; embeds: APIEmbed[] }[] {
+export function debriefMessages(gig: GigView, emoji: EmojiLookup): { embeds: APIEmbed[] }[] {
     const crew = gig.slots.filter((s) => s.runner).map((s) => `**${s.runner!.handle}**`);
     const fields: APIEmbedField[] = [
         ...debriefFields(gig, emoji).filter((f) => f.name !== 'Debrief'),
@@ -145,7 +137,7 @@ export function debriefMessages(gig: GigView, emoji: EmojiLookup): { content?: s
     ];
     const head: APIEmbed = { color: COLOURS.completed, title: `Debrief // ${gig.name}`, description: gig.summary ?? undefined };
     const [first, ...more] = packEmbeds(head, fields, { color: COLOURS.completed });
-    return [{ content: voice.statusChanged.completed, embeds: first }, ...more.map((embeds) => ({ embeds }))];
+    return [first, ...more].map((embeds) => ({ embeds }));
 }
 
 const confirmButton = (id: string) => new ButtonBuilder().setCustomId(`gig/confirm/${id}`).setLabel('Confirm').setStyle(ButtonStyle.Success);
@@ -157,8 +149,8 @@ export const confirmButtons = (id: string) => new ActionRowBuilder<ButtonBuilder
 const postButton = (threadUrl: string) => new ButtonBuilder().setLabel('Gig post').setStyle(ButtonStyle.Link).setURL(threadUrl);
 
 /** A DM asking a runner to confirm the session time (or nudging them to). */
-export function confirmMessage(gigId: string, content: string, threadUrl: string) {
-    return { content, components: [confirmButtons(gigId).addComponents(postButton(threadUrl))] };
+export function confirmMessage(gigId: string, said: Said, threadUrl: string) {
+    return { embeds: [lineEmbed(said)], components: [confirmButtons(gigId).addComponents(postButton(threadUrl))] };
 }
 
 /**
@@ -167,7 +159,8 @@ export function confirmMessage(gigId: string, content: string, threadUrl: string
  */
 export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, threadUrl: string | null) {
     const embed = new EmbedBuilder()
-        .setColor(COLOURS.completed)
+        // Yellow: it's money, and it's yours
+        .setColor(SITE.yellow)
         .setTitle(`Payout // ${gig.name}`)
         .setDescription(gig.summary ? cut(gig.summary, 2000) : null)
         .addFields(
@@ -187,7 +180,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
         rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu));
     }
     if (threadUrl) rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl)));
-    return { content: voice.payout(gig.name), embeds: [embed], components: rows };
+    return { embeds: [embed], components: rows };
 }
 
 /** Lets a player pick which of their runners signs up. */
@@ -196,11 +189,11 @@ export function pickRunnerMessage(gigId: string, choices: RunnerCard[]) {
         .setCustomId(`gig/pick/${gigId}`)
         .setPlaceholder('Pick a runner')
         .addOptions(choices.slice(0, 25).map((r) => ({ label: r.handle, description: [r.role, ...r.extraRoles].join(', ').slice(0, 100), value: String(r.id) })));
-    return { content: voice.pickRunnerPrompt(), components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
+    return { embeds: [lineEmbed(voice.pickRunnerPrompt())], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
 }
 
 /** A session reminder DM, with a way to turn reminders off. */
-export function reminderMessage(content: string, threadUrl: string) {
+export function reminderMessage(said: Said, threadUrl: string) {
     const stop = new ButtonBuilder().setCustomId('prefs/reminders/off').setLabel('Stop reminders').setStyle(ButtonStyle.Secondary);
-    return { content, components: [new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl), stop)] };
+    return { embeds: [lineEmbed(said)], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(postButton(threadUrl), stop)] };
 }

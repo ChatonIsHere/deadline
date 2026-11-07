@@ -220,7 +220,7 @@ describe('GigsService', () => {
             const view = await gigs.view(gig.id, admin);
             assert.equal(view.slots.filter((s) => s.runner).length, 1);
             assert.equal(view.reserves.length, 1);
-            assert.equal(replies.filter((r) => /reserve #1/.test(r)).length, 1);
+            assert.equal(replies.filter((r) => /reserve #1/.test(r.text)).length, 1);
         });
 
         it('allows one runner per player', async () => {
@@ -244,7 +244,7 @@ describe('GigsService', () => {
                 (await gigs.view(gig.id, admin)).slots.map((s) => [s.crew?.name ?? null, s.runner?.handle]),
                 [['Moxes', 'b'], [null, 'a']],
             );
-            assert.match(await gigs.join('c', gig.id), /reserve #1/);
+            assert.match((await gigs.join('c', gig.id)).text, /reserve #1/);
             await assert.rejects(gigs.join('c', gig.id), /already on the reserves/);
         });
 
@@ -311,14 +311,14 @@ describe('GigsService', () => {
     describe('sessions', () => {
         it('marks runners interested until a time is set, then asks them to confirm', async () => {
             const gig = await gigs.create(admin, input(two));
-            assert.match(await gigs.join('a', gig.id), /on the list/);
+            assert.match((await gigs.join('a', gig.id)).text, /on the list/);
             await gigs.join('b', gig.id);
             await gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
             await settle();
             assert.deepEqual(asked, ['a', 'b']);
             assert.deepEqual(await states(gig.id), [['a', 'awaiting'], ['b', 'awaiting']]);
-            assert.match(await gigs.confirm('a', gig.id), /confirmed/);
-            assert.match(await gigs.join('b', gig.id), /confirmed/);
+            assert.match((await gigs.confirm('a', gig.id)).text, /confirmed/);
+            assert.match((await gigs.join('b', gig.id)).text, /confirmed/);
             assert.deepEqual(await states(gig.id), [['a', 'confirmed'], ['b', 'confirmed']]);
         });
 
@@ -346,8 +346,8 @@ describe('GigsService', () => {
         it('moves the oldest reserve up when someone drops out, and asks them', async () => {
             const gig = await gigs.create(admin, input(one));
             await gigs.join('a', gig.id);
-            assert.match(await gigs.join('b', gig.id), /reserve #1/);
-            assert.match(await gigs.join('c', gig.id), /reserve #2/);
+            assert.match((await gigs.join('b', gig.id)).text, /reserve #1/);
+            assert.match((await gigs.join('c', gig.id)).text, /reserve #2/);
             await gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
             await settle();
             asked = [];

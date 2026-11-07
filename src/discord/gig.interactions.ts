@@ -19,8 +19,9 @@ import { config } from '../config';
 import { DebriefService } from '../gigs/debrief.service';
 import { GigsService } from '../gigs/gigs.service';
 import { pickRunnerMessage } from './gig-embed';
+import { lineMessage, lineReplacing } from './colours';
 import { GigPostService } from './gig-post.service';
-import { voice } from './voice';
+import { type Said, voice } from './voice';
 
 /** Buttons and menus on gig posts and DMs: sign up, pick a runner, confirm or drop out, rate the fixer. */
 @Injectable()
@@ -53,10 +54,9 @@ export class GigInteractions {
     @StringSelect('gig/pick/:id')
     async pick(@Context() [interaction]: StringSelectContext, @ComponentParam('id') id: string, @SelectedStrings() [runnerId]: string[]) {
         try {
-            const reply = await this.gigs.join(interaction.user.id, id, runnerId);
-            await interaction.update({ content: reply, components: [] });
+            await interaction.update(lineReplacing(await this.gigs.join(interaction.user.id, id, runnerId)));
         } catch (err) {
-            await interaction.update({ content: explain(err), components: [] });
+            await interaction.update(lineReplacing(explain(err)));
         }
     }
 
@@ -69,7 +69,7 @@ export class GigInteractions {
         try {
             await this.debrief.rate(interaction.user.id, id, Number(stars));
         } catch (err) {
-            return interaction.reply(explain(err));
+            return interaction.reply(lineMessage(explain(err)));
         }
         const note = new TextInputBuilder().setCustomId('comment').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(300);
         const existing = (await this.debrief.myRating(interaction.user.id, id))?.comment;
@@ -85,9 +85,9 @@ export class GigInteractions {
     async rateComment(@Context() [interaction]: ModalContext, @ModalParam('id') id: string, @ModalParam('stars') stars: string) {
         try {
             const comment = interaction.fields.getTextInputValue('comment').trim().slice(0, 300) || null;
-            await interaction.reply(await this.debrief.rate(interaction.user.id, id, Number(stars), comment));
+            await interaction.reply(lineMessage(await this.debrief.rate(interaction.user.id, id, Number(stars), comment)));
         } catch (err) {
-            await interaction.reply(explain(err));
+            await interaction.reply(lineMessage(explain(err)));
         }
     }
 
@@ -118,27 +118,27 @@ export class GigInteractions {
      * confirm is only theirs, so it gets replaced by the answer. In the server the
      * answer is private.
      */
-    private async answer(interaction: ButtonInteraction, action: () => string | Promise<string>) {
+    private async answer(interaction: ButtonInteraction, action: () => Said | Promise<Said>) {
         if (!interaction.inGuild()) {
             try {
-                await interaction.update({ content: await action(), components: [] });
+                await interaction.update(lineReplacing(await action()));
             } catch (err) {
-                await interaction.reply(explain(err));
+                await interaction.reply(lineMessage(explain(err)));
             }
             return;
         }
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         try {
-            await interaction.editReply(await action());
+            await interaction.editReply(lineMessage(await action()));
         } catch (err) {
-            await interaction.editReply(explain(err));
+            await interaction.editReply(lineMessage(explain(err)));
         }
     }
 }
 
 /** What to tell someone when an action fails. Our own errors say why; anything else stays vague. */
-export function explain(err: unknown): string {
+export function explain(err: unknown): Said {
     if (err instanceof HttpException) return voice.error(err.message);
     new Logger(GigInteractions.name).error(err);
     return voice.error(voice.broken);

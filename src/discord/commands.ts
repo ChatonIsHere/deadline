@@ -16,6 +16,7 @@ import { gigCard, myGigsCard, runnerCard } from './cards';
 import { crewCard } from './crew-messages';
 import { EmojiService } from './emoji.service';
 import { MembersService } from './members.service';
+import { lineMessage } from './colours';
 import { voice } from './voice';
 
 // Options. Suggestions send IDs as values, but people can also type a name and press enter.
@@ -116,7 +117,7 @@ export class Commands {
 
     @SlashCommand({ name: 'board', description: 'Link to the gig board' })
     async board(@Context() [interaction]: SlashCommandContext) {
-        await interaction.reply({ content: voice.board(config.PUBLIC_URL, await this.gigs.countOpen()), flags: MessageFlags.Ephemeral });
+        await interaction.reply({ ...lineMessage(voice.board(config.PUBLIC_URL, await this.gigs.countOpen())), flags: MessageFlags.Ephemeral });
     }
 
     @UseInterceptors(Suggestions)
@@ -192,7 +193,7 @@ export class Commands {
                 contact: null,
                 bio: null,
             });
-            await interaction.reply({ content: voice.runnerMade(runner.handle, `${config.PUBLIC_URL}/runners/${runner.slug}/edit`), flags: MessageFlags.Ephemeral });
+            await interaction.reply({ ...lineMessage(voice.runnerMade(runner.handle, `${config.PUBLIC_URL}/runners/${runner.slug}/edit`)), flags: MessageFlags.Ephemeral });
         } catch (err) {
             // Our own errors (bad role, taken name) say why; anything else stays vague
             await this.oops(interaction, err instanceof HttpException ? err.message : voice.broken);
@@ -209,7 +210,7 @@ export class Commands {
     async reminders(@Context() [interaction]: SlashCommandContext, @Options() { set }: ReminderOptions) {
         const userId = interaction.user.id;
         await this.prefs.set(userId, { reminders: set === 'on' });
-        await interaction.reply({ content: voice.remindersSet(set === 'on'), flags: MessageFlags.Ephemeral });
+        await interaction.reply({ ...lineMessage(voice.remindersSet(set === 'on')), flags: MessageFlags.Ephemeral });
     }
 
     /** A suggested ID, or a typed handle. */
@@ -231,6 +232,6 @@ export class Commands {
     }
 
     private oops(interaction: SlashCommandContext[0], message: string) {
-        return interaction.reply({ content: voice.error(message), flags: MessageFlags.Ephemeral });
+        return interaction.reply({ ...lineMessage(voice.error(message)), flags: MessageFlags.Ephemeral });
     }
 }

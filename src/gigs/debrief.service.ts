@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { debriefMessages } from '../discord/gig-embed';
 import { GigPostService } from '../discord/gig-post.service';
-import { voice } from '../discord/voice';
+import { type Said, voice } from '../discord/voice';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
 import { ACTIVE, GigsService } from './gigs.service';
@@ -61,7 +61,7 @@ export class DebriefService {
      * comment. That includes the fixer's own player when they went as a runner. Can be
      * changed later. Leaving `comment` out keeps the one already there.
      */
-    async rate(userId: string, id: string, stars: number, comment?: string | null): Promise<string> {
+    async rate(userId: string, id: string, stars: number, comment?: string | null): Promise<Said> {
         const gig = await this.gigs.row(id);
         if (gig.status !== 'completed' || !gig.fixerRunnerId) throw new BadRequestException("there's no fixer to rate on that gig.");
         const wasOn = await this.prisma.gigSlot.findFirst({ where: { gigId: id, userId } });

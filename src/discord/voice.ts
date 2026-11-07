@@ -1,40 +1,27 @@
 // Most of what the board's AI says, in one place so the tone is easy to change. Command errors are in commands.ts.
+// Discord shows these as embeds coloured by tone (see lineEmbed in colours.ts); the web shows the plain text.
 
-// Lines go out as ```ansi code blocks: Discord's desktop app colours them (the phone app shows
-// them plain). Code blocks don't render timestamps, mentions or links, so those go on a normal
-// line underneath: pass them as `extra`. Links are written [label](url): the label stays in the
-// line and the link goes underneath, so no bare addresses show.
-const ESC = '\u001b';
-const cyan = (s: string) => `${ESC}[0;36m${s}${ESC}[0m`;
-const yellow = (s: string) => `${ESC}[1;33m${s}${ESC}[0m`;
+/**
+ * What a line is about, which sets its colour in Discord, as on the site. act: needs you to do
+ * something. info: news. good: it worked. bad: it didn't, or bad news. quiet: nothing to do.
+ */
+export type Tone = 'act' | 'info' | 'good' | 'bad' | 'quiet';
+
+/** A line from the board, with optional details shown under it as fields. */
+export interface Said {
+    text: string;
+    tone: Tone;
+    details?: { name: string; value: string; inline?: boolean }[];
+}
+
+const say = (tone: Tone, text: string, details?: Said['details']): Said => ({ tone, text, details });
+
 const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** A line from the board's AI. `**name**` comes out yellow. */
-const say = (line: string, extra?: string) => {
-    // <url> stops Discord adding a preview of the page
-    const links = [...line.matchAll(LINK_RE)].map(([, label, url]) => `[${cap(label)}](<${url}>)`);
-    const text = line
-        .replace(LINK_RE, '$1')
-        .trim()
-        // A gig name with ``` in it would end the block early
-        .replace(/```/g, "'''")
-        .replace(/\*\*(.+?)\*\*/g, (_, name: string) => yellow(name));
-    const below = [extra, ...links].filter(Boolean).join('\n');
-    return `\`\`\`ansi\n${cyan('// DEADLINE:')} ${text}\n\`\`\`${below ? `\n${below}` : ''}`;
-};
+/** A line as plain text, for the web. */
+export const plainVoice = (said: Said) => said.text.replace(LINK_RE, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
 
-/** A said line as plain text, for the web. */
-export const plainVoice = (said: string) =>
-    said
-        .replace(/```(ansi)?\n?/g, '')
-        .replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')
-        .replace(LINK_RE, '$1')
-        .replace(/[*`]/g, '')
-        .replace(/\n+/g, ' ')
-        .trim();
-
-/** A name to show in yellow. Asterisks in it would break the highlighting, so they go. */
+/** A name in bold. Asterisks in it would break the bold, so they go. */
 const n = (name: string) => `**${name.replace(/\*/g, '')}**`;
 
 /** Discord renders these in each reader's own timezone. */
@@ -46,54 +33,59 @@ export const voice = {
     when,
 
     // Replies to the person who pressed a button
-    interested: () => say("noted. you're on the list. you'll get a ping when the session time is set."),
-    joined: (open: number) => say(`slot locked in. ${open ? `${open} left on the contract.` : 'crew is full.'}`),
-    reserve: (position: number) => say(`slots are full. you're reserve #${position}. you'll get a ping if one opens up.`),
-    confirmed: () => say('attendance confirmed. see you there, choom.'),
-    left: () => say('slot released. no hard feelings, choom.'),
-    pickRunnerPrompt: () => say('which runner is taking this one?'),
-    rated: (stars: number) => say(`rating logged: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}. change it any time.`),
-    error: (message: string) => say(message),
+    interested: () => say('info', "noted. you're on the list. you'll get a ping when the session time is set."),
+    joined: (open: number) => say('good', `slot locked in. ${open ? `${open} left on the contract.` : 'crew is full.'}`),
+    reserve: (position: number) => say('info', `slots are full. you're reserve #${position}. you'll get a ping if one opens up.`),
+    confirmed: () => say('good', 'attendance confirmed. see you there, choom.'),
+    left: () => say('quiet', 'slot released. no hard feelings, choom.'),
+    pickRunnerPrompt: () => say('act', 'which runner is taking this one?'),
+    rated: (stars: number) => say('good', `rating logged: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}. change it any time.`),
+    error: (message: string) => say('bad', message),
 
     // Asking runners to confirm, by DM (or in the thread if their DMs are closed)
     confirmAsk: (gigName: string, at: number, by: number) =>
-        say(`${n(gigName)} is on. confirm you're in, or drop out so a reserve can take your slot.`, `**When:** ${when(at)}\n**Confirm by:** ${ts(by, 'f')}`),
+        say('act', `${n(gigName)} is on. confirm you're in, or drop out so a reserve can take your slot.`, [
+            { name: 'When', value: when(at), inline: true },
+            { name: 'Confirm by', value: ts(by, 'f'), inline: true },
+        ]),
     nudge: (gigName: string, at: number, by: number) =>
-        say(`still need an answer on ${n(gigName)}. confirm or your slot goes to the reserves.`, `**When:** ${when(at)}\n**Confirm by:** ${ts(by, 'R')}`),
-    dropped: (gigName: string) => say(`no answer on ${n(gigName)}, so your slot went to the next runner. sign up again if you can still make it.`),
-    confirmFallback: (mentions: string) => `${mentions}\n${say("couldn't DM you. confirm or drop out here.")}`,
+        say('act', `still need an answer on ${n(gigName)}. confirm or your slot goes to the reserves.`, [
+            { name: 'When', value: when(at), inline: true },
+            { name: 'Confirm by', value: ts(by, 'R'), inline: true },
+        ]),
+    dropped: (gigName: string) => say('bad', `no answer on ${n(gigName)}, so your slot went to the next runner. sign up again if you can still make it.`),
+    confirmFallback: () => say('act', "couldn't DM you. confirm or drop out here."),
 
     // Reminders for confirmed runners
-    reminderDay: (gigName: string, at: number) => say(`reminder: ${n(gigName)} is on today.`, `**When:** ${when(at)}`),
-    reminderSoon: (gigName: string, at: number) => say(`${n(gigName)} starts soon. gear up.`, `**Starts** ${ts(at, 'R')}`),
-    remindersOff: (url: string) => say(`reminders off. turn them back on from your [Me page](${url}/me).`),
-    remindersSet: (on: boolean) => say(on ? "reminders on. you'll get a DM a few hours before and 30 minutes before." : 'reminders off. confirm requests still come through.'),
-    runnerMade: (handle: string, editUrl: string) => say(`${n(handle)} is on file. add a picture and extra roles on the [edit page](${editUrl}).`),
+    reminderDay: (gigName: string, at: number) => say('info', `reminder: ${n(gigName)} is on today.`, [{ name: 'When', value: when(at) }]),
+    reminderSoon: (gigName: string, at: number) => say('act', `${n(gigName)} starts soon. gear up.`, [{ name: 'Starts', value: ts(at, 'R') }]),
+    remindersOff: (url: string) => say('quiet', `reminders off. turn them back on from your [Me page](${url}/me).`),
+    remindersSet: (on: boolean) =>
+        on ? say('good', "reminders on. you'll get a DM a few hours before and 30 minutes before.") : say('quiet', 'reminders off. confirm requests still come through.'),
+    runnerMade: (handle: string, editUrl: string) => say('good', `${n(handle)} is on file. add a picture and extra roles on the [edit page](${editUrl}).`),
 
     // After the job
-    payout: (gigName: string) => say(`${n(gigName)} is done. here's your cut.`),
     rateFixer: (fixer: string) => `Rate ${fixer} (fixer)`,
     rateComment: (stars: number) => `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)} saved. Add a note?`,
 
     // Crews
-    crewInvite: (crewName: string, handle: string, from: string) => say(`${n(crewName)} wants ${n(handle)} in the crew. ${from} sent the invite.`),
-    crewJoined: (crewName: string, handle: string) => say(`${n(handle)} is in ${n(crewName)} now. welcome to the family.`),
-    crewDeclined: (crewName: string) => say(`invite from ${n(crewName)} declined.`),
+    crewInvite: (crewName: string, handle: string, from: string) => say('act', `${n(crewName)} wants ${n(handle)} in the crew. ${from} sent the invite.`),
+    crewJoined: (crewName: string, handle: string) => say('good', `${n(handle)} is in ${n(crewName)} now. welcome to the family.`),
+    crewDeclined: (crewName: string) => say('quiet', `invite from ${n(crewName)} declined.`),
 
     // Posted in the gig's thread: gig-wide news only. Runners coming and going show in the post's crew list.
-    sessionSet: (at: number) => say('session time set. runners, check your DMs and confirm.', `**When:** ${when(at)}`),
-    sessionCleared: () => say('session time cleared. back to gauging interest.'),
-    sessionSoon: (at: number) => say('session starts soon.', `**Starts** ${ts(at, 'R')}`),
-    sessionToday: (at: number) => say('session is on today. confirmed runners, see you there.', `**When:** ${when(at)}`),
-    slotsOpened: (crewName: string) => say(`${n(crewName)}'s reserved slots are open to freelancers now.`),
+    sessionSet: (at: number) => say('info', 'session time set. runners, check your DMs and confirm.', [{ name: 'When', value: when(at) }]),
+    sessionCleared: () => say('quiet', 'session time cleared. back to gauging interest.'),
+    sessionSoon: (at: number) => say('info', 'session starts soon.', [{ name: 'Starts', value: ts(at, 'R') }]),
+    sessionToday: (at: number) => say('info', 'session is on today. confirmed runners, see you there.', [{ name: 'When', value: when(at) }]),
+    slotsOpened: (crewName: string) => say('info', `${n(crewName)}'s reserved slots are open to freelancers now.`),
     statusChanged: {
-        open: say('contract is live. sign-ups open.'),
-        closed: say('sign-ups locked. good luck out there.'),
-        completed: say('job done. payment cleared. runners, check your DMs.'),
-        cancelled: say('contract pulled. stand down.'),
-    } as Record<string, string>,
+        open: say('act', 'contract is live. sign-ups open.'),
+        closed: say('info', 'sign-ups locked. good luck out there.'),
+        cancelled: say('bad', 'contract pulled. stand down.'),
+    } as Partial<Record<string, Said>>,
 
-    board: (url: string, open: number) => say(`${open} contract(s) live. full list on the [gig board](${url}/gigs).`),
+    board: (url: string, open: number) => say('info', `${open} contract(s) live. full list on the [gig board](${url}/gigs).`),
 
     // Errors the service throws, shown on the web and in Discord
     notOpen: 'that contract is not taking runners.',

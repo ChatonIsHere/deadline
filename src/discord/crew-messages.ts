@@ -2,7 +2,7 @@ import { type APIEmbed, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'dis
 import type { CrewView, RunnerCard } from '../shared/schemas';
 import { packEmbeds } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
-import { COLOURS } from './gig-embed';
+import { COLOURS, lineEmbed } from './colours';
 import { voice } from './voice';
 
 /** A role's emoji (role_solo, role_netrunner...), or '' for roles without one. */
@@ -13,13 +13,14 @@ export const runnerLine = (emoji: EmojiLookup, r: RunnerCard) => `${roleIcon(emo
 
 /** The DM a runner's player gets when a crew invites them. */
 export function inviteMessage(crew: { id: string; slug: string; name: string; tagline: string }, runner: RunnerCard, from: string, boardUrl: string) {
-    const embed = { color: COLOURS.open, title: crew.name, url: `${boardUrl}/crews/${crew.slug}`, description: crew.tagline || undefined };
+    const line = lineEmbed(voice.crewInvite(crew.name, runner.handle, from));
+    const embed = { ...line, title: crew.name, url: `${boardUrl}/crews/${crew.slug}`, description: [line.description, crew.tagline && `*${crew.tagline}*`].filter(Boolean).join('\n\n') };
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId(`crew/accept/${crew.id}/${runner.id}`).setLabel('Join').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`crew/decline/${crew.id}/${runner.id}`).setLabel('Decline').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setLabel('See the crew').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/crews/${crew.slug}`),
     );
-    return { content: voice.crewInvite(crew.name, runner.handle, from), embeds: [embed], components: [buttons] };
+    return { embeds: [embed], components: [buttons] };
 }
 
 /** /crew: one field per rank with its runners, then allies. Big crews spill into more messages. */

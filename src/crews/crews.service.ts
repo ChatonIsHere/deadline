@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { config } from '../config';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
-import { voice } from '../discord/voice';
+import { type Said, voice } from '../discord/voice';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
@@ -178,14 +178,14 @@ export class CrewsService {
     }
 
     /** The runner's player says yes. Used by the web and the DM button, so it takes a user ID. */
-    async accept(userId: string, id: string, runnerId: string): Promise<string> {
+    async accept(userId: string, id: string, runnerId: string): Promise<Said> {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
         await this.join(crew, runnerId);
         return voice.crewJoined(crew.name, (await this.runner(runnerId)).handle);
     }
 
-    async decline(userId: string, id: string, runnerId: string): Promise<string> {
+    async decline(userId: string, id: string, runnerId: string): Promise<Said> {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
         await this.prisma.crewInvite.deleteMany({ where: { crewId: id, runnerId } });

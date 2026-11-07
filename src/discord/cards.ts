@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import type { GigView, Review, RunnerView } from '../shared/schemas';
 import type { EmojiLookup } from './emoji.service';
-import { COLOURS, openSlots, payText } from './gig-embed';
+import { COLOURS, SITE } from './colours';
+import { openSlots, payText } from './gig-embed';
 import { voice } from './voice';
 
 // Compact cards for slash command replies. The full gig card is the forum post (gig-embed.ts).
@@ -73,7 +74,7 @@ export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', boardUr
     const name = fixer ? runner.fixerName : runner.handle;
     const url = fixer ? `${boardUrl}/fixers/${runner.fixerSlug}` : `${boardUrl}/runners/${runner.slug}`;
     const embed = new EmbedBuilder()
-        .setColor(runner.status === 'active' ? COLOURS.open : COLOURS.pending)
+        .setColor(runner.status === 'dead' ? SITE.red : runner.status === 'retired' ? SITE.grey : fixer ? SITE.cyan : SITE.yellow)
         .setTitle(runner.status === 'dead' ? `${name} †` : name)
         .setURL(url)
         .setDescription(runner.obituary ? cut(runner.obituary, 400) : fixer && runner.bio ? cut(runner.bio, 400) : null)

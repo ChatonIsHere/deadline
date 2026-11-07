@@ -5,7 +5,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
 import { GigPostService, type Note } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
-import { voice } from '../discord/voice';
+import { type Said, voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
 import { stringList } from '../prisma/json';
 import { PrismaService, type Tx } from '../prisma/prisma.service';
@@ -178,7 +178,7 @@ export class GigsService {
      * A player signs up (from the post's button or the web). Confirms them if they were
      * asked to. A player with several runners has to say which one.
      */
-    async join(userId: string, id: string, runnerId?: string): Promise<string> {
+    async join(userId: string, id: string, runnerId?: string): Promise<Said> {
         const me = await this.members.me(userId);
         if (!me?.isEdgerunner) throw new ForbiddenException(voice.notRunner);
 
@@ -214,7 +214,7 @@ export class GigsService {
         return this.view(id, user);
     }
 
-    async confirm(userId: string, id: string): Promise<string> {
+    async confirm(userId: string, id: string): Promise<Said> {
         const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException(voice.notActive);
         if (!gig.sessionAt) throw new BadRequestException(voice.nothingToConfirm);
@@ -349,7 +349,7 @@ export class GigsService {
      * reserve into a job they weren't on. `note` is for gig-wide news only; runners coming
      * and going show in the post's crew list instead of the thread.
      */
-    private async afterRemoval(id: string, note?: string) {
+    private async afterRemoval(id: string, note?: Note) {
         const gig = await this.row(id);
         const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
         const promoted = ACTIVE.includes(gig.status) && !played ? await this.promote(id) : [];

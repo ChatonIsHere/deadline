@@ -11,7 +11,8 @@ import { type EmojiLookup, EmojiService } from './emoji.service';
 import { MembersService } from './members.service';
 import type { Payout } from '../gigs/debrief.service';
 import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
-import { voice } from './voice';
+import { lineEmbed, lineMessage } from './colours';
+import { type Said, voice } from './voice';
 
 /** Tags the bot sets on posts. Moderated so only the bot and mods can apply them. */
 export const STATUS_TAGS = ['Open', 'Full', 'Closed', 'Completed', 'Cancelled'];
@@ -162,7 +163,7 @@ export class GigPostService {
             await thread.setAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek);
         }
         if (note) {
-            const messages = typeof note === 'string' ? [{ content: note }] : note(gig, this.emoji.get);
+            const messages = typeof note === 'function' ? note(gig, this.emoji.get) : [lineMessage(note)];
             for (const message of messages) await thread.send({ ...message, allowedMentions: { parse: [] } });
         }
         if (isFinal(gig)) {
@@ -204,14 +205,16 @@ export class GigPostService {
     /** DMs runners to confirm the session. Anyone whose DMs are closed gets pinged in the thread instead. */
     async askToConfirm(gig: GigView, threadId: string, userIds: string[], confirmBy: number, nudge = false) {
         if (!gig.sessionAt) return;
-        const content = (nudge ? voice.nudge : voice.confirmAsk)(gig.name, gig.sessionAt, confirmBy);
-        const failed = await this.members.dm(userIds, confirmMessage(gig.id, content, this.threadUrl(threadId)));
+        const said = (nudge ? voice.nudge : voice.confirmAsk)(gig.name, gig.sessionAt, confirmBy);
+        const failed = await this.members.dm(userIds, confirmMessage(gig.id, said, this.threadUrl(threadId)));
         if (!failed.length) return;
 
         const thread = await this.client.channels.fetch(threadId);
         if (!thread?.isThread()) return;
+        // Mentions only notify from a message's text, not its embeds, so the pings stay as text
         await thread.send({
-            content: voice.confirmFallback(failed.map((id) => `<@${id}>`).join(' ')),
+            content: failed.map((id) => `<@${id}>`).join(' '),
+            embeds: [lineEmbed(voice.confirmFallback())],
             components: [confirmButtons(gig.id)],
             allowedMentions: { users: failed },
         });
@@ -220,16 +223,16 @@ export class GigPostService {
     /** Session reminder: DMs to confirmed runners who want them, and a note in the thread for everyone. */
     async remind(gig: GigView, threadId: string, userIds: string[], kind: 'day' | 'soon') {
         if (!gig.sessionAt) return;
-        const content = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
-        await this.members.dm(userIds, reminderMessage(content, this.threadUrl(threadId)));
+        const said = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
+        await this.members.dm(userIds, reminderMessage(said, this.threadUrl(threadId)));
 
         const thread = await this.client.channels.fetch(threadId);
-        if (thread?.isThread()) await thread.send((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt));
+        if (thread?.isThread()) await thread.send(lineMessage((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt)));
     }
 
     /** Tells runners they were dropped for not confirming. */
     async notifyDropped(gig: GigView, userIds: string[]) {
-        await this.members.dm(userIds, { content: voice.dropped(gig.name) });
+        await this.members.dm(userIds, lineMessage(voice.dropped(gig.name)));
     }
 
     /** DMs each runner's player what they earned, with a menu to rate the fixer. */
@@ -287,7 +290,7 @@ export class GigPostService {
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
 
 /** Posted in the thread with an update: a line of text, or messages built from the gig (like the debrief). */
-export type Note = string | ((gig: GigView, emoji: EmojiLookup) => { content?: string; embeds?: APIEmbed[] }[]);
+export type Note = Said | ((gig: GigView, emoji: EmojiLookup) => { embeds: APIEmbed[] }[]);
 
 /** Where a gig's post lives: its thread, and the follow-up messages holding what didn't fit the first. */
 export interface PostRef {
