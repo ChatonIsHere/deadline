@@ -108,10 +108,10 @@ export function Layout() {
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:min-h-screen">
                 <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-visible">
-                    {/* Bottom padding keeps content clear of the corner + */}
+                    {/* Bottom padding keeps content clear of the corner + on phones. Desktop pads evenly, so the page centres on the same line as the channel tab. */}
                     {/* Desktop: centred on the whole window, and narrow enough to clear the channel tab on the left (13rem tab, then the 2rem padding as a gap) */}
                     {/* Desktop: pages sit in the middle of the space above the prompt bar, and taller ones start at the top. A page with tabs fills it instead (xl:flex-1), keeping its tab bar up top and centring what's under it. */}
-                    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))]">
+                    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:pb-6 xl:w-[min(72rem,calc(100%-26rem))]">
                         {me.isAdmin && <SetupReminder />}
                         <div className="flex flex-1 flex-col xl:*:my-auto xl:*:w-full">
                             <Outlet />
@@ -161,7 +161,7 @@ function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
     return (
-        <aside className="tab-frame fixed top-1/2 left-0 z-30 hidden w-52 -translate-y-1/2 flex-col pb-4 [--cut:16px] [--frame:color-mix(in_oklab,var(--color-primary)_40%,transparent)] xl:flex">
+        <aside className="tab-frame fixed top-[calc(50%-1.5rem)] left-0 z-30 hidden w-52 -translate-y-1/2 flex-col pb-4 [--cut:16px] [--frame:color-mix(in_oklab,var(--color-primary)_40%,transparent)] xl:flex">
             <Link to="/gigs" className="flex h-12 items-center gap-2 border-b-2 border-primary/40 px-4">
                 <img src="/logo.svg" alt="" className="size-6" />
                 <span className="font-display text-lg font-bold tracking-[0.2em] text-primary">DEADLINE</span>
