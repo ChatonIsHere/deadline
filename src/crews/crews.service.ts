@@ -9,12 +9,14 @@ import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
 import { canCreateCrew, canManageCrew, isFounderRank } from '../shared/permissions';
 import { type CrewInput, type CrewInvite, type CrewMember, type CrewView, DEFAULT_RANKS, type Me, type NewCrewInput } from '../shared/schemas';
-import { isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
+import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
 
 const CREW_INCLUDE = {
     members: { include: { runner: true } },
     allies: { include: { runner: true } },
     invites: { include: { runner: true }, orderBy: { createdAt: 'asc' } },
+    // Gigs with slots for the crew. Only posted ones, so nobody sees a pending gig they shouldn't
+    slots: { where: { gig: { status: { notIn: ['pending', 'rejected'] } } }, select: { gig: true } },
 } as const satisfies Prisma.CrewInclude;
 type CrewRow = Prisma.CrewGetPayload<{ include: typeof CREW_INCLUDE }>;
 
@@ -275,5 +277,8 @@ function toView(crew: CrewRow): CrewView {
         members: crew.members.map((m) => ({ ...toCard(m.runner), rank: m.rank })).sort((a, b) => order(a.rank) - order(b.rank) || byHandle(a, b)),
         allies: crew.allies.map((a) => toCard(a.runner)).sort(byHandle),
         invites: crew.invites.map((i) => toCard(i.runner)),
+        gigs: [...new Map(crew.slots.map((s) => [s.gig.id, s.gig])).values()]
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .map((g) => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null })),
     };
 }

@@ -4,12 +4,13 @@ import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Say } from '@/components/common';
-import { RoleIcon, RunnerChip } from '@/components/runner';
+import { RoleIcon, RunnerChip, RunnerTile } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrew, useFixers, useRunners, useUser } from '@/lib/api';
+import { GigList } from '@/pages/runner';
 
 export function Crew() {
     const { id } = useParams();
@@ -30,67 +31,69 @@ export function Crew() {
     if (!crew) return <Say>scanning...</Say>;
 
     const canManage = canManageCrew(me, crew);
-    const founders = crew.members.filter((m) => isFounderRank(crew, m.rank));
 
     return (
-        <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
-            <div className="space-y-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="space-y-6">
                 <div>
                     <h1 className="flex items-center gap-3 text-3xl text-primary">
                         <Icon name="crew" className="size-7" /> {crew.name}
                     </h1>
                     {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
-                    {founders.length > 0 && (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                            run by {founders.map((f) => f.handle).join(', ')}
-                        </p>
-                    )}
                 </div>
 
-                <Card className="space-y-4">
-                    <CardTitle>Runners</CardTitle>
+                <section className="space-y-4">
+                    <h2 className="text-xs text-accent">
+                        Runners <span className="text-muted-foreground">{crew.members.length}</span>
+                    </h2>
                     {!crew.members.length && <Say>no runners yet.</Say>}
                     {crew.ranks.map((rank) => {
                         const members = crew.members.filter((m) => m.rank === rank);
                         if (!members.length) return null;
                         return (
-                            <div key={rank}>
-                                <p className="mb-1 font-display text-xs tracking-widest text-muted-foreground uppercase">{rank}</p>
-                                <ul className="space-y-1">
+                            <div key={rank} className="space-y-2">
+                                <p className="font-display text-xs tracking-widest text-muted-foreground uppercase">{rank}</p>
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     {members.map((m) => {
-                                        const mine = m.ownerId === me.id;
-                                        const founder = isFounderRank(crew, m.rank);
+                                        const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (
-                                            <RunnerRow key={m.id} runner={m}>
-                                                {canManage && (
-                                                    <Select
-                                                        className="w-36"
-                                                        value={m.rank}
-                                                        onChange={(rank) => setRank.mutate({ runnerId: m.id, rank })}
-                                                        options={crew.ranks.map((r) => ({ value: r, label: r }))}
-                                                    />
+                                            <div key={m.id} className="space-y-2">
+                                                <RunnerTile runner={m} />
+                                                {(canManage || leave) && (
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {canManage && (
+                                                            <>
+                                                                <Select
+                                                                    className="w-36"
+                                                                    value={m.rank}
+                                                                    onChange={(rank) => setRank.mutate({ runnerId: m.id, rank })}
+                                                                    options={crew.ranks.map((r) => ({ value: r, label: r }))}
+                                                                />
+                                                                <Button variant="ghost" size="icon" title="Remove from the crew" onClick={() => removeMember.mutate(m.id)}>
+                                                                    <X className="size-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                        {leave && (
+                                                            <Button variant="ghost" size="sm" onClick={() => removeMember.mutate(m.id)}>
+                                                                Leave
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 )}
-                                                {canManage ? (
-                                                    <Button variant="ghost" size="icon" title="Remove" onClick={() => removeMember.mutate(m.id)}>
-                                                        <X className="size-4" />
-                                                    </Button>
-                                                ) : (
-                                                    mine &&
-                                                    !founder && (
-                                                        <Button variant="ghost" size="sm" onClick={() => removeMember.mutate(m.id)}>
-                                                            Leave
-                                                        </Button>
-                                                    )
-                                                )}
-                                            </RunnerRow>
+                                            </div>
                                         );
                                     })}
-                                </ul>
+                                </div>
                             </div>
                         );
                     })}
-                    {canManage && <InviteRunner crew={crew} isAdmin={me.isAdmin} onInvite={(runnerId) => invite.mutate(runnerId)} />}
-                </Card>
+                    {canManage && (
+                        <Card>
+                            <InviteRunner crew={crew} isAdmin={me.isAdmin} onInvite={(runnerId) => invite.mutate(runnerId)} />
+                        </Card>
+                    )}
+                </section>
 
                 <Card className="space-y-3">
                     <CardTitle help="runners and fixers the crew knows and trusts, without them being in it. founders can invite an ally to join.">Allies</CardTitle>
@@ -133,17 +136,20 @@ export function Crew() {
                 )}
             </div>
 
-            {canManage && (
-                <div className="space-y-5">
-                    <EditCrew key={crew.ranks.join()} crew={crew} />
-                    <ConfirmButton
-                        label="Disband crew"
-                        title={`Disband ${crew.name}?`}
-                        description="Gig slots reserved for this crew open up to anyone."
-                        onConfirm={() => remove.mutate()}
-                    />
-                </div>
-            )}
+            <div className="space-y-5">
+                <GigList title="Crew gigs" gigs={crew.gigs} empty="no gigs with crew slots yet." />
+                {canManage && (
+                    <>
+                        <EditCrew key={crew.ranks.join()} crew={crew} />
+                        <ConfirmButton
+                            label="Disband crew"
+                            title={`Disband ${crew.name}?`}
+                            description="Gig slots reserved for this crew open up to anyone."
+                            onConfirm={() => remove.mutate()}
+                        />
+                    </>
+                )}
+            </div>
         </div>
     );
 }
@@ -176,7 +182,7 @@ function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: bo
     const options = runners.filter((r) => !taken.has(r.id));
 
     return (
-        <div className="flex flex-wrap gap-2 border-t-2 border-border pt-4">
+        <div className="flex flex-wrap gap-2">
             <Select
                 className="min-w-48 flex-1"
                 value={runnerId}

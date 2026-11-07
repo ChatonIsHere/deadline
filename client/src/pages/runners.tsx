@@ -1,7 +1,6 @@
 import type { FixerSummary, RunnerSummary } from '@shared/schemas';
-import { Link } from 'react-router';
 import { LinkCard, Say } from '@/components/common';
-import { RatingLine, Roles, RunnerAvatar } from '@/components/runner';
+import { RatingLine, RunnerTile } from '@/components/runner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners, useUser } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -61,13 +60,7 @@ function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loa
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {runners.map((r) => (
-                <LinkCard key={r.id} to={`/runners/${r.slug}`} className="flex items-center gap-4">
-                    <RunnerAvatar runner={r} className="size-16 text-2xl [--cut:8px]" />
-                    <div className="min-w-0 space-y-1.5">
-                        <h3 className="truncate text-lg">{r.handle}</h3>
-                        <Roles runner={r} />
-                    </div>
-                </LinkCard>
+                <RunnerTile key={r.id} runner={r} />
             ))}
         </div>
     );
@@ -75,7 +68,7 @@ function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loa
 
 /**
  * A fixer on the Fixers tab: their picture across the top, like a gig card, then name,
- * specialties and rating. The card's corner is cut to match the picture's frame: 51 + 2 x 3
+ * specialties, and the rating bottom right. The card's corner is cut to match the picture's frame: 51 + 2 x 3
  * margin at 512 wide, so 11.1% of the card's width (cqw of the wrapper).
  */
 function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
@@ -90,11 +83,8 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
                 )}
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.handle}</h3>
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
-                <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="mt-auto flex justify-end">
                     <RatingLine rating={f.rating} />
-                    <span className="text-xs text-muted-foreground">
-                        {f.gigCount} gig{f.gigCount === 1 ? '' : 's'}
-                    </span>
                 </div>
             </LinkCard>
         </div>

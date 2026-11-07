@@ -1,7 +1,7 @@
 import { CORE_ROLES, type Rating, type RunnerCard } from '@shared/schemas';
 import { Star } from 'lucide-react';
 import { Link } from 'react-router';
-import { Icon } from '@/components/common';
+import { Icon, LinkCard } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { imageUrl, thumbUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,19 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
         </Link>
     ) : (
         <span className="inline-flex items-center gap-2 align-middle text-muted-foreground">{inner}</span>
+    );
+}
+
+/** A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to their profile. */
+export function RunnerTile({ runner }: { runner: RunnerCard }) {
+    return (
+        <LinkCard to={`/runners/${runner.slug}`} className="flex items-center gap-4">
+            <RunnerAvatar runner={runner} className="size-16 text-2xl [--cut:8px]" />
+            <div className="min-w-0 space-y-1.5">
+                <h3 className="truncate text-lg">{runner.handle}</h3>
+                <Roles runner={runner} />
+            </div>
+        </LinkCard>
     );
 }
 

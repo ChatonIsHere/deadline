@@ -430,6 +430,8 @@ export interface CrewView {
     allies: RunnerCard[];
     /** Runners asked to join who haven't answered yet. */
     invites: RunnerCard[];
+    /** Posted gigs with slots for the crew, newest first. */
+    gigs: GigLink[];
 }
 
 /** A crew asking one of your runners to join. */

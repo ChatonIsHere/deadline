@@ -1,5 +1,5 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
-import { LogOut, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
@@ -148,7 +148,7 @@ export function Layout() {
 
 const channelNo = (n: number) => String(n).padStart(2, '0');
 
-/** Desktop: the board's bezel. Logo, numbered channels, then the user at the bottom. */
+/** Desktop: the board's bezel. Logo and numbered channels. You are in the prompt bar. */
 function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
@@ -178,26 +178,14 @@ function Rail({ channels }: { channels: Channel[] }) {
                     </NavLink>
                 ))}
             </nav>
-
-
-            <div className="mt-auto border-t-2 border-primary/40 px-4 py-4">
-                <div className="flex items-center gap-2">
-                    <Link to="/me" className="flex min-w-0 flex-1 items-center gap-2 hover:text-primary" title="Your settings">
-                        <Avatar member={me} />
-                        <span className="truncate text-sm">{me.name}</span>
-                    </Link>
-                    <Button variant="ghost" size="icon" onClick={logout} title="Log out">
-                        <LogOut className="size-4" />
-                    </Button>
-                </div>
-            </div>
         </aside>
     );
 }
 
 /**
- * Where you are, as a shell prompt (name@DEADLINE:~/gigs$), in place of page titles. The name
- * goes to your settings. The rest (or Ctrl+K) opens the jump-anywhere palette.
+ * Where you are, as a shell prompt (name@DEADLINE:~/gigs$), in place of page titles. Your
+ * picture and name on the left go to your settings. The rest (or Ctrl+K) opens the
+ * jump-anywhere palette.
  */
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const { data: me } = useMe();
@@ -205,11 +193,13 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
     return (
         // Phones: the first row, under the browser bar. Desktop: stuck to the bottom of the window.
         <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
-            <img src="/logo.svg" alt="" className="size-5 shrink-0 md:hidden" />
             <span className="flex min-w-0 flex-1 items-center self-stretch">
-                <Link to="/me" title="Your settings" className="max-w-[40%] shrink-0 truncate text-primary hover:underline">
-                    {me?.name}
-                </Link>
+                {me && (
+                    <Link to="/me" title="Your settings" className="group flex max-w-[45%] shrink-0 items-center gap-2 text-primary">
+                        <Avatar member={me} />
+                        <span className="truncate group-hover:underline">{me.name}</span>
+                    </Link>
+                )}
                 <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center self-stretch text-left outline-none">
                     <span className="min-w-0 truncate">
                         <span className="text-primary">@DEADLINE</span>

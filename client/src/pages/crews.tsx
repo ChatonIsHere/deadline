@@ -9,19 +9,49 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-/** The crew list. New crews are registered at /crews/new, from the corner +. */
+/** The crew list: crews you have a runner in, then everyone else's. New crews are registered at /crews/new, from the corner +. */
 export function Crews() {
+    const me = useUser();
     const { data: crews, isPending } = useCrews();
 
     if (isPending) return <Say>scanning...</Say>;
-    if (!crews?.length) return <Say>no crews registered.</Say>;
+    if (!crews?.length) {
+        return (
+            <div className="space-y-4">
+                <Say>no crews registered. a crew is a group of runners with ranks, and gigs can hold slots for one.</Say>
+                {canCreateCrew(me) && (
+                    <Button asChild>
+                        <Link to="/crews/new">Register a crew</Link>
+                    </Button>
+                )}
+            </div>
+        );
+    }
+    const isMine = (c: CrewView) => c.members.some((m) => m.ownerId === me.id);
+    const mine = crews.filter(isMine);
+    const rest = crews.filter((c) => !isMine(c));
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {crews.map((c) => (
-                <CrewCard key={c.id} crew={c} />
-            ))}
+        <div className="space-y-8">
+            {mine.length > 0 && <CrewGrid title="Your crews" crews={mine} mine />}
+            {rest.length > 0 && <CrewGrid title={mine.length ? 'Other crews' : 'Crews'} crews={rest} />}
         </div>
+    );
+}
+
+function CrewGrid({ title, crews, mine }: { title: string; crews: CrewView[]; mine?: boolean }) {
+    return (
+        <section className="space-y-3">
+            <h2 className="text-xs tracking-widest text-muted-foreground">
+                // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {crews.map((c) => (
+                    <CrewCard key={c.id} crew={c} mine={mine} />
+                ))}
+            </div>
+        </section>
     );
 }
 
@@ -35,20 +65,46 @@ export function NewCrewPage() {
     );
 }
 
-function CrewCard({ crew }: { crew: CrewView }) {
+/** Name and tagline, who's at the top, the runners' faces, and counts along the bottom. Your own crews get a yellow frame. */
+function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
+    const leaders = crew.members.filter((m) => m.rank === crew.ranks[0]);
+    const shown = crew.members.slice(0, 6);
     return (
-        <LinkCard to={`/crews/${crew.slug}`}>
-            <h3 className="flex items-center gap-2 text-lg">
-                <Icon name="crew" /> {crew.name}
-            </h3>
-            {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
-            <div className="mt-4 flex items-center gap-1">
-                {crew.members.slice(0, 8).map((m) => (
-                    <RunnerAvatar key={m.id} runner={m} />
-                ))}
-                <span className="ml-2 text-xs text-muted-foreground">{crew.members.length} runner(s)</span>
+        <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
+            <div>
+                <h3 className="flex items-center gap-2 text-xl text-primary">
+                    <Icon name="crew" className="size-5" /> <span className="truncate">{crew.name}</span>
+                </h3>
+                {crew.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground italic">"{crew.tagline}"</p>}
             </div>
+            {leaders.length > 0 && (
+                <p className="truncate text-xs text-muted-foreground">
+                    <span className="tracking-widest uppercase">{crew.ranks[0]}</span> <span className="text-foreground">{leaders.map((l) => l.handle).join(', ')}</span>
+                </p>
+            )}
+            {shown.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                    {shown.map((m) => (
+                        <RunnerAvatar key={m.id} runner={m} className="size-10 text-base [--cut:6px]" />
+                    ))}
+                    {crew.members.length > shown.length && <span className="ml-1 text-xs text-muted-foreground">+{crew.members.length - shown.length}</span>}
+                </div>
+            )}
+            <dl className="mt-auto grid grid-cols-3 gap-2 border-t-2 border-border pt-3">
+                <Count label="Runners" value={crew.members.length} />
+                <Count label="Allies" value={crew.allies.length} />
+                <Count label="Gigs" value={crew.gigs.length} />
+            </dl>
         </LinkCard>
+    );
+}
+
+function Count({ label, value }: { label: string; value: number }) {
+    return (
+        <div>
+            <dt className="text-xs tracking-widest text-muted-foreground uppercase">{label}</dt>
+            <dd className="font-display text-xl text-primary tabular-nums">{value}</dd>
+        </div>
     );
 }
 
