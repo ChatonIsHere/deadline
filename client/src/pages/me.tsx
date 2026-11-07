@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availability';
 import { Avatar, Loading } from '@/components/common';
 import { logout } from '@/components/layout';
+import { NotificationsCard } from '@/components/notifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -49,17 +50,7 @@ export function MePage() {
 
                     {prefs && <TimezoneCard current={prefs.timezone} />}
 
-                    <Card className="space-y-3">
-                        <CardTitle help="requests to confirm a session time still come through, since your slot depends on them.">Session reminders</CardTitle>
-                        <p>DMs a few hours before a session you've confirmed, and 30 minutes before it starts.</p>
-                        {prefs ? (
-                            <Button variant={prefs.reminders ? 'outline' : 'default'} disabled={save.isPending} onClick={() => save.mutate({ reminders: !prefs.reminders })}>
-                                {prefs.reminders ? 'Turn reminders off' : 'Turn reminders on'}
-                            </Button>
-                        ) : (
-                            <Loading>loading...</Loading>
-                        )}
-                    </Card>
+                    <NotificationsCard prefs={prefs} />
 
                     <Button variant="outline" className="w-full" onClick={logout}>
                         <LogOut className="size-4" /> Log out

@@ -85,6 +85,28 @@ export const voice = {
         cancelled: say('bad', 'contract pulled. stand down.'),
     } as Partial<Record<string, Said>>,
 
+    // Copies by DM for the people it's about (see NotifySettings)
+    movedUp: (gigName: string, handle: string) => say('good', `a slot opened on ${n(gigName)}. ${n(handle)} moved up from the reserves.`),
+    assigned: (gigName: string, handle: string) => say('info', `an admin put ${n(handle)} on ${n(gigName)}.`),
+    kicked: (gigName: string, handle: string) => say('bad', `an admin took ${n(handle)} off ${n(gigName)}.`),
+    gigCancelled: (gigName: string) => say('bad', `${n(gigName)} was pulled. stand down.`),
+    sessionClearedFor: (gigName: string) => say('quiet', `${n(gigName)}'s session time was cleared. you're still on it.`),
+    gigApproved: (gigName: string) => say('good', `${n(gigName)} is approved and on the board.`),
+    gigRejected: (gigName: string) => say('bad', `${n(gigName)} was turned down.`),
+    signedUp: (gigName: string, handle: string, reserve: boolean) =>
+        say('info', reserve ? `${n(handle)} is on the reserves for ${n(gigName)}.` : `${n(handle)} signed up for ${n(gigName)}.`),
+    pulledOut: (gigName: string, handle: string) => say('quiet', `${n(handle)} pulled out of ${n(gigName)}.`),
+    ratingIn: (gigName: string, by: string, stars: number, comment: string | null) =>
+        say('info', `${n(by)} rated you for ${n(gigName)}: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, comment ? [{ name: 'Note', value: comment }] : undefined),
+    needsApproval: (gigName: string, fixer: string) => say('act', `${n(fixer)} wants ${n(gigName)} on the board. it needs an admin's sign-off.`),
+    newGig: () => say('act', 'new contract on the board.'),
+    crewMemberJoined: (crewName: string, handle: string) => say('info', `${n(handle)} joined ${n(crewName)}.`),
+    crewAdded: (crewName: string, handle: string) => say('info', `an admin put ${n(handle)} in ${n(crewName)}.`),
+    crewMemberLeft: (crewName: string, handle: string) => say('quiet', `${n(handle)} left ${n(crewName)}.`),
+    crewRemoved: (crewName: string, handle: string) => say('bad', `${n(handle)} was taken out of ${n(crewName)}.`),
+    crewRank: (crewName: string, handle: string, rank: string) => say('info', `${n(handle)} is now ${n(rank)} in ${n(crewName)}.`),
+    inviteDeclined: (crewName: string, handle: string) => say('quiet', `${n(handle)} turned down the invite to ${n(crewName)}.`),
+
     board: (url: string, open: number) => say('info', `${open} contract(s) live. full list on the [gig board](${url}/gigs).`),
 
     // Errors the service throws, shown on the web and in Discord

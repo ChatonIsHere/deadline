@@ -9,6 +9,8 @@ import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { type EmojiLookup, EmojiService } from './emoji.service';
 import { MembersService } from './members.service';
+import { NotifyService } from './notify.service';
+import { gigCard } from './cards';
 import type { Payout } from '../gigs/debrief.service';
 import { confirmButtons, confirmMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
 import { lineEmbed, lineMessage } from './colours';
@@ -59,6 +61,7 @@ export class GigPostService {
         private readonly library: LibraryService,
         private readonly members: MembersService,
         private readonly cache: CacheService,
+        private readonly notify: NotifyService,
     ) {}
 
     @Once('clientReady')
@@ -232,15 +235,23 @@ export class GigPostService {
 
     /** Tells runners they were dropped for not confirming. */
     async notifyDropped(gig: GigView, userIds: string[]) {
-        await this.members.dm(userIds, lineMessage(voice.dropped(gig.name)));
+        await this.notify.send('gigUpdates', userIds, lineMessage(voice.dropped(gig.name)));
     }
 
     /** DMs each runner's player what they earned, with a menu to rate the fixer. */
     async sendPayouts(gig: GigView, payouts: Payout[]) {
         const threadUrl = gig.threadUrl;
         for (const payout of payouts) {
-            await this.members.dm([payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
+            await this.notify.send('payouts', [payout.userId], payoutMessage(gig, payout, this.emoji.get, threadUrl));
         }
+    }
+
+    /** A new gig's card for people watching for new gigs, with its picture. */
+    async newGigMessage(gig: GigView) {
+        const image = gig.imageId ? await this.library.attachment(framedFile(gig.imageId)) : null;
+        const card = gigCard(gig, this.emoji.get, config.PUBLIC_URL, image && `attachment://${image.name}`);
+        card.embeds[0].setAuthor({ name: 'New contract on the board' });
+        return { ...card, files: image ? [image] : [] };
     }
 
     private threadUrl(threadId: string) {

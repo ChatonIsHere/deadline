@@ -71,6 +71,8 @@ model Settings {
 model UserPrefs {
   userId       String    @id @map("user_id")
   reminders    Boolean   @default(true)
+  /// Which other notifications they get by DM (see NotifySettings). Missing keys use the defaults.
+  notify       Json      @default("{}")
   /// The bot owner browsing as a normal player, admin powers hidden
   playerView   Boolean   @default(false) @map("player_view")
   /// Their timezone, e.g. "Europe/London". Times on the web show in it.

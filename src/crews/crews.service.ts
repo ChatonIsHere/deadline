@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { config } from '../config';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
+import { linked, NotifyService } from '../discord/notify.service';
 import { type Said, voice } from '../discord/voice';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { stringList } from '../prisma/json';
@@ -32,6 +33,7 @@ export class CrewsService {
         private readonly prisma: PrismaService,
         private readonly members: MembersService,
         private readonly gigs: GigsService,
+        private readonly notify: NotifyService,
     ) {}
 
     /** A crew's ID from a URL part: its link (the name) or its UUID. */
@@ -109,7 +111,7 @@ export class CrewsService {
         const runner = await this.runner(runnerId);
         if (!runner.ownerId) throw new BadRequestException("NPCs can't join a crew.");
         if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
-        await this.join(crew, runnerId);
+        await this.join(crew, runnerId, user.id);
         return this.get(id);
     }
 
@@ -121,6 +123,9 @@ export class CrewsService {
         if (isFounderRank(crew, member.rank) && !isFounderRank(crew, rank)) checkFounderLeaving(user, crew, member);
 
         await this.prisma.crewMember.update({ where: { crewId_runnerId: { crewId: id, runnerId } }, data: { rank } });
+        if (member.ownerId !== user.id && member.rank !== rank) {
+            this.notify.fire('crewChanges', [member.ownerId], linked(voice.crewRank(crew.name, member.handle, rank), 'See the crew', crewLink(crew)));
+        }
         return this.get(id);
     }
 
@@ -133,6 +138,11 @@ export class CrewsService {
         if (isFounderRank(crew, member.rank)) checkFounderLeaving(user, crew, member);
 
         await this.prisma.crewMember.delete({ where: { crewId_runnerId: { crewId: id, runnerId } } });
+        // Taken out by someone else, or left
+        const others = crew.members.filter((m) => m.id !== runnerId).map((m) => m.ownerId);
+        const removed = member.ownerId !== user.id;
+        const said = removed ? voice.crewRemoved(crew.name, member.handle) : voice.crewMemberLeft(crew.name, member.handle);
+        this.notify.fire('crewChanges', [...others, ...(removed ? [member.ownerId] : [])].filter((o) => o !== user.id), linked(said, 'See the crew', crewLink(crew)));
         return this.get(id);
     }
 
@@ -166,8 +176,8 @@ export class CrewsService {
         if (crew.invites.some((r) => r.id === runnerId)) throw new ConflictException('They already have an invite.');
 
         await this.prisma.crewInvite.create({ data: { crewId: id, runnerId, invitedBy: user.id } });
-        const failed = await this.members.dm([runner.ownerId], inviteMessage(crew, toCard(runner), user.name, config.PUBLIC_URL));
-        return { dm: !failed.length };
+        const sent = await this.notify.send('crewInvites', [runner.ownerId], inviteMessage(crew, toCard(runner), user.name, config.PUBLIC_URL));
+        return { dm: sent.length > 0 };
     }
 
     /** Founders and admins cancel. The runner's player declines. */
@@ -181,14 +191,18 @@ export class CrewsService {
     async accept(userId: string, id: string, runnerId: string): Promise<Said> {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
-        await this.join(crew, runnerId);
+        await this.join(crew, runnerId, userId);
         return voice.crewJoined(crew.name, (await this.runner(runnerId)).handle);
     }
 
     async decline(userId: string, id: string, runnerId: string): Promise<Said> {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
+        const invite = await this.prisma.crewInvite.findUnique({ where: { crewId_runnerId: { crewId: id, runnerId } }, include: { runner: true } });
         await this.prisma.crewInvite.deleteMany({ where: { crewId: id, runnerId } });
+        if (invite && invite.invitedBy !== userId) {
+            this.notify.fire('crewChanges', [invite.invitedBy], linked(voice.inviteDeclined(crew.name, invite.runner.handle), 'See the crew', crewLink(crew)));
+        }
         return voice.crewDeclined(crew.name);
     }
 
@@ -218,7 +232,8 @@ export class CrewsService {
     }
 
     /** Adds a member at the lowest rank, clearing any ally entry or invite. */
-    private async join(crew: CrewView, runnerId: string) {
+    /** `by`: who did it, the runner's player accepting or an admin putting them in. They don't hear about it. */
+    private async join(crew: CrewView, runnerId: string, by: string) {
         await this.prisma.$transaction(async (tx) => {
             await tx.crewMember.createMany({ data: [{ crewId: crew.id, runnerId, rank: crew.ranks[crew.ranks.length - 1] }], skipDuplicates: true });
             await tx.crewAlly.deleteMany({ where: { crewId: crew.id, runnerId } });
@@ -226,6 +241,11 @@ export class CrewsService {
         });
         // They may now fit a crew slot they were waiting on
         await this.gigs.refill(await this.gigs.gigsForCrew(crew.id));
+
+        const runner = await this.runner(runnerId);
+        const others = crew.members.map((m) => m.ownerId).filter((o) => o !== runner.ownerId && o !== by);
+        this.notify.fire('crewChanges', others, linked(voice.crewMemberJoined(crew.name, runner.handle), 'See the crew', crewLink(crew)));
+        if (by !== runner.ownerId) this.notify.fire('crewChanges', [runner.ownerId], linked(voice.crewAdded(crew.name, runner.handle), 'See the crew', crewLink(crew)));
     }
 
     private async checkInvite(userId: string, crew: CrewView, runnerId: string) {
@@ -286,3 +306,6 @@ function toView(crew: CrewRow): CrewView {
             .map((g) => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null })),
     };
 }
+
+/** A crew's page on the board. */
+const crewLink = (crew: { slug: string }) => `${config.PUBLIC_URL}/crews/${crew.slug}`;

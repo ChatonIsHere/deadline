@@ -24,6 +24,7 @@ import { CrewInteractions } from './discord/crew.interactions';
 import { GigInteractions } from './discord/gig.interactions';
 import { GigPostService } from './discord/gig-post.service';
 import { MembersService } from './discord/members.service';
+import { NotifyService } from './discord/notify.service';
 import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
 import { GigsController } from './gigs/gigs.controller';
@@ -60,6 +61,7 @@ import { DebriefService } from './gigs/debrief.service';
         MembersService,
         EmojiService,
         GigPostService,
+        NotifyService,
         GigInteractions,
         CrewInteractions,
         Commands,

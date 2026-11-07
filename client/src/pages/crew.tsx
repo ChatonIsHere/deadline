@@ -160,7 +160,7 @@ export function Crew() {
 function useInvite(url: string) {
     return useAction(
         (runnerId: string) => api<{ dm: boolean }>(`${url}/invites`, 'POST', { runnerId }),
-        ({ dm }) => (dm ? 'invite sent.' : "invite saved. their DMs are closed, so they'll see it on their Me page."),
+        ({ dm }) => (dm ? 'invite sent.' : "invite saved. it didn't go by DM (closed, or turned off), so they'll see it on their Me page."),
     );
 }
 

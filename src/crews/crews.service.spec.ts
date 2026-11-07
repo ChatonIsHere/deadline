@@ -4,6 +4,7 @@ import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import { NotifyService } from '../discord/notify.service';
 import { GigsService } from '../gigs/gigs.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
@@ -20,6 +21,7 @@ const members = {
     member: (id: string) => ({ id, name: id, avatar: null }),
     isEdgerunner: () => true,
     isFixerRunner: () => false,
+    admins: () => [],
     dm: async (ids: string[]) => {
         dms.push(...ids);
         return [];
@@ -40,8 +42,10 @@ describe('CrewsService', () => {
     beforeEach(async () => {
         await new Promise((resolve) => setTimeout(resolve, 30));
         await emptyDb();
-        const gigs = new GigsService(prisma, members, posts, settings, library, new PrefsService(prisma));
-        crews = new CrewsService(prisma, members, gigs);
+        const prefs = new PrefsService(prisma);
+        const notify = new NotifyService(prefs, members, prisma);
+        const gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
+        crews = new CrewsService(prisma, members, gigs, notify);
         dms = [];
         ids = {};
         for (const owner of ['a', 'b', 'c']) await addRunner(owner, owner);

@@ -4,6 +4,7 @@ import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import { NotifyService } from '../discord/notify.service';
 import { CrewsService } from '../crews/crews.service';
 import { GigsService } from '../gigs/gigs.service';
 import type { LibraryService } from '../library/library.service';
@@ -20,6 +21,8 @@ const members = {
     member: (id: string) => ({ id, name: id, avatar: null }),
     isEdgerunner: (id: string) => !!players.find((p) => p.id === id)?.isEdgerunner,
     isFixerRunner: (r: { role: string; ownerId: string | null }) => r.role === 'Fixer' && !r.ownerId,
+    admins: () => [],
+    dm: async () => [],
 } as unknown as MembersService;
 const settings = { get: () => ({ guildId: '1', runnerRoles: CORE_ROLES, reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
 const library = { exists: async () => true, pick: async () => null, refreshUsage: async () => {} } as unknown as LibraryService;
@@ -45,8 +48,10 @@ describe('RunnersService', () => {
     beforeEach(async () => {
         await new Promise((resolve) => setTimeout(resolve, 30));
         await emptyDb();
-        gigs = new GigsService(prisma, members, posts, settings, library, new PrefsService(prisma));
-        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs));
+        const prefs = new PrefsService(prisma);
+        const notify = new NotifyService(prefs, members, prisma);
+        gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
+        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs, notify));
     });
 
     after(() => prisma.$disconnect());

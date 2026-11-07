@@ -1,6 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { debriefMessages } from '../discord/gig-embed';
+import { config } from '../config';
 import { GigPostService } from '../discord/gig-post.service';
+import { linked, NotifyService } from '../discord/notify.service';
+import { gigRef } from '../shared/slug';
 import { type Said, voice } from '../discord/voice';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
@@ -23,6 +26,7 @@ export class DebriefService {
         private readonly prisma: PrismaService,
         private readonly gigs: GigsService,
         private readonly posts: GigPostService,
+        private readonly notify: NotifyService,
     ) {}
 
     /** Completes the gig. Everyone in a slot gets the crew rewards, plus their own if given. */
@@ -69,6 +73,16 @@ export class DebriefService {
 
         const set = { stars, ratedAt: new Date(), ...(comment !== undefined && { comment }) };
         await this.prisma.fixerRating.upsert({ where: { gigId_userId: { gigId: id, userId } }, create: { gigId: id, userId, ...set }, update: set });
+        const fixerId = gig.fixerId;
+        if (fixerId && fixerId !== userId) {
+            // Discord saves the stars, then asks for a note: wait a minute so the fixer gets one message
+            this.notify.later(`rating:${id}:${userId}`, 60_000, async () => {
+                const rating = await this.prisma.fixerRating.findUnique({ where: { gigId_userId: { gigId: id, userId } } });
+                if (!rating) return;
+                const by = (await this.prisma.gigSlot.findFirst({ where: { gigId: id, userId }, include: { runner: true } }))?.runner?.handle ?? 'A runner';
+                await this.notify.send('fixerRatings', [fixerId], linked(voice.ratingIn(gig.name, by, rating.stars, rating.comment), 'Open on board', `${config.PUBLIC_URL}/gigs/${gigRef(gig)}`));
+            });
+        }
         return voice.rated(stars);
     }
 

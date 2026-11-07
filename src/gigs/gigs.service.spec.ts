@@ -5,6 +5,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { CrewsService } from '../crews/crews.service';
 import type { GigPostService } from '../discord/gig-post.service';
 import type { MembersService } from '../discord/members.service';
+import { NotifyService } from '../discord/notify.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
 import type { GigInput, Me } from '../shared/schemas';
@@ -36,6 +37,8 @@ const members = {
     // The "fixer" player has the Discord fixer role; NPCs (no player) always count
     isFixerRunner: (r: { role: string; extraRoles: string[]; ownerId: string | null }) =>
         (r.role === 'Fixer' || r.extraRoles.includes('Fixer')) && (!r.ownerId || r.ownerId === 'fixer'),
+    admins: () => ['admin'],
+    dm: async () => [],
 } as unknown as MembersService;
 
 /** DMs the service sent, by kind. */
@@ -94,9 +97,10 @@ describe('GigsService', () => {
         await settle();
         await emptyDb();
         prefs = new PrefsService(prisma);
-        gigs = new GigsService(prisma, members, posts, settings, library, prefs);
-        crews = new CrewsService(prisma, members, gigs);
-        debrief = new DebriefService(prisma, gigs, posts);
+        const notify = new NotifyService(prefs, members, prisma);
+        gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
+        crews = new CrewsService(prisma, members, gigs, notify);
+        debrief = new DebriefService(prisma, gigs, posts, notify);
         ids = {};
         for (const p of ['a', 'b', 'c']) await addRunner(p, p);
         await addRunner('fixer', 'Rogue Amendiares', 'Fixer');

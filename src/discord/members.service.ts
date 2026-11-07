@@ -103,6 +103,15 @@ export class MembersService {
         return !!roleId && !!this.guild?.members.cache.get(userId)?.roles.cache.has(roleId);
     }
 
+    /** Everyone with admin powers: the bot's owners, Manage Server, or the admin role. Player view doesn't count here. */
+    admins(): string[] {
+        const roleId = this.settings.get().adminRoleId;
+        const members = [...(this.guild?.members.cache.values() ?? [])].filter(
+            (m) => !m.user.bot && (m.permissions.has(PermissionFlagsBits.ManageGuild) || (!!roleId && m.roles.cache.has(roleId))),
+        );
+        return [...new Set([...this.owners, ...members.map((m) => m.id)])];
+    }
+
     /** Everyone who can sign in (admin, fixer or edgerunner role, or Manage Server). For admins giving out runners. */
     players(): Member[] {
         const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();

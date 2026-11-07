@@ -61,6 +61,18 @@ Each gig is one session.
 - Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.
 - Confirmed runners get a reminder DM 8 hours before (Settings) and 30 minutes before. They can turn reminders off from the DM, with `/reminders`, or on the **Me** page. The thread gets a note too, without pings.
 
+## Notifications
+
+Gig news always goes in the gig's thread. People can get copies by DM of what's about them, each switched on or off on the **Me** page:
+
+- Gigs you're on: session reminders, your place on a gig (moved up from the reserves, put on or taken off by an admin, dropped for not confirming, the gig pulled or its time cleared) and payouts.
+- New gigs: none (the default), every gig, gigs with slots for your crews, or gigs from fixers you pick.
+- Crews: invites, and changes (someone joins or leaves, your rank changes, an invite you sent is turned down).
+- Fixers: their gig approved or turned down, sign-ups and pull-outs, ratings (sent a minute after rating, so the stars and note come together).
+- Admins: gigs sent in for approval.
+
+Requests to confirm a session time always come, since the slot depends on them. Nobody hears about what they did themselves.
+
 ## Timezones and availability
 
 - Times are stored as instants. The web shows them in each person's chosen timezone (their browser's until they pick one). Discord shows them in each reader's own zone.

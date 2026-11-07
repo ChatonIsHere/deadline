@@ -5,6 +5,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
 import { GigPostService, type Note } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
+import { linked, NotifyService } from '../discord/notify.service';
 import { type Said, voice } from '../discord/voice';
 import { LibraryService } from '../library/library.service';
 import { stringList } from '../prisma/json';
@@ -66,6 +67,7 @@ export class GigsService {
         private readonly settings: SettingsService,
         private readonly library: LibraryService,
         private readonly prefs: PrefsService,
+        private readonly notify: NotifyService,
     ) {}
 
     async list(user: Me): Promise<GigView[]> {
@@ -110,8 +112,20 @@ export class GigsService {
         });
 
         await this.library.refreshUsage([fields.imageId]);
-        this.post(id);
+        if (status === 'open') {
+            this.post(id, { after: (view) => this.announce(view) });
+        } else {
+            this.post(id);
+            const admins = this.members.admins().filter((a) => a !== user.id);
+            this.notify.fire('approvals', admins, linked(voice.needsApproval(fields.name, fields.fixerName), 'Review it', boardLink({ id, name: fields.name })));
+        }
         return this.view(id, user);
+    }
+
+    /** Heads-ups for people watching for new gigs, once the post is up so they can open it. */
+    private async announce(view: GigView) {
+        const audience = await this.notify.newGigAudience(view);
+        if (audience.length) await this.members.dm(audience, await this.posts.newGigMessage(view));
     }
 
     async update(user: Me, id: string, input: GigInput): Promise<GigView> {
@@ -145,7 +159,11 @@ export class GigsService {
         if (gig.status !== 'pending') throw new BadRequestException('Only pending gigs can be approved or rejected.');
 
         await this.prisma.gig.update({ where: { id }, data: { status: approved ? 'open' : 'rejected' } });
-        this.post(id);
+        if (approved) this.post(id, { after: (view) => this.announce(view) });
+        else this.post(id);
+        if (gig.createdBy !== user.id) {
+            this.notify.fire('fixerApprovals', [gig.createdBy], linked(approved ? voice.gigApproved(gig.name) : voice.gigRejected(gig.name), 'Open on board', boardLink(gig)));
+        }
         return this.view(id, user);
     }
 
@@ -157,9 +175,22 @@ export class GigsService {
         if (!NEXT_STATUSES[gig.status].includes(status)) throw new BadRequestException(`Can't go from ${gig.status} to ${status}.`);
 
         await this.prisma.gig.update({ where: { id }, data: { status } });
-        if (status === 'cancelled') await this.clearReserves(id);
+        if (status === 'cancelled') {
+            const players = await this.playersOn(id);
+            await this.clearReserves(id);
+            this.notify.fire('gigUpdates', players, linked(voice.gigCancelled(gig.name), 'Open on board', boardLink(gig)));
+        }
         this.post(id, { note: voice.statusChanged[status] });
         return this.view(id, user);
+    }
+
+    /** Players with a runner in a slot or on the reserves. */
+    private async playersOn(id: string): Promise<string[]> {
+        const [slots, reserves] = await Promise.all([
+            this.prisma.gigSlot.findMany({ where: { gigId: id, userId: { not: null } }, select: { userId: true } }),
+            this.prisma.gigReserve.findMany({ where: { gigId: id }, select: { userId: true } }),
+        ]);
+        return [...slots.map((s) => s.userId!), ...reserves.map((r) => r.userId)];
     }
 
     /** A finished gig has no one waiting for a slot. */
@@ -233,16 +264,23 @@ export class GigsService {
         const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException(voice.notActive);
 
+        // The runner who left, or null if they weren't on it
         const removed = await this.prisma.$transaction(async (tx) => {
             await lockGig(tx, id);
             const slot = await tx.gigSlot.findFirst({ where: { gigId: id, userId } });
             if (slot) {
                 await tx.gigSlot.update({ where: { id: slot.id }, data: emptied });
-                return true;
+                return slot.runnerId;
             }
-            return (await tx.gigReserve.deleteMany({ where: { gigId: id, userId } })).count > 0;
+            const reserve = await tx.gigReserve.findUnique({ where: { gigId_userId: { gigId: id, userId } } });
+            if (!reserve) return null;
+            await tx.gigReserve.delete({ where: { gigId_userId: { gigId: id, userId } } });
+            return reserve.runnerId;
         });
         if (!removed) throw new BadRequestException(voice.notIn);
+        if (gig.fixerId && gig.fixerId !== userId) {
+            this.notify.fire('fixerSignups', [gig.fixerId], async () => linked(voice.pulledOut(gig.name, await this.handle(removed)), 'Open on board', boardLink(gig)));
+        }
         await this.afterRemoval(id);
     }
 
@@ -254,6 +292,10 @@ export class GigsService {
         if (!slot?.userId) throw new NotFoundException();
 
         await this.prisma.gigSlot.update({ where: { id: slotId }, data: emptied });
+        if (slot.userId !== user.id) {
+            const gig = await this.row(id);
+            this.notify.fire('gigUpdates', [slot.userId], async () => linked(voice.kicked(gig.name, await this.handle(slot.runnerId)), 'Open on board', boardLink(gig)));
+        }
         await this.afterRemoval(id);
         return this.view(id, user);
     }
@@ -281,6 +323,8 @@ export class GigsService {
         });
 
         this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt), ask: players } : { note: voice.sessionCleared() });
+        // Setting a time asks everyone to confirm, which always goes; clearing it is a copy
+        if (!sessionAt && gig.sessionAt) this.notify.fire('gigUpdates', players, linked(voice.sessionClearedFor(gig.name), 'Open on board', boardLink(gig)));
         return this.view(id, user);
     }
 
@@ -340,6 +384,12 @@ export class GigsService {
         });
 
         this.post(id, { ask: !result.reserve && result.state === 'awaiting' ? [userId] : [] });
+        const gig = await this.row(id);
+        if (gig.fixerId && gig.fixerId !== userId) {
+            this.notify.fire('fixerSignups', [gig.fixerId], linked(voice.signedUp(gig.name, runner.handle, !!result.reserve), 'Open on board', boardLink(gig)));
+        }
+        // Asked to confirm a set time instead, which always goes
+        if (assigned && result.state !== 'awaiting') this.notify.fire('gigUpdates', [userId], linked(voice.assigned(gig.name, runner.handle), 'Open on board', boardLink(gig)));
         return result;
     }
 
@@ -354,6 +404,9 @@ export class GigsService {
         const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
         const promoted = ACTIVE.includes(gig.status) && !played ? await this.promote(id) : [];
         this.post(id, { note, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
+        if (!gig.sessionAt) {
+            for (const p of promoted) this.notify.fire('gigUpdates', [p.userId], async () => linked(voice.movedUp(gig.name, await this.handle(p.runnerId)), 'Open on board', boardLink(gig)));
+        }
     }
 
     /**
@@ -693,6 +746,9 @@ export class GigsService {
 async function lockGig(tx: Tx, id: string) {
     await tx.$queryRaw`SELECT id FROM gigs WHERE id = ${id}::uuid FOR UPDATE`;
 }
+
+/** A gig's page on the board. */
+const boardLink = (gig: { id: string; name: string }) => `${config.PUBLIC_URL}/gigs/${gigRef(gig)}`;
 
 /** A sign-up whose runner was deleted. */
 const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId, status: 'active' });

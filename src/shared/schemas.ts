@@ -167,10 +167,55 @@ export const sessionInput = z.object({ sessionAt: z.number().int().positive().nu
 /** A timezone name the runtime knows, e.g. "Europe/London". */
 const timezone = z.string().max(64).refine(isTimeZone, 'Unknown timezone');
 
+/**
+ * Notifications people choose to get by DM. Gig news always goes in the gig's thread; these
+ * are copies for the people it's about. Confirm requests always come and aren't listed.
+ *
+ * gigUpdates: your place on a gig (moved up from the reserves, put on or taken off by an
+ * admin, dropped for not confirming, the gig cancelled or its time cleared). payouts: your cut
+ * after a gig. crewInvites, crewChanges: your crews. fixerApprovals, fixerSignups,
+ * fixerRatings: gigs you put out. approvals: admins, gigs waiting for sign-off.
+ */
+export const NOTIFY_KINDS = ['gigUpdates', 'payouts', 'crewInvites', 'crewChanges', 'fixerApprovals', 'fixerSignups', 'fixerRatings', 'approvals'] as const;
+export type NotifyKind = (typeof NOTIFY_KINDS)[number];
+
+/** New gig heads-ups: none, every gig, gigs with slots for your crews, or gigs from fixers you pick. */
+export const NEW_GIG_SCOPES = ['off', 'all', 'crews', 'fixers'] as const;
+export type NewGigScope = (typeof NEW_GIG_SCOPES)[number];
+
+export type NotifySettings = Record<NotifyKind, boolean> & {
+    newGigs: NewGigScope;
+    /** Fixer characters (runner IDs) to hear about, when newGigs is "fixers". */
+    newGigFixers: string[];
+};
+
+export const NOTIFY_DEFAULTS: NotifySettings = {
+    gigUpdates: true,
+    payouts: true,
+    crewInvites: true,
+    crewChanges: true,
+    fixerApprovals: true,
+    fixerSignups: true,
+    fixerRatings: true,
+    approvals: true,
+    newGigs: 'off',
+    newGigFixers: [],
+};
+
+/** Only what's sent changes. */
+export const notifyInput = z
+    .object({
+        ...(Object.fromEntries(NOTIFY_KINDS.map((k) => [k, z.boolean()])) as Record<NotifyKind, z.ZodBoolean>),
+        newGigs: z.enum(NEW_GIG_SCOPES),
+        newGigFixers: z.array(id).max(50),
+    })
+    .partial();
+
 /** Only what's sent changes. */
 export const prefsInput = z
     .object({
         reminders: z.boolean(),
+        notify: notifyInput,
         /** Bot owner only: use the board as a normal player, admin powers hidden. */
         playerView: z.boolean(),
         timezone,
@@ -180,6 +225,7 @@ export type PrefsInput = z.infer<typeof prefsInput>;
 
 export interface Prefs {
     reminders: boolean;
+    notify: NotifySettings;
     playerView: boolean;
     timezone: string | null;
 }
