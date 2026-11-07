@@ -228,6 +228,12 @@
 
     /* Pictures (not icons or cut-corner avatars) appear a square at a time: see reveal.css */
 
+    /* Rows that redraw on a live update (or first draw) slide in like a notification */
+    .live-in {
+        animation: step-in-y 180ms steps(4, end) backwards;
+        animation-delay: var(--d, 0ms);
+    }
+
     aside nav > a,
     nav.shrink-0 a {
         animation: step-in-x 180ms steps(4, end) backwards;

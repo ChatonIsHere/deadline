@@ -1,6 +1,6 @@
 import { type GigStatus, type Member, payRange } from '@shared/schemas';
 import { Popover } from 'radix-ui';
-import { type ReactNode, useEffect, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -206,3 +206,23 @@ export function DiscordIcon({ className }: { className?: string }) {
         </svg>
     );
 }
+
+/** A short fingerprint of some data, for React keys that change when the data does. */
+export function fingerprint(value: unknown): string {
+    const text = JSON.stringify(value) ?? '';
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
+    return hash.toString(36);
+}
+
+/**
+ * Draws its children again when `value` changes, so a live update plays the same entrance
+ * as a page load: panels power on, headings type out, pictures fill in. Don't wrap anything
+ * holding unsaved input, or a change elsewhere would clear it.
+ */
+export function Live({ value, children }: { value: unknown; children: ReactNode }) {
+    return <Fragment key={fingerprint(value)}>{children}</Fragment>;
+}
+
+/** A list row's key: its ID plus a fingerprint, so a changed row redraws (with live-in, see globals.css). */
+export const liveKey = (id: string, value: unknown) => `${id}:${fingerprint(value)}`;

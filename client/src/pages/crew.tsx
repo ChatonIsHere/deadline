@@ -3,7 +3,7 @@ import type { CrewView, RunnerCard } from '@shared/schemas';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Say } from '@/components/common';
+import { ConfirmButton, Icon, Live, liveKey, Say } from '@/components/common';
 import { RoleIcon, RunnerChip, RunnerTile } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -35,12 +35,14 @@ export function Crew() {
     return (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="space-y-6">
-                <div>
-                    <h1 className="flex items-center gap-3 text-3xl text-primary">
-                        <Icon name="crew" className="size-7" /> {crew.name}
-                    </h1>
-                    {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
-                </div>
+                <Live value={[crew.name, crew.tagline]}>
+                    <div>
+                        <h1 className="flex items-center gap-3 text-3xl text-primary">
+                            <Icon name="crew" className="size-7" /> {crew.name}
+                        </h1>
+                        {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                    </div>
+                </Live>
 
                 <section className="space-y-4">
                     <h2 className="text-xs text-accent">
@@ -57,7 +59,7 @@ export function Crew() {
                                     {members.map((m) => {
                                         const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (
-                                            <div key={m.id} className="space-y-2">
+                                            <div key={liveKey(m.id, m)} className="space-y-2">
                                                 <RunnerTile runner={m} />
                                                 {(canManage || leave) && (
                                                     <div className="flex items-center justify-end gap-1">
@@ -102,7 +104,7 @@ export function Crew() {
                         {crew.allies.map((a) => {
                             const invited = crew.invites.some((i) => i.id === a.id);
                             return (
-                                <RunnerRow key={a.id} runner={a}>
+                                <RunnerRow key={liveKey(a.id, a)} runner={a}>
                                     {canManage && a.ownerId && (
                                         <Button variant="outline" size="sm" disabled={invited || invite.isPending} onClick={() => invite.mutate(a.id)}>
                                             {invited ? 'Invited' : 'Invite to crew'}
@@ -125,7 +127,7 @@ export function Crew() {
                         <CardTitle>Waiting on an answer</CardTitle>
                         <ul className="space-y-1">
                             {crew.invites.map((r) => (
-                                <RunnerRow key={r.id} runner={r}>
+                                <RunnerRow key={liveKey(r.id, r)} runner={r}>
                                     <Button variant="ghost" size="icon" title="Cancel invite" onClick={() => cancelInvite.mutate(r.id)}>
                                         <X className="size-4" />
                                     </Button>
@@ -164,7 +166,7 @@ function useInvite(url: string) {
 
 function RunnerRow({ runner, children }: { runner: RunnerCard; children?: ReactNode }) {
     return (
-        <li className="flex min-h-9 flex-wrap items-center gap-2">
+        <li className="live-in flex min-h-9 flex-wrap items-center gap-2">
             <RoleIcon role={runner.role} />
             <RunnerChip runner={runner} />
             <span className="text-xs text-muted-foreground">{runner.role}</span>

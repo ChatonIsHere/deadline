@@ -3,6 +3,10 @@ import { isTimeZone, WEEK_HOURS } from './time';
 
 // Shared by the server (request validation) and the client (forms).
 
+/** Parts of the board that refresh live: each is the first part of the web app's query keys. */
+export const LIVE_TOPICS = ['gigs', 'runners', 'fixers', 'crews', 'library', 'settings', 'availability'] as const;
+export type LiveTopic = (typeof LIVE_TOPICS)[number];
+
 export const GIG_STATUSES = ['pending', 'open', 'closed', 'completed', 'cancelled', 'rejected'] as const;
 export type GigStatus = (typeof GIG_STATUSES)[number];
 

@@ -2,7 +2,7 @@ import { canCreateCrew } from '@shared/permissions';
 import type { CrewView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Icon, LinkCard, Say } from '@/components/common';
+import { Icon, LinkCard, liveKey, Say } from '@/components/common';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -48,7 +48,7 @@ function CrewGrid({ title, crews, mine }: { title: string; crews: CrewView[]; mi
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {crews.map((c) => (
-                    <CrewCard key={c.id} crew={c} mine={mine} />
+                    <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />
                 ))}
             </div>
         </section>

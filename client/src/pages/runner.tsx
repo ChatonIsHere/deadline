@@ -1,6 +1,6 @@
 import type { GigLink } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Person, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, Icon, Live, liveKey, Person, Say, StatusBadge } from '@/components/common';
 import { Roles, RunnerAvatar } from '@/components/runner';
 import { useFormatSession } from '@/lib/time';
 import { Button } from '@/components/ui/button';
@@ -71,18 +71,20 @@ export function RunnerPage() {
     return (
         <div className="space-y-6">
             {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
-            <div className="space-y-4">
-                <div className="flex items-start gap-4 sm:gap-5">
-                    <RunnerAvatar runner={runner} framed className="aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl" />
-                    <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
-                        <p className="text-xs tracking-widest text-muted-foreground">// RUNNER</p>
-                        <h1 className="text-2xl break-words text-primary sm:text-3xl">{runner.handle}</h1>
-                        <Roles runner={runner} />
-                        <div className="hidden space-y-3 sm:block">{details}</div>
+            <Live value={[runner.handle, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.crews, runner.isFixer]}>
+                <div className="space-y-4">
+                    <div className="flex items-start gap-4 sm:gap-5">
+                        <RunnerAvatar runner={runner} framed className="aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl" />
+                        <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+                            <p className="text-xs tracking-widest text-muted-foreground">// RUNNER</p>
+                            <h1 className="text-2xl break-words text-primary sm:text-3xl">{runner.handle}</h1>
+                            <Roles runner={runner} />
+                            <div className="hidden space-y-3 sm:block">{details}</div>
+                        </div>
                     </div>
+                    <div className="space-y-3 sm:hidden">{details}</div>
                 </div>
-                <div className="space-y-3 sm:hidden">{details}</div>
-            </div>
+            </Live>
 
             <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
         </div>
@@ -97,7 +99,7 @@ export function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]
             {gigs.length ? (
                 <ul className="space-y-2">
                     {gigs.map((g) => (
-                        <li key={g.id} className="flex flex-wrap items-center gap-2">
+                        <li key={liveKey(g.id, g)} className="live-in flex flex-wrap items-center gap-2">
                             <StatusBadge status={g.status} />
                             <Link to={`/gigs/${g.ref}`} className="hover:text-accent">
                                 {g.name}

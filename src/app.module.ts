@@ -13,6 +13,8 @@ import { CrewsService } from './crews/crews.service';
 import { CacheService } from './cache/cache.service';
 import { CleanupService } from './library/cleanup.service';
 import { ConfigController, ImagesController } from './library/images.controller';
+import { LiveGateway } from './live/live.gateway';
+import { LiveService } from './live/live.service';
 import { PrismaService } from './prisma/prisma.service';
 import { StorageService } from './storage/storage.service';
 import { EmojiService } from './discord/emoji.service';
@@ -43,6 +45,8 @@ import { DebriefService } from './gigs/debrief.service';
     ],
     controllers: [AuthController, AvailabilityController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController],
     providers: [
+        LiveService,
+        LiveGateway,
         PrismaService,
         // No arguments: they connect to REDIS_URL and S3 from the config (tests pass their own)
         { provide: CacheService, useFactory: () => new CacheService() },

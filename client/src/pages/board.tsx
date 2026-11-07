@@ -1,5 +1,5 @@
 import { type GigView, isLive, type Me } from '@shared/schemas';
-import { Say } from '@/components/common';
+import { liveKey, Say } from '@/components/common';
 import { GigCard } from '@/components/gig-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGigs, useUser } from '@/lib/api';
@@ -54,7 +54,7 @@ export function Board() {
                         ) : list.length ? (
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 {list.map((g) => (
-                                    <GigCard key={g.id} gig={g} />
+                                    <GigCard key={liveKey(g.id, g)} gig={g} />
                                 ))}
                             </div>
                         ) : (

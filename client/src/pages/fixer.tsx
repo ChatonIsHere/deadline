@@ -1,6 +1,6 @@
 import type { Review } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Say } from '@/components/common';
+import { ConfirmButton, Live, liveKey, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RatingLine, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -35,57 +35,61 @@ export function FixerPage() {
 
     return (
         <div className="space-y-6">
-            <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
-                <RunnerAvatar runner={fixer} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
-                <div className="min-w-0 space-y-3">
-                    <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
-                    <h1 className="text-3xl break-words text-accent">{fixer.handle}</h1>
-                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <RatingLine rating={fixer.rating} />
-                        <span className="text-xs text-muted-foreground">
-                            {fixer.fixerGigs.length} gig{fixer.fixerGigs.length === 1 ? '' : 's'} put out
-                        </span>
-                    </p>
-                    {fields.length > 0 && (
-                        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 pt-1">
-                            {fields.map((f) => (
-                                <div key={f.label} className="contents">
-                                    <dt className="text-muted-foreground">{f.label}</dt>
-                                    <dd className="break-words">{f.value}</dd>
-                                </div>
-                            ))}
-                        </dl>
-                    )}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                        {fixer.owner && (
-                            <Button asChild variant="outline" size="sm">
-                                <Link to={`/runners/${fixer.slug}`}>View runner profile</Link>
-                            </Button>
+            <Live value={[fixer.handle, fixer.imageId, fixer.rating, fixer.fixerGigs.length, fields, fixer.owner]}>
+                <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
+                    <RunnerAvatar runner={fixer} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
+                    <div className="min-w-0 space-y-3">
+                        <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
+                        <h1 className="text-3xl break-words text-accent">{fixer.handle}</h1>
+                        <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <RatingLine rating={fixer.rating} />
+                            <span className="text-xs text-muted-foreground">
+                                {fixer.fixerGigs.length} gig{fixer.fixerGigs.length === 1 ? '' : 's'} put out
+                            </span>
+                        </p>
+                        {fields.length > 0 && (
+                            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 pt-1">
+                                {fields.map((f) => (
+                                    <div key={f.label} className="contents">
+                                        <dt className="text-muted-foreground">{f.label}</dt>
+                                        <dd className="break-words">{f.value}</dd>
+                                    </div>
+                                ))}
+                            </dl>
                         )}
-                        {canManage && (
-                            <Button asChild variant="outline" size="sm">
-                                <Link to={fixer.ownerId ? `/runners/${fixer.slug}/edit` : `/fixers/${fixer.slug}/edit`}>Edit</Link>
-                            </Button>
-                        )}
-                        {/* A player's fixer is their runner, so it's deleted from the runner profile */}
-                        {canManage && !fixer.owner && (
-                            <ConfirmButton
-                                size="sm"
-                                label="Delete"
-                                title={`Delete ${fixer.handle}?`}
-                                description="They're taken off any live gigs. Finished gigs keep the record."
-                                onConfirm={() => remove.mutate()}
-                            />
-                        )}
+                        <div className="flex flex-wrap gap-2 pt-2">
+                            {fixer.owner && (
+                                <Button asChild variant="outline" size="sm">
+                                    <Link to={`/runners/${fixer.slug}`}>View runner profile</Link>
+                                </Button>
+                            )}
+                            {canManage && (
+                                <Button asChild variant="outline" size="sm">
+                                    <Link to={fixer.ownerId ? `/runners/${fixer.slug}/edit` : `/fixers/${fixer.slug}/edit`}>Edit</Link>
+                                </Button>
+                            )}
+                            {/* A player's fixer is their runner, so it's deleted from the runner profile */}
+                            {canManage && !fixer.owner && (
+                                <ConfirmButton
+                                    size="sm"
+                                    label="Delete"
+                                    title={`Delete ${fixer.handle}?`}
+                                    description="They're taken off any live gigs. Finished gigs keep the record."
+                                    onConfirm={() => remove.mutate()}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Live>
 
             {fixer.bio && (
-                <Card>
-                    <CardTitle>About</CardTitle>
-                    <Markdown text={fixer.bio} />
-                </Card>
+                <Live value={fixer.bio}>
+                    <Card>
+                        <CardTitle>About</CardTitle>
+                        <Markdown text={fixer.bio} />
+                    </Card>
+                </Live>
             )}
 
             <div className="grid gap-5 lg:grid-cols-2">
@@ -104,7 +108,7 @@ function Reviews({ reviews }: { reviews: Review[] }) {
             <CardTitle>Latest ratings</CardTitle>
             <ul className="space-y-4">
                 {reviews.map((r) => (
-                    <li key={r.gig.id + (r.by?.handle ?? '')} className="space-y-1">
+                    <li key={liveKey(r.gig.id + (r.by?.handle ?? ''), r)} className="live-in space-y-1">
                         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <Stars value={r.stars} />
                             <Link to={`/gigs/${r.gig.ref}`} className="hover:text-accent">

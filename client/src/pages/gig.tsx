@@ -3,7 +3,7 @@ import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, DiscordIcon, Icon, Money, Pay, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, DiscordIcon, Icon, Live, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -48,13 +48,15 @@ export function Gig() {
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-start gap-4">
-                <div className="min-w-0 flex-[1_1_16rem]">
-                    <div className="mb-2 flex items-center gap-2">
-                        <StatusBadge status={gig.status} />
-                        {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}
+                <Live value={[gig.status, gig.type, gig.name]}>
+                    <div className="min-w-0 flex-[1_1_16rem]">
+                        <div className="mb-2 flex items-center gap-2">
+                            <StatusBadge status={gig.status} />
+                            {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}
+                        </div>
+                        <h1 className="text-3xl break-words text-primary">{gig.name}</h1>
                     </div>
-                    <h1 className="text-3xl break-words text-primary">{gig.name}</h1>
-                </div>
+                </Live>
                 <div className="flex flex-wrap gap-2">
                     {gig.threadUrl && (
                         // Just the logo on phones, so it doesn't crowd the title
@@ -91,92 +93,106 @@ export function Gig() {
 
             <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
                 <div className="space-y-5">
-                    {gig.imageId && <img src={imageUrl(gig.imageId)} alt="" className="aspect-video w-full object-cover" />}
+                    {gig.imageId && (
+                        <Live value={gig.imageId}>
+                            <img src={imageUrl(gig.imageId)} alt="" className="aspect-video w-full object-cover" />
+                        </Live>
+                    )}
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
                     {gig.canRate && <RateFixer gig={gig} />}
-                    <Card>
-                        <CardTitle>Brief</CardTitle>
-                        <Markdown text={gig.brief} />
-                    </Card>
-                    {gig.primaryObjective.length > 0 && (
+                    <Live value={gig.brief}>
                         <Card>
-                            <CardTitle className="flex items-center gap-2">
-                                <Icon name="objective" /> Primary objective
-                            </CardTitle>
-                            {/* One payout for the whole thing, however many parts */}
-                            <div className="flex justify-between gap-4">
+                            <CardTitle>Brief</CardTitle>
+                            <Markdown text={gig.brief} />
+                        </Card>
+                    </Live>
+                    {gig.primaryObjective.length > 0 && (
+                        <Live value={[gig.primaryObjective, gig.pay]}>
+                            <Card>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Icon name="objective" /> Primary objective
+                                </CardTitle>
+                                {/* One payout for the whole thing, however many parts */}
+                                <div className="flex justify-between gap-4">
+                                    <ul className="space-y-2">
+                                        {gig.primaryObjective.map((part, i) => (
+                                            <li key={i}>
+                                                - <Markdown inline text={part} />
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <Money amount={gig.pay} className="shrink-0 self-start" />
+                                </div>
+                            </Card>
+                        </Live>
+                    )}
+                    {gig.objectives.length > 0 && (
+                        <Live value={gig.objectives}>
+                            <Card>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Icon name="bonus" /> Secondary objectives
+                                </CardTitle>
                                 <ul className="space-y-2">
-                                    {gig.primaryObjective.map((part, i) => (
-                                        <li key={i}>
-                                            - <Markdown inline text={part} />
+                                    {gig.objectives.map((o, i) => (
+                                        <li key={i} className="flex justify-between gap-4">
+                                            {/* Players get no text for an undisclosed one; admins and its fixer see it, marked */}
+                                            {o.secret && !o.text ? (
+                                                <span className="text-muted-foreground">- [ NOT DISCLOSED ]</span>
+                                            ) : (
+                                                <span>
+                                                    - <Markdown inline text={o.text} />
+                                                    {o.secret && <span className="ml-2 text-xs text-accent uppercase">not disclosed yet</span>}
+                                                </span>
+                                            )}
+                                            {o.bonus && (
+                                                <span className="flex shrink-0 items-center gap-1 self-start">
+                                                    <span className="font-semibold text-primary">+</span>
+                                                    <Money amount={o.bonus} />
+                                                    {o.each && <span className="text-muted-foreground">each</span>}
+                                                </span>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
-                                <Money amount={gig.pay} className="shrink-0 self-start" />
-                            </div>
-                        </Card>
-                    )}
-                    {gig.objectives.length > 0 && (
-                        <Card>
-                            <CardTitle className="flex items-center gap-2">
-                                <Icon name="bonus" /> Secondary objectives
-                            </CardTitle>
-                            <ul className="space-y-2">
-                                {gig.objectives.map((o, i) => (
-                                    <li key={i} className="flex justify-between gap-4">
-                                        {/* Players get no text for an undisclosed one; admins and its fixer see it, marked */}
-                                        {o.secret && !o.text ? (
-                                            <span className="text-muted-foreground">- [ NOT DISCLOSED ]</span>
-                                        ) : (
-                                            <span>
-                                                - <Markdown inline text={o.text} />
-                                                {o.secret && <span className="ml-2 text-xs text-accent uppercase">not disclosed yet</span>}
-                                            </span>
-                                        )}
-                                        {o.bonus && (
-                                            <span className="flex shrink-0 items-center gap-1 self-start">
-                                                <span className="font-semibold text-primary">+</span>
-                                                <Money amount={o.bonus} />
-                                                {o.each && <span className="text-muted-foreground">each</span>}
-                                            </span>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </Card>
+                            </Card>
+                        </Live>
                     )}
                 </div>
 
                 <div className="space-y-5">
-                    <Card className="space-y-2">
-                        <CardTitle>Details</CardTitle>
-                        <Detail
-                            icon="fixer"
-                            label="Fixer"
-                            value={
-                                gig.fixerRunnerId ? (
-                                    <Link to={`/fixers/${gig.fixerRunnerId}`} className="inline-flex items-center gap-2 text-accent hover:underline">
-                                        <RunnerAvatar runner={{ handle: gig.fixerName, imageId: gig.fixerImageId }} />
-                                        {gig.fixerName}
-                                    </Link>
-                                ) : (
-                                    gig.fixerName
-                                )
-                            }
-                        />
-                        <Detail icon="location" label="Location" value={gig.location} />
-                        <Detail icon="eb" label="Pay" value={<Pay gig={gig} />} />
-                    </Card>
+                    <Live value={[gig.fixerName, gig.fixerRunnerId, gig.fixerImageId, gig.location, gig.pay, gig.objectives]}>
+                        <Card className="space-y-2">
+                            <CardTitle>Details</CardTitle>
+                            <Detail
+                                icon="fixer"
+                                label="Fixer"
+                                value={
+                                    gig.fixerRunnerId ? (
+                                        <Link to={`/fixers/${gig.fixerRunnerId}`} className="inline-flex items-center gap-2 text-accent hover:underline">
+                                            <RunnerAvatar runner={{ handle: gig.fixerName, imageId: gig.fixerImageId }} />
+                                            {gig.fixerName}
+                                        </Link>
+                                    ) : (
+                                        gig.fixerName
+                                    )
+                                }
+                            />
+                            <Detail icon="location" label="Location" value={gig.location} />
+                            <Detail icon="eb" label="Pay" value={<Pay gig={gig} />} />
+                        </Card>
+                    </Live>
 
                     {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={gig.sessionAt ?? 'none'} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
-                        <CardTitle
-                            className="flex items-center gap-2"
-                            help="runners hold a slot while the session time is being sorted, then confirm once it's set. when the slots are full, sign-ups wait on the reserves in order."
-                        >
-                            <Icon name="crew" /> Crew {gig.slots.filter((s) => s.runner).length}/{gig.slots.length}
-                        </CardTitle>
+                        <Live value={[gig.slots.filter((s) => s.runner).length, gig.slots.length]}>
+                            <CardTitle
+                                className="flex items-center gap-2"
+                                help="runners hold a slot while the session time is being sorted, then confirm once it's set. when the slots are full, sign-ups wait on the reserves in order."
+                            >
+                                <Icon name="crew" /> Crew {gig.slots.filter((s) => s.runner).length}/{gig.slots.length}
+                            </CardTitle>
+                        </Live>
                         <SlotList
                             gig={gig}
                             onKick={me.isAdmin && active ? (slotId) => kick.mutate(slotId) : undefined}

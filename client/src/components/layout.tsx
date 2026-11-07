@@ -6,6 +6,7 @@ import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { api, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
+import { useLiveUpdates } from '@/lib/live';
 import { cn } from '@/lib/utils';
 
 export const logout = async () => {
@@ -45,6 +46,7 @@ interface Channel {
  */
 export function Layout() {
     const { data: me, isPending, isError } = useMe();
+    useLiveUpdates(!!me);
     const { pathname } = useLocation();
     const [palette, setPalette] = useState(false);
     // On phones the page scrolls inside this, so a new page starts at its top

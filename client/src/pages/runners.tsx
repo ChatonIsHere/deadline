@@ -1,5 +1,5 @@
 import type { FixerSummary, RunnerSummary } from '@shared/schemas';
-import { LinkCard, Say } from '@/components/common';
+import { LinkCard, liveKey, Say } from '@/components/common';
 import { RatingLine, RunnerTile } from '@/components/runner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners, useUser } from '@/lib/api';
@@ -44,7 +44,7 @@ export function FixersPage() {
             ) : fixers?.length ? (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                     {fixers.map((f) => (
-                        <FixerCard key={f.id} fixer={f} />
+                        <FixerCard key={liveKey(f.id, f)} fixer={f} />
                     ))}
                 </div>
             ) : (
@@ -60,7 +60,7 @@ function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loa
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {runners.map((r) => (
-                <RunnerTile key={r.id} runner={r} />
+                <RunnerTile key={liveKey(r.id, r)} runner={r} />
             ))}
         </div>
     );
