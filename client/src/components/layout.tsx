@@ -147,7 +147,8 @@ export function Layout() {
 const channelNo = (n: number) => String(n).padStart(2, '0');
 
 /**
- * Desktop: the channel tab, a panel stuck to the left edge of the window. Logo and numbered
+ * Desktop: the channel tab, a panel stuck to the left edge of the window halfway down, with
+ * its right-hand corners cut. Logo and numbered
  * channels. It floats beside the page rather than taking a column, so the page centres on
  * the whole window and the prompt bar runs the full width under it. You are in the prompt bar.
  */
@@ -155,7 +156,7 @@ function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
     return (
-        <aside className="fixed top-6 left-0 z-30 hidden w-52 flex-col border-y-2 border-r-2 border-primary/40 bg-card pb-3 xl:flex">
+        <aside className="tab-frame fixed top-1/2 left-0 z-30 hidden w-52 -translate-y-1/2 flex-col pb-4 [--cut:16px] [--frame:color-mix(in_oklab,var(--color-primary)_40%,transparent)] xl:flex">
             <Link to="/gigs" className="flex h-12 items-center gap-2 border-b-2 border-primary/40 px-4">
                 <img src="/logo.svg" alt="" className="size-6" />
                 <span className="font-display text-lg font-bold tracking-[0.2em] text-primary">DEADLINE</span>

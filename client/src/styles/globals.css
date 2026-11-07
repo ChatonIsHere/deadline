@@ -121,6 +121,27 @@
     background: var(--cut-frame-bg);
 }
 
+/*
+ * The desktop channel tab: like cut-frame, but stuck to the window's left edge, so it has no
+ * left border and both right-hand corners cut.
+ */
+@utility tab-frame {
+    clip-path: polygon(
+        -4px -4px,
+        calc(100% - var(--cut, 12px) - 4px) -4px,
+        calc(100% + 4px) calc(var(--cut, 12px) + 4px),
+        calc(100% + 4px) calc(100% - var(--cut, 12px) - 4px),
+        calc(100% - var(--cut, 12px) - 4px) calc(100% + 4px),
+        -4px calc(100% + 4px)
+    );
+    border: var(--frame-w, 2px) solid var(--frame, var(--color-border));
+    border-left-width: 0;
+    background:
+        linear-gradient(to top right, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) top right / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        linear-gradient(to bottom right, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) bottom right / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        var(--fill, var(--color-card));
+}
+
 /* A terminal cursor. Holds still for people who turn motion off. */
 @keyframes blink {
     50% {
