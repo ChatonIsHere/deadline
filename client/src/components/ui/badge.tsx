@@ -10,8 +10,8 @@ const badgeVariants = cva('cut inline-flex items-center px-2 py-0.5 font-display
             success: 'bg-success text-primary-foreground',
             destructive: 'bg-destructive text-destructive-foreground',
             muted: 'bg-muted text-muted-foreground',
-            // Tinted, not filled: filled tags are a gig's status
-            role: 'bg-role/20 text-role',
+            // Tinted, not filled: filled tags are a gig's status. White text, which pink text on pink didn't manage.
+            role: 'bg-role/35 text-foreground',
         },
     },
     defaultVariants: { variant: 'default' },

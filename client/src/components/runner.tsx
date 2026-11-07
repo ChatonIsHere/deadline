@@ -70,7 +70,7 @@ export function Roles({ runner, className }: { runner: Pick<RunnerCard, 'role' |
                 {runner.role}
             </Badge>
             {runner.extraRoles.map((r) => (
-                <Badge key={r} variant="role" className="bg-role/10 text-role/75">
+                <Badge key={r} variant="role" className="bg-role/15 text-foreground/80">
                     {r}
                 </Badge>
             ))}
