@@ -31,6 +31,9 @@ export function CropDialog({
     const [area, setArea] = useState<Area | null>(null);
     const [broken, setBroken] = useState(false);
     const [busy, setBusy] = useState(false);
+    // The dialog's portal mounts a render later, so this is state rather than a ref
+    const [box, setBox] = useState<HTMLDivElement | null>(null);
+    const [settled, setSettled] = useState(false);
 
     // A fresh start for each file
     useEffect(() => {
@@ -43,6 +46,18 @@ export function CropDialog({
         setBroken(false);
         return () => URL.revokeObjectURL(next);
     }, [file]);
+
+    // The cropper sizes its box from what it measures when the picture loads. While the dialog
+    // is still opening it's squashed flat, which made a 0px box, so wait for that to finish.
+    useEffect(() => {
+        if (!box) return setSettled(false);
+        let live = true;
+        const opening = document.getAnimations().filter((a) => a.effect instanceof KeyframeEffect && a.effect.target instanceof Element && a.effect.target.contains(box));
+        void Promise.allSettled(opening.map((a) => a.finished)).then(() => live && setSettled(true));
+        return () => {
+            live = false;
+        };
+    }, [box]);
 
     const cropIt = async () => {
         if (!file || !area) return;
@@ -64,13 +79,14 @@ export function CropDialog({
                     <DialogTitle>Crop picture{step ? ` ${step}` : ''}</DialogTitle>
                     <DialogDescription>Drag to move it, zoom to get closer.</DialogDescription>
                 </div>
-                <div className="relative h-64 bg-black sm:h-96">
+                <div ref={setBox} className="relative h-64 bg-black sm:h-96">
                     {broken ? (
                         <div className="grid h-full place-items-center p-6">
                             <Say>can't preview that file here. upload it as is and the server will take the middle.</Say>
                         </div>
                     ) : (
-                        url && (
+                        url &&
+                        settled && (
                             <Cropper
                                 image={url}
                                 crop={crop}
