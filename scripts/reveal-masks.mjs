@@ -64,7 +64,7 @@ ${keyframes('reveal-square', '--reveal-square')}
     main img:is([class*='aspect-'], [class*='object-cover']):not(.cut) {
         mask-size: ${FRAMES * 100}% 100%;
         mask-repeat: no-repeat;
-        animation: reveal-wide 200ms steps(${FRAMES}, jump-none) backwards;
+        animation: reveal-wide 300ms steps(${FRAMES}, jump-none) backwards;
         animation-delay: calc(var(--d, 0ms) + 60ms);
     }
     main img.aspect-square:not(.cut) {

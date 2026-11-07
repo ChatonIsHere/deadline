@@ -20,6 +20,8 @@
     --color-destructive: #ff2a6d;
     --color-destructive-foreground: #ffffff;
     --color-success: #39ff88;
+    /* Who a character is: role tags. Kept apart from yellow (act, yours) and cyan (information, links). */
+    --color-role: #b48cff;
 
     --font-display: 'Chakra Petch', sans-serif;
     --font-mono: 'JetBrains Mono Variable', monospace;

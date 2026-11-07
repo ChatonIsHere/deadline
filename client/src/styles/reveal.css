@@ -30,7 +30,7 @@
     main img:is([class*='aspect-'], [class*='object-cover']):not(.cut) {
         mask-size: 1000% 100%;
         mask-repeat: no-repeat;
-        animation: reveal-wide 200ms steps(10, jump-none) backwards;
+        animation: reveal-wide 300ms steps(10, jump-none) backwards;
         animation-delay: calc(var(--d, 0ms) + 60ms);
     }
     main img.aspect-square:not(.cut) {
