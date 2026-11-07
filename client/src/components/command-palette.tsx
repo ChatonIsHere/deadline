@@ -16,10 +16,16 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     const phone = usePhone();
     const visible = useVisualViewport();
     const navigate = useNavigate();
-    const gigs = useGigs().data ?? [];
-    const runners = useRunners().data ?? [];
-    const fixers = useFixers().data ?? [];
-    const crews = useCrews().data ?? [];
+    const gigQuery = useGigs();
+    const runnerQuery = useRunners();
+    const fixerQuery = useFixers();
+    const crewQuery = useCrews();
+    const gigs = gigQuery.data ?? [];
+    const runners = runnerQuery.data ?? [];
+    const fixers = fixerQuery.data ?? [];
+    const crews = crewQuery.data ?? [];
+    // Until the lists are in, no match might just mean not loaded yet
+    const loading = gigQuery.isPending || runnerQuery.isPending || fixerQuery.isPending || crewQuery.isPending;
 
     // The owner's player view: admin powers hidden, so they see what a player sees
     const playerView = useAction(
@@ -67,7 +73,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                             <kbd className="hidden text-xs text-muted-foreground sm:block">esc</kbd>
                         </div>
                         <Command.List className="overflow-y-auto p-2">
-                            <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">// DEADLINE: no match on the wire.</Command.Empty>
+                            <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">{loading ? '// DEADLINE: pulling records...' : '// DEADLINE: no match on the wire.'}</Command.Empty>
                             <Group heading="Pages">
                                 {pages.map((p) => (
                                     <Item key={p.to} value={`page ${p.label}`} tag="PAGE" onSelect={() => go(p.to)}>

@@ -252,7 +252,8 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <img src={imageUrl(form.imageId)} alt="" className="aspect-video w-full object-cover" />
                     ) : (
                         <div className="grid aspect-video place-items-center bg-muted p-4 text-center">
-                            <Say>no pictures in the library yet. upload one.</Say>
+                            {/* Only once the library has loaded, or it says so before it knows */}
+                            <Say>{library ? 'no pictures in the library yet. upload one.' : 'loading pictures...'}</Say>
                         </div>
                     )}
                     <div className="flex gap-2">

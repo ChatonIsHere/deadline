@@ -112,8 +112,11 @@ function Count({ label, value }: { label: string; value: number }) {
 function NewCrew() {
     const me = useUser();
     const navigate = useNavigate();
-    const mine = useMyRunners().data ?? [];
-    const everyone = useRunners().data ?? [];
+    const myQuery = useMyRunners();
+    const everyoneQuery = useRunners();
+    const mine = myQuery.data ?? [];
+    const everyone = everyoneQuery.data ?? [];
+    const loading = me.isAdmin ? everyoneQuery.isPending : myQuery.isPending;
     const choices = me.isAdmin ? everyone.map((r) => ({ value: String(r.id), label: r.handle, hint: r.owner?.name })) : mine.map((r) => ({ value: String(r.id), label: r.handle }));
     const [name, setName] = useState('');
     const [tagline, setTagline] = useState('');
@@ -141,7 +144,9 @@ function NewCrew() {
                 </div>
                 <div>
                     <Label htmlFor="crew-founder">Founder</Label>
-                    {choices.length ? (
+                    {loading ? (
+                        <p className="text-sm text-muted-foreground">Loading runners...</p>
+                    ) : choices.length ? (
                         <Select id="crew-founder" value={runnerId} onChange={setPicked} placeholder="Which runner founds it?" options={choices} />
                     ) : (
                         <p className="text-sm text-muted-foreground">
