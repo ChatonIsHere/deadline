@@ -3,7 +3,8 @@ import { type AnyThreadChannel, type APIEmbed, ChannelType, Client, DiscordAPIEr
 import { Once } from 'necord';
 import { CacheService } from '../cache/cache.service';
 import { config } from '../config';
-import { LibraryService } from '../library/library.service';
+import { attachmentName, LibraryService } from '../library/library.service';
+import { framedFile } from '../shared/images';
 import { SettingsService } from '../settings/settings.service';
 import type { GigView } from '../shared/schemas';
 import { type EmojiLookup, EmojiService } from './emoji.service';
@@ -106,11 +107,14 @@ export class GigPostService {
         // Emoji load on startup; posts built before that would fall back to plain text
         await this.emoji.ready;
         const forum = await this.ensureFixerTag(gig.fixerName);
-        const images = {
-            gig: gig.imageId ? await this.library.gigCardUrl({ id: gig.id, imageId: gig.imageId, name: gig.name, cardKey: post.cardKey }) : null,
-            fixer: gig.fixerImageId ? this.library.url(gig.fixerImageId) : null,
+        // Pictures are uploaded with the post (gig card first, so it's the forum preview). Their
+        // names change with the picture, so an edit only uploads the ones that changed.
+        const keys = {
+            gig: gig.imageId ? await this.library.gigCardKey({ id: gig.id, imageId: gig.imageId, name: gig.name, cardKey: post.cardKey }) : null,
+            fixer: gig.fixerImageId ? framedFile(gig.fixerImageId) : null,
         };
-        const { first, more } = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
+        const names = { gig: keys.gig && attachmentName(keys.gig), fixer: keys.fixer && attachmentName(keys.fixer) };
+        const wanted = [names.gig, names.fixer].filter((n): n is string => !!n);
         const appliedTags = this.tagIds(forum, gig);
 
         // A new post only if there's none yet or Discord says it was deleted. Any other
@@ -121,10 +125,22 @@ export class GigPostService {
                   throw err;
               })
             : null;
+        const starter = thread && (await thread.fetchStarterMessage().catch(() => null));
+        const existing = starter ? [...starter.attachments.values()] : [];
+        // A new gig card means uploading everything again, so the card stays first
+        const kept = !names.gig || existing.some((a) => a.name === names.gig) ? existing.filter((a) => wanted.includes(a.name)) : [];
+        const files = await this.upload(
+            [keys.gig, keys.fixer].filter((k): k is string => !!k && !kept.some((a) => a.name === attachmentName(k))),
+        );
+        // A picture whose file is gone is left off rather than failing the post
+        const has = (name: string | null) => !!name && (kept.some((a) => a.name === name) || files.some((f) => f.name === name));
+        const images = { gig: has(names.gig) ? `attachment://${names.gig}` : null, fixer: has(names.fixer) ? `attachment://${names.fixer}` : null };
+        const { first, more } = gigMessage(gig, this.emoji.get, config.PUBLIC_URL, images);
+
         if (!thread) {
             const created = await forum.threads.create({
                 name: gig.name,
-                message: first,
+                message: { ...first, files },
                 appliedTags,
                 autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
             });
@@ -137,8 +153,8 @@ export class GigPostService {
         }
 
         if (thread.archived) await thread.setArchived(false);
-        const starter = await thread.fetchStarterMessage();
-        await starter?.edit(first);
+        // attachments lists the uploads to keep; anything else on the message is dropped
+        await starter?.edit({ ...first, attachments: kept, files });
         const overflowIds = await this.syncOverflow(thread, post.overflowIds, more);
         if (thread.name !== gig.name) await thread.setName(gig.name);
         if (!sameIds(thread.appliedTags, appliedTags)) await thread.setAppliedTags(appliedTags);
@@ -156,6 +172,12 @@ export class GigPostService {
             await thread.setLocked(false);
         }
         return { threadId: thread.id, overflowIds };
+    }
+
+    /** Stored files ready to upload, skipping any that are gone. */
+    private async upload(keys: string[]) {
+        const files = await Promise.all(keys.map((k) => this.library.attachment(k)));
+        return files.filter((f) => f !== null);
     }
 
     /** Edits the follow-up messages in place, sends any new ones and deletes the spares. Returns their IDs. */

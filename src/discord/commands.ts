@@ -8,6 +8,7 @@ import { GigsService } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
 import { RunnersService } from '../runners/runners.service';
 import { SettingsService } from '../settings/settings.service';
+import { framedFile } from '../shared/images';
 import { canLogIn } from '../shared/permissions';
 import type { Me } from '../shared/schemas';
 import { isUuid } from '../shared/slug';
@@ -126,8 +127,8 @@ export class Commands {
         const id = live.find((g) => g.id === gig)?.id ?? live.find((g) => g.name.toLowerCase() === gig.trim().toLowerCase())?.id;
         const view = id ? await this.gigs.view(id) : undefined;
         if (!view) return this.oops(interaction, 'no live gig by that name.');
-        const image = view.imageId ? this.library.url(view.imageId) : null;
-        await interaction.reply(gigCard(view, this.emoji.get, config.PUBLIC_URL, image));
+        const image = view.imageId ? await this.library.attachment(framedFile(view.imageId)) : null;
+        await interaction.reply({ ...gigCard(view, this.emoji.get, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] });
     }
 
     @UseInterceptors(Suggestions)
@@ -144,7 +145,7 @@ export class Commands {
             const mine = await this.runners.mine(interaction.user.id);
             if (!mine.length) return this.oops(interaction, "you don't have a runner yet. make one with /newrunner.");
             const cards = await Promise.all(mine.slice(0, 10).map((r) => this.card(viewer, r.id)));
-            await interaction.reply(cards.length === 1 ? cards[0] : { embeds: cards.flatMap((c) => c.embeds) });
+            await interaction.reply(cards.length === 1 ? cards[0] : { embeds: cards.flatMap((c) => c.embeds), files: [...new Map(cards.flatMap((c) => c.files).map((f) => [f.name, f])).values()] });
         } catch {
             await this.oops(interaction, 'no runner by that handle.');
         }
@@ -218,7 +219,9 @@ export class Commands {
 
     private async card(viewer: Me, id: string) {
         const view = await this.runners.get(viewer, id); // throws if the runner was deleted since it was suggested
-        return runnerCard(view, config.PUBLIC_URL, view.imageId ? this.library.url(view.imageId) : null);
+        // Uploaded with the reply, so Discord serves it (see LibraryService.attachment)
+        const image = view.imageId ? await this.library.attachment(framedFile(view.imageId)) : null;
+        return { ...runnerCard(view, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] };
     }
 
     /** Who's asking, so pending gigs stay hidden from people who can't see them. */

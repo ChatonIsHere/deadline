@@ -164,28 +164,32 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         return null;
     }
 
-    /** Public URL of an image with its frame, for Discord. */
-    url(id: string): string {
-        return this.storage.url(framedFile(id));
-    }
-
     /**
-     * Public URL of a gig's picture for Discord, with its name on it (see gig-card.ts). Made when
-     * the name or picture changes; the key changes with them, so Discord fetches the new one.
-     * The card it replaces is listed as stale and deleted later.
+     * A gig's picture for Discord, with its name on it (see gig-card.ts), as a storage key. Made
+     * when the name or picture changes; the key changes with them. The card it replaces is
+     * listed as stale and deleted later. A picture whose file is gone gets its plain framed copy.
      */
-    async gigCardUrl(gig: { id: string; imageId: string; name: string; cardKey: string | null }): Promise<string> {
+    async gigCardKey(gig: { id: string; imageId: string; name: string; cardKey: string | null }): Promise<string> {
         const hash = createHash('sha1').update(`${gig.imageId}|${gig.name}|${FRAME_VERSION}|${CARD_VERSION}`).digest('hex').slice(0, 12);
         const key = cardFile(gig.id, hash);
         if (gig.cardKey !== key) {
-            // A picture whose file is gone gets the plain framed one instead of failing the post
             const plain = await this.storage.get(plainFile(gig.imageId));
-            if (!plain) return this.url(gig.imageId);
+            if (!plain) return framedFile(gig.imageId);
             await this.storage.put(key, await renderGigCard(plain, variantFor(gig.imageId), gig.name), 'image/png');
             await this.prisma.gig.update({ where: { id: gig.id }, data: { cardKey: key } });
             if (gig.cardKey) await this.prisma.staleObject.upsert({ where: { key: gig.cardKey }, create: { key: gig.cardKey }, update: {} });
         }
-        return this.storage.url(key);
+        return key;
+    }
+
+    /**
+     * A stored file to upload to Discord, or null if it's gone. Pictures are uploaded rather
+     * than linked so Discord serves them from its own CDN, and forum previews follow edits.
+     * The name comes from the key, so it changes whenever the picture does.
+     */
+    async attachment(key: string): Promise<{ name: string; attachment: Buffer } | null> {
+        const data = await this.storage.get(key);
+        return data ? { name: attachmentName(key), attachment: data } : null;
     }
 
     /** A stored picture's bytes (the bot banner uses the plain one). */
@@ -249,3 +253,6 @@ function frame(plain: Buffer, kind: ImageKind, id: string, padded: boolean): Pro
         .webp(WEBP)
         .toBuffer();
 }
+
+/** images/cards/<gig>/<hash>.png → cards-<gig>-<hash>.png, images/<id>/framed-v6.webp → <id>-framed-v6.webp */
+export const attachmentName = (key: string) => key.split('/').slice(1).join('-');
