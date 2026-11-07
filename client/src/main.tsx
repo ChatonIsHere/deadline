@@ -15,6 +15,7 @@ import { FixerEdit } from '@/pages/fixer-edit';
 import { GigEdit } from '@/pages/gig-edit';
 import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
+import { FixerPage } from '@/pages/fixer';
 import { MePage } from '@/pages/me';
 import { AvailabilityPage } from '@/pages/availability';
 import { SetupPage } from '@/pages/setup';
@@ -47,7 +48,7 @@ void loadConfig().then(() =>
                             <Route path="runners/:id/edit" element={<RunnerEdit />} />
                             <Route path="fixers" element={<FixersPage />} />
                             <Route path="fixers/new" element={<FixerEdit />} />
-                            <Route path="fixers/:id" element={<RunnerPage />} />
+                            <Route path="fixers/:id" element={<FixerPage />} />
                             <Route path="fixers/:id/edit" element={<FixerEdit />} />
                             <Route path="crews" element={<Crews />} />
                             <Route path="crews/new" element={<NewCrewPage />} />

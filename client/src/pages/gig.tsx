@@ -152,7 +152,7 @@ export function Gig() {
                             label="Fixer"
                             value={
                                 gig.fixerRunnerId ? (
-                                    <Link to={`/runners/${gig.fixerRunnerId}`} className="inline-flex items-center gap-2 hover:text-primary">
+                                    <Link to={`/fixers/${gig.fixerRunnerId}`} className="inline-flex items-center gap-2 hover:text-primary">
                                         <RunnerAvatar runner={{ handle: gig.fixerName, imageId: gig.fixerImageId }} />
                                         {gig.fixerName}
                                     </Link>
