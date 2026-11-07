@@ -41,7 +41,7 @@ export function PageTabs({ tabs, empty }: { tabs: PageTab[]; empty: ReactNode })
     if (shown.length === 1) return <>{shown[0].content}</>;
     const value = shown.some((t) => t.key === picked) ? picked : shown[0].key;
     return (
-        <Tabs value={value} onValueChange={setPicked}>
+        <Tabs value={value} onValueChange={setPicked} className="xl:flex xl:flex-1 xl:flex-col">
             <TabsList>
                 {shown.map((t) => (
                     <TabsTrigger key={t.key} value={t.key}>
@@ -50,7 +50,7 @@ export function PageTabs({ tabs, empty }: { tabs: PageTab[]; empty: ReactNode })
                 ))}
             </TabsList>
             {shown.map((t) => (
-                <TabsContent key={t.key} value={t.key}>
+                <TabsContent key={t.key} value={t.key} className="xl:my-auto">
                     {t.content}
                 </TabsContent>
             ))}

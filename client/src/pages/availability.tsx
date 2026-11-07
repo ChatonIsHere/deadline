@@ -87,8 +87,6 @@ export function AvailabilityPage() {
 
     return (
         <div className="space-y-5">
-            <h1 className="text-3xl text-primary">Availability</h1>
-
             <TagInput id="availability-filter" options={tags} value={selected} onChange={setSelected} placeholder="Everyone. Type a crew, gig or player to narrow it..." />
 
             <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">

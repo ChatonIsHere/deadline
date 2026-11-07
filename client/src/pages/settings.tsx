@@ -25,10 +25,11 @@ function Shell({ children }: { children: (view: SettingsView, isOwner: boolean) 
     const { data } = useSettings(me.isAdmin);
     if (!me.isAdmin) return <Say>admins only.</Say>;
     return (
-        <>
+        // Desktop: the tabs stay at the top and the page centres under them (see the layout)
+        <div className="flex flex-col xl:flex-1">
             <SettingsTabs />
-            <div className="mx-auto max-w-2xl">{data ? children(data, me.isOwner) : <Loading>loading config...</Loading>}</div>
-        </>
+            <div className="mx-auto w-full max-w-2xl xl:my-auto">{data ? children(data, me.isOwner) : <Loading>loading config...</Loading>}</div>
+        </div>
     );
 }
 

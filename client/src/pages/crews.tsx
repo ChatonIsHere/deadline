@@ -34,18 +34,21 @@ export function Crews() {
     const rest = crews.filter((c) => !isMine(c));
     return (
         <div className="space-y-8">
-            {mine.length > 0 && <CrewGrid title="Your crews" crews={mine} mine />}
-            {rest.length > 0 && <CrewGrid title={mine.length ? 'Other crews' : 'Crews'} crews={rest} />}
+            {mine.length > 0 && <CrewGrid title={rest.length ? 'Your crews' : null} crews={mine} mine />}
+            {rest.length > 0 && <CrewGrid title={mine.length ? 'Other crews' : null} crews={rest} />}
         </div>
     );
 }
 
-function CrewGrid({ title, crews, mine }: { title: string; crews: CrewView[]; mine?: boolean }) {
+/** `title` only when the page splits crews into groups. */
+function CrewGrid({ title, crews, mine }: { title: string | null; crews: CrewView[]; mine?: boolean }) {
     return (
         <section className="space-y-3">
-            <h2 className="text-xs tracking-widest text-muted-foreground">
-                // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
-            </h2>
+            {title && (
+                <h2 className="text-xs tracking-widest text-muted-foreground">
+                    // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
+                </h2>
+            )}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {crews.map((c) => (
                     <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />

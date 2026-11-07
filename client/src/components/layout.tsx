@@ -110,9 +110,12 @@ export function Layout() {
                 <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-visible">
                     {/* Bottom padding keeps content clear of the corner + */}
                     {/* Desktop: centred on the whole window, and narrow enough to clear the channel tab on the left (13rem tab, then the 2rem padding as a gap) */}
-                    <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))]">
+                    {/* Desktop: pages sit in the middle of the space above the prompt bar, and taller ones start at the top. A page with tabs fills it instead (xl:flex-1), keeping its tab bar up top and centring what's under it. */}
+                    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))]">
                         {me.isAdmin && <SetupReminder />}
-                        <Outlet />
+                        <div className="flex flex-1 flex-col xl:*:my-auto xl:*:w-full">
+                            <Outlet />
+                        </div>
                     </main>
                 </div>
                 <PromptBar onOpen={() => setPalette(true)} />
