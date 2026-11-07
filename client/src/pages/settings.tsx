@@ -1,7 +1,7 @@
 import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView, settingsInput } from '@shared/schemas';
 import { useQuery } from '@tanstack/react-query';
 import { type ComponentProps, type FormEvent, type ReactNode, useState } from 'react';
-import { Say } from '@/components/common';
+import { Loading, Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,7 @@ function Shell({ children }: { children: (view: SettingsView, isOwner: boolean) 
     return (
         <>
             <SettingsTabs />
-            <div className="mx-auto max-w-2xl">{data ? children(data, me.isOwner) : <Say>loading config...</Say>}</div>
+            <div className="mx-auto max-w-2xl">{data ? children(data, me.isOwner) : <Loading>loading config...</Loading>}</div>
         </>
     );
 }
@@ -109,7 +109,7 @@ function DiscordForm({ view, isOwner }: { view: SettingsView; isOwner: boolean }
                 </p>
             </Card>
 
-            {form.guildId && !options && <Say>scanning server...</Say>}
+            {form.guildId && !options && <Loading>scanning server...</Loading>}
 
             {options && (
                 <>

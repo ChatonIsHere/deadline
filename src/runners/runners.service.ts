@@ -8,7 +8,7 @@ import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn, canSeeGig } from '../shared/permissions';
-import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
+import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RetireInput, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
 import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
 
 const UNFINISHED = ['pending', 'open', 'closed'] as const;
@@ -39,9 +39,9 @@ export class RunnersService {
         return rows.map((r) => this.summary(r));
     }
 
-    /** Runners that count as fixers, with their ratings. */
+    /** Runners that count as fixers, with their ratings. Retired and dead ones are left out. */
     async fixers(): Promise<FixerSummary[]> {
-        const rows = await this.prisma.runner.findMany({ orderBy: { handle: 'asc' }, include: { _count: { select: { fixedGigs: true } } } });
+        const rows = await this.prisma.runner.findMany({ where: { status: 'active' }, orderBy: { handle: 'asc' }, include: { _count: { select: { fixedGigs: true } } } });
         const fixers = rows.filter((r) => this.isFixer(r));
         const ratings = await this.ratings(fixers.map((r) => r.id));
         return fixers.map((r) => ({
@@ -65,9 +65,9 @@ export class RunnersService {
             .map(toCard);
     }
 
-    /** The signed in player's own runners. */
+    /** The signed in player's runners still taking gigs. */
     async mine(userId: string): Promise<RunnerCard[]> {
-        return (await this.prisma.runner.findMany({ where: { ownerId: userId }, orderBy: { handle: 'asc' } })).map(toCard);
+        return (await this.prisma.runner.findMany({ where: { ownerId: userId, status: 'active' }, orderBy: { handle: 'asc' } })).map(toCard);
     }
 
     async get(user: Me, id: string): Promise<RunnerView> {
@@ -90,6 +90,7 @@ export class RunnersService {
             specialties: r.specialties,
             contact: r.contact,
             bio: r.bio,
+            obituary: r.status === 'dead' ? r.obituary : null,
             crews: memberOf.map((m) => m.crew),
             gigs: ran.filter(visible).map(link),
             fixerGigs: fixed.filter(visible).map(link),
@@ -159,6 +160,33 @@ export class RunnersService {
         return !!inSlot || !!reserved;
     }
 
+    /**
+     * Retires a runner, kills them off, or brings a retired one back. Either way out takes them
+     * off live gigs. Their player or an admin can retire them or bring them back; only admins
+     * can undo a death.
+     */
+    async retire(user: Me, id: string, input: RetireInput): Promise<RunnerView> {
+        const r = await this.row(id);
+        if (!this.canManage(user, r)) throw new ForbiddenException();
+        // Their player can still edit the obituary
+        if (r.status === 'dead' && input.status !== 'dead' && !user.isAdmin) throw new ForbiddenException('Only admins can bring back the dead.');
+        if (input.status === r.status && input.status !== 'dead') return this.get(user, id);
+
+        await this.prisma.runner.update({
+            where: { id },
+            data:
+                input.status === 'active'
+                    ? { status: 'active', retiredAt: null, obituary: null }
+                    : { status: input.status, retiredAt: r.status === 'active' ? new Date() : r.retiredAt, obituary: input.status === 'dead' ? input.obituary : null },
+        });
+        if (input.status !== 'active') {
+            await this.gigs.dropRunner(id);
+            await this.prisma.crewInvite.deleteMany({ where: { runnerId: id } });
+        }
+        this.gigs.refresh(await this.liveGigs(id));
+        return this.get(user, id);
+    }
+
     async delete(user: Me, id: string) {
         const r = await this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
@@ -181,8 +209,9 @@ export class RunnersService {
         return {
             ...toCard(r),
             owner: r.ownerId ? this.members.member(r.ownerId) : null,
-            canTakeGigs: !!r.ownerId && this.members.isEdgerunner(r.ownerId),
+            canTakeGigs: !!r.ownerId && r.status === 'active' && this.members.isEdgerunner(r.ownerId),
             isFixer: this.isFixer(r),
+            retiredAt: r.retiredAt?.getTime() ?? null,
         };
     }
 

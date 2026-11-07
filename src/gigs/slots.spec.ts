@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { groupSlots } from '../shared/slots';
-import { diffSlots, fillFromReserves, pickSlot, Slot } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, Slot } from './slots';
 
 const slot = (id: string, crewId: string | null, userId: string | null = null): Slot => ({ id, crewId, userId });
 
@@ -107,5 +107,23 @@ describe('fillFromReserves', () => {
 
     it('leaves slots empty when no reserve fits', () => {
         assert.deepEqual(fillFromReserves([slot('s1', 'moxes')], [{ userId: 'b', crewIds: [] }]), []);
+    });
+});
+
+describe('shiftToCrewSlots', () => {
+    const member = (id: string, crewId: string | null, userId: string | null, crewIds: string[] = []) => ({ ...slot(id, crewId, userId), crewIds });
+
+    it('moves a crew member from an open slot to their crew slot', () => {
+        const slots = [member('s1', 'moxes', null), member('s2', null, 'a', ['moxes'])];
+        assert.deepEqual(shiftToCrewSlots(slots), [{ from: 's2', to: 's1' }]);
+    });
+
+    it('leaves runners outside the crew where they are', () => {
+        assert.deepEqual(shiftToCrewSlots([member('s1', 'moxes', null), member('s2', null, 'a', ['wolves'])]), []);
+    });
+
+    it('moves one member per empty crew slot', () => {
+        const slots = [member('s1', 'moxes', null), member('s2', null, 'a', ['moxes']), member('s3', null, 'b', ['moxes'])];
+        assert.deepEqual(shiftToCrewSlots(slots), [{ from: 's2', to: 's1' }]);
     });
 });

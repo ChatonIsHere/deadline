@@ -1,32 +1,32 @@
 import type { FixerSummary, RunnerSummary } from '@shared/schemas';
-import { LinkCard, liveKey, Say } from '@/components/common';
+import { LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RatingLine, RunnerTile } from '@/components/runner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { imageUrl, useFixers, useRunners, useUser } from '@/lib/api';
+import { imageUrl, useFixers, useRunners } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-/** Everyone's runners, with your own on a second tab. */
+/** Runners taking gigs, and a Retired tab (retired and flatlined, latest first) once there are any. */
 export function RunnersPage() {
-    const me = useUser();
     const { data: runners, isPending } = useRunners();
-    const mine = runners?.filter((r) => r.ownerId === me.id) ?? [];
+    const active = runners?.filter((r) => r.status === 'active') ?? [];
+    const retired = (runners?.filter((r) => r.status !== 'active') ?? []).sort((a, b) => (b.retiredAt ?? 0) - (a.retiredAt ?? 0));
+    const activeGrid = <RunnerGrid runners={active} loading={isPending} empty="no runners on the board yet." />;
 
+    if (!retired.length) return <div className="space-y-5">{activeGrid}</div>;
     return (
         <div className="space-y-5">
-            <Tabs defaultValue="all">
+            <Tabs defaultValue="active">
                 <TabsList>
-                    <TabsTrigger value="all">
-                        All <span className="text-xs opacity-60">{runners?.length}</span>
+                    <TabsTrigger value="active">
+                        Active <span className="text-xs opacity-60">{active.length}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="mine">
-                        Mine <span className="text-xs opacity-60">{mine.length}</span>
+                    <TabsTrigger value="retired">
+                        Retired <span className="text-xs opacity-60">{retired.length}</span>
                     </TabsTrigger>
                 </TabsList>
-                <TabsContent value="all">
-                    <RunnerGrid runners={runners ?? []} loading={isPending} empty="no runners on the board yet." />
-                </TabsContent>
-                <TabsContent value="mine">
-                    <RunnerGrid runners={mine} loading={isPending} empty="no runners yet. make one to start taking gigs." />
+                <TabsContent value="active">{activeGrid}</TabsContent>
+                <TabsContent value="retired">
+                    <RunnerGrid runners={retired} loading={false} empty="" />
                 </TabsContent>
             </Tabs>
         </div>
@@ -40,7 +40,7 @@ export function FixersPage() {
     return (
         <div className="space-y-5">
             {isPending ? (
-                <Say>pinging contacts...</Say>
+                <Loading>pinging contacts...</Loading>
             ) : fixers?.length ? (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                     {fixers.map((f) => (
@@ -55,7 +55,7 @@ export function FixersPage() {
 }
 
 function RunnerGrid({ runners, loading, empty }: { runners: RunnerSummary[]; loading: boolean; empty: string }) {
-    if (loading) return <Say>pulling records...</Say>;
+    if (loading) return <Loading>pulling records...</Loading>;
     if (!runners.length) return <Say>{empty}</Say>;
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -84,7 +84,7 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.handle}</h3>
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
                 <div className="mt-auto flex justify-end text-right">
-                    <RatingLine rating={f.rating} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />
+                    <RatingLine rating={f.rating} count={false} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />
                 </div>
             </LinkCard>
         </div>

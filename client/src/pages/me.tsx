@@ -2,7 +2,7 @@ import type { PrefsInput } from '@shared/schemas';
 import { LogOut, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availability';
-import { Avatar, Say } from '@/components/common';
+import { Avatar, Loading } from '@/components/common';
 import { logout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -57,7 +57,7 @@ export function MePage() {
                                 {prefs.reminders ? 'Turn reminders off' : 'Turn reminders on'}
                             </Button>
                         ) : (
-                            <Say>loading...</Say>
+                            <Loading>loading...</Loading>
                         )}
                     </Card>
 
@@ -146,7 +146,7 @@ function AvailabilityCard() {
         return (
             <Card id="availability">
                 <CardTitle help={title}>Availability</CardTitle>
-                <Say>loading...</Say>
+                <Loading>loading...</Loading>
             </Card>
         );
     }

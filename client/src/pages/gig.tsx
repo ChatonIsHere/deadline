@@ -3,7 +3,7 @@ import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, DiscordIcon, Icon, Live, Money, Pay, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, DiscordIcon, Icon, Live, Loading, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -38,7 +38,7 @@ export function Gig() {
     const remove = useAction(() => api(url, 'DELETE'), 'contract deleted.', () => navigate('/gigs'));
 
     if (isError) return <Say>no such contract.</Say>;
-    if (!gig) return <Say>decrypting...</Say>;
+    if (!gig) return <Loading>decrypting...</Loading>;
 
     const owner = { createdBy: gig.createdBy.id, status: gig.status };
     const nextStatuses = me.isAdmin ? NEXT_STATUSES[gig.status] : [];

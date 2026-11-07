@@ -58,6 +58,7 @@ export class CrewsService {
         const slug = await this.nameSlug(input.name);
         const runner = await this.runner(input.runnerId);
         if (!runner.ownerId || (!user.isAdmin && runner.ownerId !== user.id)) throw new BadRequestException('Found the crew with one of your own runners.');
+        if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
 
         const crew = await this.prisma.crew.create({
             data: {
@@ -105,7 +106,9 @@ export class CrewsService {
     async addMember(user: Me, id: string, runnerId: string): Promise<CrewView> {
         if (!user.isAdmin) throw new ForbiddenException();
         const crew = await this.get(id);
-        if (!(await this.runner(runnerId)).ownerId) throw new BadRequestException("NPCs can't join a crew.");
+        const runner = await this.runner(runnerId);
+        if (!runner.ownerId) throw new BadRequestException("NPCs can't join a crew.");
+        if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
         await this.join(crew, runnerId);
         return this.get(id);
     }
@@ -158,6 +161,7 @@ export class CrewsService {
         const crew = await this.manage(user, id);
         const runner = await this.runner(runnerId);
         if (!runner.ownerId) throw new BadRequestException("NPCs can't join a crew.");
+        if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
         if (crew.members.some((m) => m.id === runnerId)) throw new ConflictException("They're already in the crew.");
         if (crew.invites.some((r) => r.id === runnerId)) throw new ConflictException('They already have an invite.');
 

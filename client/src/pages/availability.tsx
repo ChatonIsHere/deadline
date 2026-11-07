@@ -3,7 +3,7 @@ import { DAYS, heatmap, wallTime } from '@shared/time';
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { Heatmap } from '@/components/availability';
-import { Avatar, Say } from '@/components/common';
+import { Avatar, Loading, Say } from '@/components/common';
 import { Card, CardTitle } from '@/components/ui/card';
 import { type Tag, TagInput } from '@/components/ui/tag-input';
 import { useAvailability, useCrews, useGigs, useUser } from '@/lib/api';
@@ -99,7 +99,7 @@ export function AvailabilityPage() {
                     <p className="text-xs text-muted-foreground">
                         Your time ({tz}, {zoneOffset(tz)}). Numbers are how many are free; outlined hours suit everyone shown.
                     </p>
-                    {!everyone ? <Say>pulling schedules...</Say> : <Heatmap cells={cells} total={placed.length} picked={picked} onPick={setPicked} />}
+                    {!everyone ? <Loading>pulling schedules...</Loading> : <Heatmap cells={cells} total={placed.length} picked={picked} onPick={setPicked} />}
                 </Card>
 
                 <div className="space-y-5">

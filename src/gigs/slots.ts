@@ -67,3 +67,20 @@ export function fillFromReserves(slots: Slot[], reserves: Reserve[]): { slotId: 
     }
     return moves;
 }
+
+/**
+ * Crew members in open slots who could move to an empty slot of one of their crews. Moving
+ * them frees the open slot for anyone on the reserves.
+ */
+export function shiftToCrewSlots(slots: (Slot & { crewIds: string[] })[]): { from: string; to: string }[] {
+    const empty = slots.filter((s) => s.userId === null && s.crewId !== null);
+    const moves: { from: string; to: string }[] = [];
+    for (const slot of slots) {
+        if (slot.userId === null || slot.crewId !== null) continue;
+        const i = empty.findIndex((e) => slot.crewIds.includes(e.crewId!));
+        if (i === -1) continue;
+        moves.push({ from: slot.id, to: empty[i].id });
+        empty.splice(i, 1);
+    }
+    return moves;
+}

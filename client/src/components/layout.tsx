@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
-import { Avatar, Say } from '@/components/common';
+import { Avatar, Loading, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { api, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
 import { useLiveUpdates } from '@/lib/live';
@@ -68,7 +68,7 @@ export function Layout() {
     }, []);
 
     if (isError) return <Navigate to="/login" replace />;
-    if (isPending) return <Say className="p-6">connecting to the board...</Say>;
+    if (isPending) return <Loading className="p-6">connecting to the board...</Loading>;
     // First time in: setup comes first (making a runner is part of it)
     if (me.needsSetup && !SETUP_PATHS.includes(pathname)) return <Navigate to="/setup" replace />;
 
@@ -178,7 +178,7 @@ function Rail({ channels }: { channels: Channel[] }) {
                             )
                         }
                     >
-                        <span className="text-xs tabular-nums opacity-60">{channelNo(i + 1)}</span>
+                        <span className="w-6 shrink-0 text-xs tabular-nums opacity-60">{channelNo(i + 1)}</span>
                         {c.label}
                     </NavLink>
                 ))}

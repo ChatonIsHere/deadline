@@ -44,6 +44,8 @@ Every gig, runner (and so fixer) and crew is keyed by a UUID, and `/gigs/<uuid>`
 - Gigs: the first part of the UUID and the name, `/gigs/3f2a9c1b-overzealous-squanch`. The deadline:// bar shows it in capitals. Only the UUID part is matched, so links from before a rename still work.
 - Runners and fixers: the handle, `/runners/vex`. Crews: the name, `/crews/static-wolves`. These follow renames.
 
+Runners can retire (a break, they can come back) or flatline (dead, with an obituary on their profile). Either takes them off live gigs, and they move to the Runners page's Retired tab. Their player or an admin does it; only admins can bring back the dead.
+
 Handles and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
 ## Sessions
@@ -53,7 +55,7 @@ Each gig is one session.
 - Before an admin sets a session time, signing up marks a runner **interested** and takes a slot. When the slots are full, runners go on the **reserves**, first come first served.
 - Setting the time (on the gig's web page) DMs everyone in a slot to **confirm** or pull out. If someone's DMs are closed they get pinged in the gig's thread instead. Changing the time asks everyone again.
 - Once a time is set, new sign-ups are confirmed straight away.
-- When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time. Not once the session has happened: removing a no-show doesn't pull a reserve in.
+- When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time. A crew member in an open slot moves over to a freed slot of their crew, so the open slot goes to a reserve. Not once the session has happened: removing a no-show doesn't pull a reserve in.
 - Admins can add runners from the gig page, even after sign-ups lock. It works like signing up, except they're asked to confirm a set time.
 - Runners can pull out after sign-ups lock. Only completing or cancelling the gig stops that.
 - Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.
@@ -70,7 +72,7 @@ Each gig is one session.
 
 ## Completing a gig
 
-Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners. Each runner's player gets a DM with their payout and, if the fixer is a character, a menu to rate them from one to five stars. Picking stars saves them and opens a box for an optional note (300 characters). They can also rate, and change it, on the gig page. Anyone who had a runner on the gig can rate, including the fixer's own player if they went as a runner. The fixer's profile shows the average and the latest five ratings with their notes. Finished gigs can't be edited.
+Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb, IP, HQ IP, other) and extras for single runners (eb, IP, HQ IP, other). Each runner's player gets a DM with their payout and, if the fixer is a character, a menu to rate them from one to five stars. Picking stars saves them and opens a box for an optional note (300 characters). They can also rate, and change it, on the gig page. Anyone who had a runner on the gig can rate, including the fixer's own player if they went as a runner. The fixer's profile shows the average and the latest five ratings with their notes. Finished gigs can't be edited.
 
 ## Discord setup
 

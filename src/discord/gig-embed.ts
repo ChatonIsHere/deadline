@@ -50,7 +50,7 @@ function debriefFields(gig: GigView, emoji: EmojiLookup): APIEmbedField[] {
     if (gig.status !== 'completed' || !gig.crewRewards) return [];
     const r = gig.crewRewards;
     const rewards = [r.eb ? money(r.eb, emoji) : '', r.ip ? `${r.ip} IP` : '', r.hqIp ? `${r.hqIp} HQ IP` : '', r.text ?? ''].filter(Boolean);
-    const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
+    const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.hqIp ? `+${x.hqIp} HQ IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
     return [
         ...(gig.summary ? [{ name: 'Debrief', value: gig.summary }] : []),
         ...(rewards.length || extra.length ? [{ name: 'Crew rewards', value: [rewards.join(' · ') || 'none', ...extra].join('\n') }] : []),

@@ -1,7 +1,7 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { Say } from '@/components/common';
+import { Loading, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export function FixerEdit() {
     const { data: fixer, isError } = useRunner(id);
     if (!me.isAdmin) return <Say>admins only.</Say>;
     if (isError) return <Say>no such fixer.</Say>;
-    if (id && !fixer) return <Say>loading fixer...</Say>;
+    if (id && !fixer) return <Loading>loading fixer...</Loading>;
     // A player's fixer is their runner: edit it there
     if (fixer && fixer.ownerId) return <Navigate to={`/runners/${fixer.slug}/edit`} replace />;
     return <FixerForm key={fixer?.id ?? 'new'} fixer={fixer} />;

@@ -456,14 +456,14 @@ describe('GigsService', () => {
             const gig = await gigs.create(admin, input(two, { fixerRunnerId: ids['Rogue Amendiares'] }));
             await gigs.join('a', gig.id);
             await gigs.join('b', gig.id);
-            const done = await debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.a, eb: 500, ip: null, text: 'Kept the cyberdeck' }] });
+            const done = await debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.a, eb: 500, ip: null, hqIp: 1, text: 'Kept the cyberdeck' }] });
             await settle();
             assert.equal(done.status, 'completed');
             assert.equal(done.summary, 'Clean job.');
             assert.deepEqual(
                 payouts.map((p) => [p.handle, p.eb, p.ip, p.hqIp, p.extras]).sort(),
                 [
-                    ['a', 1500, 5, 2, ['Shard of Arasaka intel', 'Kept the cyberdeck']],
+                    ['a', 1500, 5, 3, ['Shard of Arasaka intel', 'Kept the cyberdeck']],
                     ['b', 1000, 5, 2, ['Shard of Arasaka intel']],
                 ],
             );
@@ -472,7 +472,7 @@ describe('GigsService', () => {
         it('only gives runner rewards to runners on the gig', async () => {
             const gig = await gigs.create(admin, input(one));
             await gigs.join('a', gig.id);
-            await assert.rejects(debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.b, eb: 1, ip: null, text: null }] }), /on the gig/);
+            await assert.rejects(debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.b, eb: 1, ip: null, hqIp: null, text: null }] }), /on the gig/);
         });
 
         it('lets runners on the gig rate its fixer, and change their rating', async () => {

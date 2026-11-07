@@ -1,6 +1,6 @@
 import type { Review } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Live, liveKey, Say } from '@/components/common';
+import { ConfirmButton, Live, liveKey, Loading, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RatingLine, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export function FixerPage() {
     const remove = useAction(() => api(`/api/runners/${fixer!.id}`, 'DELETE'), 'fixer deleted.', () => navigate('/fixers'));
 
     if (isError) return <Say>no such fixer.</Say>;
-    if (!fixer) return <Say>pulling records...</Say>;
+    if (!fixer) return <Loading>pulling records...</Loading>;
     // Not (or no longer) a fixer: their runner profile is all there is
     if (!fixer.isFixer) return <Navigate to={`/runners/${fixer.slug}`} replace />;
 

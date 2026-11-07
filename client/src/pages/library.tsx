@@ -2,7 +2,7 @@ import type { RegionView } from '@shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { ConfirmButton, Say } from '@/components/common';
+import { ConfirmButton, Loading, Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ export function LibraryPage() {
     const me = useUser();
     const { data } = useLibrary();
     if (!me.isAdmin) return <Say>admins only.</Say>;
-    if (!data) return <Say>loading library...</Say>;
+    if (!data) return <Loading>loading library...</Loading>;
 
     const districts = data.regions.filter((r) => !r.district);
     const inDistrict = (name: string) => data.regions.filter((r) => r.district === name);

@@ -1,7 +1,7 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
-import { Say } from '@/components/common';
+import { Loading, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export function RunnerEdit() {
     const me = useUser();
     const { data: runner, isError } = useRunner(id);
     if (isError) return <Say>no such runner.</Say>;
-    if (id && !runner) return <Say>loading runner...</Say>;
+    if (id && !runner) return <Loading>loading runner...</Loading>;
     if (runner && !me.isAdmin && runner.ownerId !== me.id) return <Say>that runner isn't yours to change.</Say>;
     if (runner && !runner.ownerId) return <Navigate to={`/fixers/${runner.slug}/edit`} replace />;
     // Keyed so going from editing one runner to a new one starts a fresh form

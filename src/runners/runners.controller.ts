@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { MembersService } from '../discord/members.service';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { type Me, runnerInput, type RunnerInput } from '../shared/schemas';
+import { type Me, retireInput, type RetireInput, runnerInput, type RunnerInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { RunnersService } from './runners.service';
 
@@ -39,6 +39,12 @@ export class RunnersController {
     @Patch('runners/:id')
     update(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(runnerInput)) body: RunnerInput) {
         return this.runners.update(user, id, body);
+    }
+
+    /** Retire, die, or come back. */
+    @Post('runners/:id/status')
+    retire(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(retireInput)) body: RetireInput) {
+        return this.runners.retire(user, id, body);
     }
 
     @Delete('runners/:id')

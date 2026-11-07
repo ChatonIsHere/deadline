@@ -41,6 +41,7 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
     const fields = [
         { name: 'Roles', value: roles, inline: true },
         { name: 'Played by', value: runner.ownerId ? `<@${runner.ownerId}>` : 'NPC', inline: true },
+        ...(runner.status !== 'active' ? [{ name: 'Status', value: runner.status === 'dead' ? 'Flatlined' : 'Retired', inline: true }] : []),
         ...(runner.crews.length ? [{ name: 'Crews', value: runner.crews.map((c) => c.name).join(', '), inline: true }] : []),
     ];
     if (runner.isFixer) {
@@ -65,10 +66,10 @@ export function runnerCard(runner: RunnerView, boardUrl: string, imageUrl: strin
     }
 
     const embed = new EmbedBuilder()
-        .setColor(COLOURS.open)
-        .setTitle(runner.handle)
+        .setColor(runner.status === 'active' ? COLOURS.open : COLOURS.pending)
+        .setTitle(runner.status === 'dead' ? `${runner.handle} †` : runner.handle)
         .setURL(`${boardUrl}/runners/${runner.slug}`)
-        .setDescription(runner.isFixer && runner.bio ? cut(runner.bio, 400) : null)
+        .setDescription(runner.obituary ? cut(runner.obituary, 400) : runner.isFixer && runner.bio ? cut(runner.bio, 400) : null)
         .addFields(fields)
         .setThumbnail(imageUrl);
     return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', `${boardUrl}/runners/${runner.slug}`))] };

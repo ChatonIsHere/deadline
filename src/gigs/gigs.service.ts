@@ -14,7 +14,7 @@ import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, ob
 import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
-import { diffSlots, fillFromReserves, pickSlot } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots } from './slots';
 
 export const ACTIVE = LIVE_STATUSES;
 const SWEEP_MS = 6 * 60 * 60 * 1000;
@@ -44,6 +44,7 @@ export const toCard = (r: Runner): RunnerCard => ({
     extraRoles: stringList(r.extraRoles),
     imageId: r.imageId,
     ownerId: r.ownerId,
+    status: r.status,
 });
 
 /**
@@ -208,6 +209,7 @@ export class GigsService {
         const runner = await this.prisma.runner.findUnique({ where: { id: runnerId } });
         const player = runner?.ownerId ? await this.members.me(runner.ownerId) : null;
         if (!runner || !player?.isEdgerunner) throw new BadRequestException('Only runners whose player has the edgerunner role can go on a gig.');
+        if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
         await this.add(runner, id, true);
         return this.view(id, user);
     }
@@ -294,12 +296,19 @@ export class GigsService {
         return this.view(id, user);
     }
 
-    /** Takes a runner off every unfinished gig before it's deleted. Finished gigs keep their record. */
+    /**
+     * Takes a runner off every unfinished gig, slots and reserves, when they're deleted, retire
+     * or die. Reserves move up into the slots they leave. Finished gigs keep their record.
+     */
     async dropRunner(runnerId: string) {
-        const live = await this.prisma.gig.findMany({ where: { status: { in: [...ACTIVE, 'pending'] }, slots: { some: { runnerId } } }, select: { id: true } });
+        const live = await this.prisma.gig.findMany({
+            where: { status: { in: [...ACTIVE, 'pending'] }, OR: [{ slots: { some: { runnerId } } }, { reserves: { some: { runnerId } } }] },
+            select: { id: true },
+        });
         const liveIds = live.map((g) => g.id);
         await this.prisma.gigSlot.updateMany({ where: { runnerId, gigId: { in: liveIds } }, data: emptied });
-        // Deleting the runner clears the rest itself: older slots lose the link, reserves go, fixer links go
+        await this.prisma.gigReserve.deleteMany({ where: { runnerId, gigId: { in: liveIds } } });
+        // Deleting the runner clears the rest itself: older slots lose the link, fixer links go
         for (const id of liveIds) await this.afterRemoval(id);
     }
 
@@ -347,17 +356,32 @@ export class GigsService {
         this.post(id, { note, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
     }
 
-    /** Moves reserves into any empty slots they can take. Returns who moved up. */
+    /**
+     * Moves reserves into any empty slots they can take. A crew member sitting in an open slot
+     * moves over to an empty slot of their crew first, so the open slot goes to a reserve.
+     * Returns who moved up.
+     */
     private async promote(id: string): Promise<{ userId: string; runnerId: string }[]> {
         return this.prisma.$transaction(async (tx) => {
             await lockGig(tx, id);
             const gig = await tx.gig.findUniqueOrThrow({ where: { id } });
-            const slots = await tx.gigSlot.findMany({ where: { gigId: id } });
+            let slots = await tx.gigSlot.findMany({ where: { gigId: id } });
             const reserves = await tx.gigReserve.findMany({ where: { gigId: id }, orderBy: { joinedAt: 'asc' } });
-            const memberships = await tx.crewMember.findMany({ where: { runnerId: { in: reserves.map((r) => r.runnerId) } } });
+            if (!reserves.length) return [];
+            const runnerIds = [...reserves.map((r) => r.runnerId), ...slots.flatMap((s) => (s.runnerId ? [s.runnerId] : []))];
+            const memberships = await tx.crewMember.findMany({ where: { runnerId: { in: runnerIds } } });
+            const crewsOf = (runnerId: string | null) => memberships.filter((m) => m.runnerId === runnerId).map((m) => m.crewId);
+
+            for (const { from, to } of shiftToCrewSlots(slots.map((s) => ({ ...s, crewIds: crewsOf(s.runnerId) })))) {
+                const { userId, runnerId, state, askedAt, nudged } = slots.find((s) => s.id === from)!;
+                await tx.gigSlot.update({ where: { id: from }, data: emptied });
+                await tx.gigSlot.update({ where: { id: to }, data: { userId, runnerId, state, askedAt, nudged } });
+                slots = slots.map((s) => (s.id === to ? { ...s, userId, runnerId } : s.id === from ? { ...s, userId: null, runnerId: null } : s));
+            }
+
             const moves = fillFromReserves(
                 slots,
-                reserves.map((r) => ({ userId: r.userId, crewIds: memberships.filter((m) => m.runnerId === r.runnerId).map((m) => m.crewId) })),
+                reserves.map((r) => ({ userId: r.userId, crewIds: crewsOf(r.runnerId) })),
             );
             const moved: { userId: string; runnerId: string }[] = [];
             for (const { slotId, userId } of moves) {
@@ -375,15 +399,16 @@ export class GigsService {
         const mine = await this.runnersOf(userId);
         if (runnerId !== undefined) {
             const runner = mine.find((r) => r.id === runnerId);
-            if (!runner) throw new BadRequestException("That runner isn't yours.");
+            if (!runner) throw new BadRequestException("That runner isn't yours, or isn't taking gigs.");
             return runner;
         }
         if (mine.length === 1) return mine[0];
         throw new BadRequestException(mine.length ? voice.pickRunner : voice.noRunner(config.PUBLIC_URL));
     }
 
+    /** The player's runners still taking gigs. */
     private runnersOf(userId: string): Promise<Runner[]> {
-        return this.prisma.runner.findMany({ where: { ownerId: userId }, orderBy: { handle: 'asc' } });
+        return this.prisma.runner.findMany({ where: { ownerId: userId, status: 'active' }, orderBy: { handle: 'asc' } });
     }
 
     private async crewIds(runnerId: string): Promise<string[]> {
@@ -634,7 +659,7 @@ export class GigsService {
             createdAt: gig.createdAt.getTime(),
             summary: done ? gig.summary : null,
             crewRewards: done ? { eb: gig.rewardEb, ip: gig.rewardIp, hqIp: gig.rewardHqIp, text: gig.rewardText } : null,
-            runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, text: r.text })),
+            runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, hqIp: r.hqIp, text: r.text })),
             canRate: done && !!gig.fixerRunnerId && !!userId && gig.slots.some((s) => s.userId === userId),
             myRating: rating ? { stars: rating.stars, comment: rating.comment } : null,
         };
@@ -670,6 +695,6 @@ async function lockGig(tx: Tx, id: string) {
 }
 
 /** A sign-up whose runner was deleted. */
-const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId });
+const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId, status: 'active' });
 
 type AfterPost = (view: GigView, threadId: string) => Promise<void>;

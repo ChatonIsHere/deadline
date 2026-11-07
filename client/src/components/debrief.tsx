@@ -25,7 +25,7 @@ export function DebriefCard({ gig }: { gig: GigView }) {
                     {gig.runnerRewards.map((r) => (
                         <li key={r.runner.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <RunnerChip runner={r.runner} />
-                            <RewardLine rewards={r} plus />
+                            <RewardLine rewards={r} hqIp={r.hqIp} plus />
                         </li>
                     ))}
                 </ul>
@@ -44,7 +44,7 @@ function RewardLine({ rewards, hqIp, plus }: { rewards: Rewards; hqIp?: number |
             </span>
         ) : null,
         rewards.ip ? <span key="ip">{`${p}${rewards.ip} IP`}</span> : null,
-        hqIp ? <span key="hq">{`${hqIp} HQ IP`}</span> : null,
+        hqIp ? <span key="hq">{`${p}${hqIp} HQ IP`}</span> : null,
         rewards.text ? <span key="text">{rewards.text}</span> : null,
     ].filter(Boolean);
     if (!parts.length) return <span className="text-muted-foreground">none</span>;

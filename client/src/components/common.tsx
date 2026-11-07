@@ -91,6 +91,16 @@ export function Say({ children, className }: { children: ReactNode; className?: 
     );
 }
 
+/** A loading line, only once loading has taken a moment, so pages that load fast don't flash it. */
+export function Loading({ children, className }: { children: ReactNode; className?: string }) {
+    const [late, setLate] = useState(false);
+    useEffect(() => {
+        const timer = setTimeout(() => setLate(true), 400);
+        return () => clearTimeout(timer);
+    }, []);
+    return late ? <Say className={className}>{children}</Say> : null;
+}
+
 /** Children as one string, or null if there's more than text in there. */
 function plainText(children: ReactNode): string | null {
     const parts = Array.isArray(children) ? children : [children];

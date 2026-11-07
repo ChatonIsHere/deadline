@@ -43,16 +43,30 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
     );
 }
 
-/** A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to their profile. */
+/**
+ * A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to
+ * their profile. Retired and flatlined runners are greyed out and say so.
+ */
 export function RunnerTile({ runner }: { runner: RunnerCard }) {
+    const gone = runner.status !== 'active';
     return (
         <LinkCard to={`/runners/${runner.slug}`} className="flex items-center gap-4">
-            <RunnerAvatar runner={runner} className="size-16 text-2xl [--cut:8px]" />
+            <RunnerAvatar runner={runner} className={cn('size-16 text-2xl [--cut:8px]', gone && 'opacity-60 grayscale')} />
             <div className="min-w-0 space-y-1.5">
-                <h3 className="truncate text-lg">{runner.handle}</h3>
-                <Roles runner={runner} />
+                <h3 className={cn('truncate text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
+                {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
             </div>
         </LinkCard>
+    );
+}
+
+/** "Retired" or "Flatlined", for runners who don't take gigs any more. */
+export function RunnerStatusTag({ status, className }: { status: RunnerCard['status']; className?: string }) {
+    if (status === 'active') return null;
+    return (
+        <span className={cn('block font-display text-xs tracking-widest uppercase', status === 'dead' ? 'text-destructive' : 'text-muted-foreground', className)}>
+            {status === 'dead' ? 'Flatlined' : 'Retired'}
+        </span>
     );
 }
 
@@ -88,13 +102,15 @@ export function Stars({ value, className }: { value: number; className?: string 
     );
 }
 
-export function RatingLine({ rating, className }: { rating: Rating; className?: string }) {
+/** Stars and the average. `count` adds how many ratings that's from. */
+export function RatingLine({ rating, count = true, className }: { rating: Rating; count?: boolean; className?: string }) {
     if (!rating.average) return <span className="text-xs text-muted-foreground">no ratings yet</span>;
     return (
         <span className={cn('inline-flex items-center gap-2', className)}>
             <Stars value={rating.average} />
             <span className="text-xs text-muted-foreground">
-                {rating.average.toFixed(1)} · {rating.count} rating{rating.count === 1 ? '' : 's'}
+                {rating.average.toFixed(1)}
+                {count && ` · ${rating.count} rating${rating.count === 1 ? '' : 's'}`}
             </span>
         </span>
     );

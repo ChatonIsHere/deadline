@@ -3,7 +3,7 @@ import type { CrewView, RunnerCard } from '@shared/schemas';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ConfirmButton, Icon, Live, liveKey, Say } from '@/components/common';
+import { ConfirmButton, Icon, Live, liveKey, Loading, Say } from '@/components/common';
 import { RoleIcon, RunnerChip, RunnerTile } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -28,7 +28,7 @@ export function Crew() {
     const remove = useAction(() => api(url, 'DELETE'), 'crew disbanded.', () => navigate('/crews'));
 
     if (isError) return <Say>no such crew.</Say>;
-    if (!crew) return <Say>scanning...</Say>;
+    if (!crew) return <Loading>scanning...</Loading>;
 
     const canManage = canManageCrew(me, crew);
 
@@ -181,7 +181,7 @@ function InviteRunner({ crew, isAdmin, onInvite }: { crew: CrewView; isAdmin: bo
     const [runnerId, setRunnerId] = useState('');
     const add = useAction(() => api(`/api/crews/${crew.id}/members`, 'POST', { runnerId }), 'runner added to the crew.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.invites].map((r) => r.id));
-    const options = runners.filter((r) => !taken.has(r.id));
+    const options = runners.filter((r) => r.status === 'active' && !taken.has(r.id));
 
     return (
         <div className="flex flex-wrap gap-2">
@@ -217,7 +217,7 @@ function AddAlly({ crew }: { crew: CrewView }) {
     const [runnerId, setRunnerId] = useState('');
     const add = useAction(() => api(`/api/crews/${crew.id}/allies`, 'POST', { runnerId }), 'ally added.', () => setRunnerId(''));
     const taken = new Set([...crew.members, ...crew.allies].map((r) => r.id));
-    const options = [...runners, ...npcs].filter((r) => !taken.has(r.id)).sort((a, b) => a.handle.localeCompare(b.handle));
+    const options = [...runners, ...npcs].filter((r) => r.status === 'active' && !taken.has(r.id)).sort((a, b) => a.handle.localeCompare(b.handle));
 
     return (
         <div className="flex gap-2">

@@ -2,7 +2,7 @@ import { canCreateCrew } from '@shared/permissions';
 import type { CrewView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Icon, LinkCard, liveKey, Say } from '@/components/common';
+import { Icon, LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,7 @@ export function Crews() {
     const me = useUser();
     const { data: crews, isPending } = useCrews();
 
-    if (isPending) return <Say>scanning...</Say>;
+    if (isPending) return <Loading>scanning...</Loading>;
     if (!crews?.length) {
         return (
             <div className="space-y-4">
@@ -115,7 +115,7 @@ function NewCrew() {
     const myQuery = useMyRunners();
     const everyoneQuery = useRunners();
     const mine = myQuery.data ?? [];
-    const everyone = everyoneQuery.data ?? [];
+    const everyone = (everyoneQuery.data ?? []).filter((r) => r.status === 'active');
     const loading = me.isAdmin ? everyoneQuery.isPending : myQuery.isPending;
     const choices = me.isAdmin ? everyone.map((r) => ({ value: String(r.id), label: r.handle, hint: r.owner?.name })) : mine.map((r) => ({ value: String(r.id), label: r.handle }));
     const [name, setName] = useState('');

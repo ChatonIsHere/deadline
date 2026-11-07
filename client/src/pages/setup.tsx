@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availability';
-import { Say } from '@/components/common';
+import { Loading, Say } from '@/components/common';
 import { logout } from '@/components/layout';
 import { RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ export function SetupPage() {
                     <CardTitle>Your runner</CardTitle>
                     <Say>every job needs a face. put at least one runner on file.</Say>
                     {!mine ? (
-                        <Say>loading...</Say>
+                        <Loading>loading...</Loading>
                     ) : mine.length ? (
                         <ul className="flex flex-wrap gap-2">
                             {mine.map((r) => (

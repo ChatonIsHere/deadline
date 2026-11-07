@@ -1,7 +1,7 @@
 import { canCreateGig, canEditGig } from '@shared/permissions';
 import type { GigInput, GigView } from '@shared/schemas';
 import { useNavigate, useParams } from 'react-router';
-import { Say } from '@/components/common';
+import { Loading, Say } from '@/components/common';
 import { GigForm } from '@/components/gig-form';
 import { api, useAction, useGig, useUser } from '@/lib/api';
 
@@ -20,7 +20,7 @@ export function GigEdit() {
     );
 
     if (isError) return <Say>no such contract.</Say>;
-    if (id && !gig) return <Say>decrypting...</Say>;
+    if (id && !gig) return <Loading>decrypting...</Loading>;
     const allowed = gig ? canEditGig(me, { createdBy: gig.createdBy.id, status: gig.status }) : canCreateGig(me);
     if (!allowed) return <Say>{gig ? "that contract isn't yours to change." : 'only fixers and admins post gigs.'}</Say>;
 

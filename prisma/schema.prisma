@@ -23,6 +23,15 @@ enum GigStatus {
   @@map("gig_status")
 }
 
+/// Whether a runner still takes gigs. Retired is a break (they can come back), dead is for good.
+enum RunnerStatus {
+  active
+  retired
+  dead
+
+  @@map("runner_status")
+}
+
 /// Where a runner in a slot stands. Only "interested" until a session time is set.
 enum RunnerState {
   interested
@@ -141,23 +150,28 @@ model CrewInvite {
 /// A character. Players can have several. One with the Fixer role counts as a fixer only while
 /// its player has the Discord fixer role. NPC fixers are added by admins and have no player.
 model Runner {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// The player. Empty for NPC fixers.
-  ownerId        String?  @map("owner_id")
+  ownerId        String?      @map("owner_id")
   /// One of a kind in Night City, compared as links compare them (see slug)
   handle         String
   /// The runner's link, made from the handle: /runners/vex
-  slug           String   @unique
+  slug           String       @unique
   role           String
   /// More roles (string[])
-  extraRoles     Json     @default("[]") @map("extra_roles")
-  imageId        String?  @map("image_id") @db.Uuid
+  extraRoles     Json         @default("[]") @map("extra_roles")
+  imageId        String?      @map("image_id") @db.Uuid
   // Fixer profile
-  officeLocation String?  @map("office_location")
+  officeLocation String?      @map("office_location")
   specialties    String?
   contact        String?
   bio            String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  status         RunnerStatus @default(active)
+  /// When they retired or died
+  retiredAt      DateTime?    @map("retired_at") @db.Timestamptz(3)
+  /// How a dead runner went out. Markdown.
+  obituary       String?
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
   image       Image?       @relation(fields: [imageId], references: [id], onDelete: SetNull)
   memberships CrewMember[]
@@ -174,42 +188,42 @@ model Runner {
 }
 
 model Gig {
-  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name               String
   /// The fixer's name: their character's handle, or what an admin typed for a one-off NPC
-  fixerName          String      @map("fixer_name")
-  fixerRunnerId      String?     @map("fixer_runner_id") @db.Uuid
+  fixerName          String    @map("fixer_name")
+  fixerRunnerId      String?   @map("fixer_runner_id") @db.Uuid
   /// The fixer character's player, if they have one
-  fixerId            String?     @map("fixer_id")
+  fixerId            String?   @map("fixer_id")
   location           String
   type               String?
   /// Everything about the job. The Discord post's description.
   brief              String
   /// What the crew has to do to get paid: one or more parts (string[]), one payout
-  primaryObjective   Json        @default("[]") @map("primary_objective")
+  primaryObjective   Json      @default("[]") @map("primary_objective")
   /// What the primary objective pays. The gig's pay runs from this to this plus every bonus.
   pay                Int
-  imageId            String?     @map("image_id") @db.Uuid
+  imageId            String?   @map("image_id") @db.Uuid
   /// Storage key of the current gig card (the picture with the name on it) for Discord
-  cardKey            String?     @map("card_key")
-  status             GigStatus   @default(pending)
-  createdBy          String      @map("created_by")
+  cardKey            String?   @map("card_key")
+  status             GigStatus @default(pending)
+  createdBy          String    @map("created_by")
   /// Forum post. In a forum the starter message shares the thread's ID.
-  threadId           String?     @unique @map("thread_id")
+  threadId           String?   @unique @map("thread_id")
   /// Thread messages carrying whatever didn't fit in the post's first message (string[])
-  overflowMessageIds Json        @default("[]") @map("overflow_message_ids")
+  overflowMessageIds Json      @default("[]") @map("overflow_message_ids")
   /// When the session is played. Until then runners are only "interested".
-  sessionAt          DateTime?   @map("session_at") @db.Timestamptz(3)
+  sessionAt          DateTime? @map("session_at") @db.Timestamptz(3)
   /// Reminders already sent for the current session time
-  remindedDay        Boolean     @default(false) @map("reminded_day")
-  remindedSoon       Boolean     @default(false) @map("reminded_soon")
+  remindedDay        Boolean   @default(false) @map("reminded_day")
+  remindedSoon       Boolean   @default(false) @map("reminded_soon")
   // Filled in when an admin completes the gig. These rewards go to everyone on it.
   summary            String?
-  rewardEb           Int?        @map("reward_eb")
-  rewardIp           Int?        @map("reward_ip")
-  rewardHqIp         Int?        @map("reward_hq_ip")
-  rewardText         String?     @map("reward_text")
-  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  rewardEb           Int?      @map("reward_eb")
+  rewardIp           Int?      @map("reward_ip")
+  rewardHqIp         Int?      @map("reward_hq_ip")
+  rewardText         String?   @map("reward_text")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   fixerRunner Runner?        @relation(fields: [fixerRunnerId], references: [id], onDelete: SetNull)
   image       Image?         @relation(fields: [imageId], references: [id], onDelete: SetNull)
@@ -290,6 +304,7 @@ model GigReward {
   runnerId String  @map("runner_id") @db.Uuid
   eb       Int?
   ip       Int?
+  hqIp     Int?    @map("hq_ip")
   text     String?
 
   gig    Gig    @relation(fields: [gigId], references: [id], onDelete: Cascade)
@@ -339,7 +354,7 @@ model Image {
   /// When nothing (gig, runner, library) used it any more. Deleted 30 days after.
   unusedSince DateTime? @map("unused_since") @db.Timestamptz(3)
 
-  region  Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  region  Region?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
   gigs    Gig[]
   runners Runner[]
 

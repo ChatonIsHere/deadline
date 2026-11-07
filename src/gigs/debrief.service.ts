@@ -43,7 +43,7 @@ export class DebriefService {
             await tx.gigReward.deleteMany({ where: { gigId: id } });
             // Nobody is waiting for a slot on a finished gig
             await this.gigs.clearReserves(id, tx);
-            const extras = input.runners.filter((r) => r.eb || r.ip || r.text);
+            const extras = input.runners.filter((r) => r.eb || r.ip || r.hqIp || r.text);
             if (extras.length) await tx.gigReward.createMany({ data: extras.map((r) => ({ gigId: id, ...r })) });
         });
 
@@ -88,7 +88,7 @@ export function payoutFor(gig: GigView, userId: string, runnerId: string): Payou
         handle,
         eb: (crew?.eb ?? 0) + (own?.eb ?? 0),
         ip: (crew?.ip ?? 0) + (own?.ip ?? 0),
-        hqIp: crew?.hqIp ?? 0,
+        hqIp: (crew?.hqIp ?? 0) + (own?.hqIp ?? 0),
         extras: [crew?.text, own?.text].filter((t): t is string => !!t),
     };
 }

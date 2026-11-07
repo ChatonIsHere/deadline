@@ -2,7 +2,7 @@ import { completeInput, type CompleteInput, type GigView, isLive } from '@shared
 import { CalendarClock, Minus, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Icon, Money, Pay, Say } from '@/components/common';
+import { Icon, Loading, Money, Pay, Say } from '@/components/common';
 import { Markdown, MarkdownEditor } from '@/components/markdown';
 import { RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,8 @@ import { useFormatSession } from '@/lib/time';
 import { firstIssue } from '@/lib/utils';
 
 // Amounts are strings while typing so boxes can be empty
-type Amounts = { eb: string; ip: string; text: string };
-const blank: Amounts = { eb: '', ip: '', text: '' };
+type Amounts = { eb: string; ip: string; hqIp: string; text: string };
+const blank: Amounts = { eb: '', ip: '', hqIp: '', text: '' };
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
 /** The GM's debrief: what happened and what everyone earned. Completing sends payout DMs. */
@@ -24,7 +24,7 @@ export function GigComplete() {
     const { data: gig, isError } = useGig(id);
     if (!me.isAdmin) return <Say>admins only.</Say>;
     if (isError) return <Say>no such contract.</Say>;
-    if (!gig) return <Say>decrypting...</Say>;
+    if (!gig) return <Loading>decrypting...</Loading>;
     if (!isLive(gig.status)) return <Say>that gig isn't live.</Say>;
     return <DebriefForm gig={gig} />;
 }
@@ -66,7 +66,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
             ip: num(crew.ip),
             hqIp: num(crew.hqIp),
             text: crew.text,
-            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId, eb: num(a.eb), ip: num(a.ip), text: a.text })),
+            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId, eb: num(a.eb), ip: num(a.ip), hqIp: num(a.hqIp), text: a.text })),
         });
         if (!result.success) {
             setError(firstIssue(result.error));
@@ -131,10 +131,11 @@ function DebriefForm({ gig }: { gig: GigView }) {
                             return (
                                 <div key={r.id} className="space-y-2 border-b-2 border-border pb-4 last:border-0 last:pb-0">
                                     <RunnerChip runner={r} />
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[8rem_6rem_1fr]">
+                                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-[8rem_5rem_5rem_1fr]">
                                         <Amount id={`eb-${r.id}`} label="Pay" icon value={a.eb} onChange={(eb) => setRunner(r.id, { eb })} />
                                         <Amount id={`ip-${r.id}`} label="IP" value={a.ip} onChange={(ip) => setRunner(r.id, { ip })} />
-                                        <div className="col-span-2 sm:col-span-1">
+                                        <Amount id={`hq-${r.id}`} label="HQ IP" value={a.hqIp} onChange={(hqIp) => setRunner(r.id, { hqIp })} />
+                                        <div className="col-span-3 sm:col-span-1">
                                             <Label htmlFor={`text-${r.id}`}>Other</Label>
                                             <Input id={`text-${r.id}`} value={a.text} onChange={(e) => setRunner(r.id, { text: e.target.value })} maxLength={200} />
                                         </div>

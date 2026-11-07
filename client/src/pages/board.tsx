@@ -1,5 +1,5 @@
 import { type GigView, isLive, type Me } from '@shared/schemas';
-import { liveKey, Say } from '@/components/common';
+import { liveKey, Loading, Say } from '@/components/common';
 import { GigCard } from '@/components/gig-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGigs, useUser } from '@/lib/api';
@@ -50,7 +50,7 @@ export function Board() {
                 return (
                     <TabsContent key={t.key} value={t.key}>
                         {isPending ? (
-                            <Say>pulling contracts...</Say>
+                            <Loading>pulling contracts...</Loading>
                         ) : list.length ? (
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 {list.map((g) => (

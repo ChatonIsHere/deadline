@@ -2,7 +2,7 @@ import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } fr
 import { Eye, EyeOff, Plus, Shuffle, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Icon, Pay, Say } from '@/components/common';
+import { Icon, Loading, Pay, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -302,7 +302,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                 <RunnerAvatar runner={fixers[0]} /> {fixers[0].handle}
                             </p>
                         ) : fixerQuery.isPending ? (
-                            <Say>checking your fixers...</Say>
+                            <Loading>checking your fixers...</Loading>
                         ) : (
                             <Say>
                                 you need a fixer character first: a runner with the Fixer role.{' '}

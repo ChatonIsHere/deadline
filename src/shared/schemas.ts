@@ -18,6 +18,10 @@ export const isLive = (status: GigStatus) => LIVE_STATUSES.includes(status);
 export const RUNNER_STATES = ['interested', 'awaiting', 'confirmed'] as const;
 export type RunnerState = (typeof RUNNER_STATES)[number];
 
+/** active: takes gigs. retired: on a break, can come back. dead: gone for good, with an obituary. */
+export const RUNNER_STATUSES = ['active', 'retired', 'dead'] as const;
+export type RunnerStatus = (typeof RUNNER_STATUSES)[number];
+
 /** Cyberpunk RED's core roles. Admins can change the list in Settings. */
 export const CORE_ROLES = ['Rockerboy', 'Solo', 'Netrunner', 'Tech', 'Medtech', 'Media', 'Exec', 'Lawman', 'Fixer', 'Nomad'];
 /** The role that makes a runner a fixer (if their player has the Discord fixer role). */
@@ -89,7 +93,7 @@ export const completeInput = z.object({
     hqIp: optionalAmount,
     text: optionalText(200),
     runners: z
-        .array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, text: optionalText(200) }))
+        .array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, hqIp: optionalAmount, text: optionalText(200) }))
         .max(MAX_SLOTS),
 });
 export type CompleteInput = z.infer<typeof completeInput>;
@@ -120,6 +124,14 @@ export const runnerInput = z.object({
         .optional(),
 });
 export type RunnerInput = z.infer<typeof runnerInput>;
+
+/** Retiring a runner, killing them off (with an obituary), or bringing a retired one back. */
+export const retireInput = z.discriminatedUnion('status', [
+    z.object({ status: z.literal('active') }),
+    z.object({ status: z.literal('retired') }),
+    z.object({ status: z.literal('dead'), obituary: optionalText(4000) }),
+]);
+export type RetireInput = z.infer<typeof retireInput>;
 
 export const newCrewInput = z.object({
     /** One of a kind: it's the crew's link (/crews/static-wolves). */
@@ -280,6 +292,7 @@ export interface RunnerCard {
     imageId: string | null;
     /** The player. Null for NPC fixers. */
     ownerId: string | null;
+    status: RunnerStatus;
 }
 
 export interface RunnerSummary extends RunnerCard {
@@ -288,6 +301,8 @@ export interface RunnerSummary extends RunnerCard {
     canTakeGigs: boolean;
     /** Has the Fixer role and is an NPC or played by someone with the Discord fixer role. */
     isFixer: boolean;
+    /** Unix ms. When they retired or died. */
+    retiredAt: number | null;
 }
 
 export interface FixerSummary extends RunnerSummary {
@@ -316,6 +331,8 @@ export interface RunnerView extends RunnerSummary {
     specialties: string | null;
     contact: string | null;
     bio: string | null;
+    /** Dead runners only. Markdown. */
+    obituary: string | null;
     crews: { id: string; slug: string; name: string }[];
     /** Gigs this runner went on (or is signed up for). */
     gigs: GigLink[];
@@ -388,7 +405,7 @@ export interface GigView {
     /** Set once completed. */
     summary: string | null;
     crewRewards: (Rewards & { hqIp: number | null }) | null;
-    runnerRewards: (Rewards & { runner: RunnerCard })[];
+    runnerRewards: (Rewards & { hqIp: number | null; runner: RunnerCard })[];
     /** Whether the signed in player had a runner on this finished gig and can rate its fixer. */
     canRate: boolean;
     /** The signed in player's rating of the fixer for this gig. */
