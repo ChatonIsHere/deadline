@@ -212,8 +212,8 @@
     /* Pictures (not icons or cut-corner avatars) draw in top to bottom, a band at a time.
        Specific enough to beat the panel fade, so every picture does the same thing. */
     main img:is([class*='aspect-'], [class*='object-cover']):not(.cut) {
-        animation: scan-in 260ms steps(8, end) backwards;
-        animation-delay: calc(var(--d, 0ms) + 140ms);
+        animation: scan-in 140ms steps(5, end) backwards;
+        animation-delay: calc(var(--d, 0ms) + 60ms);
     }
 
     aside nav > a,
