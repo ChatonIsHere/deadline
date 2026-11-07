@@ -181,8 +181,8 @@ function Rail({ channels }: { channels: Channel[] }) {
 
 /**
  * Where you are, as a shell prompt (name@DEADLINE:~/gigs$), in place of page titles. Your
- * picture and name on the left go to your settings. The rest (or Ctrl+K) opens the
- * jump-anywhere palette.
+ * picture, name and @DEADLINE go to your settings. The rest of the bar (or Ctrl+K) opens
+ * the jump-anywhere palette.
  */
 function PromptBar({ onOpen }: { onOpen: () => void }) {
     const { data: me } = useMe();
@@ -192,14 +192,17 @@ function PromptBar({ onOpen }: { onOpen: () => void }) {
         <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
             <span className="flex min-w-0 flex-1 items-center self-stretch">
                 {me && (
-                    <Link to="/me" title="Your settings" className="group flex max-w-[45%] shrink-0 items-center gap-2 text-primary">
+                    // The whole of picture, name and @DEADLINE, full height, goes to your settings
+                    <Link to="/me" title="Your settings" className="group flex max-w-[60%] shrink-0 items-center gap-2 self-stretch text-primary">
                         <Avatar member={me} />
-                        <span className="truncate group-hover:underline">{me.name}</span>
+                        <span className="flex min-w-0 group-hover:underline">
+                            <span className="truncate">{me.name}</span>
+                            <span>@DEADLINE</span>
+                        </span>
                     </Link>
                 )}
                 <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center self-stretch text-left outline-none">
                     <span className="min-w-0 truncate">
-                        <span className="text-primary">@DEADLINE</span>
                         <span className="text-muted-foreground">:</span>
                         <span className="text-accent">~{path && `/${path}`}</span>
                         <span className="text-muted-foreground">$</span>
