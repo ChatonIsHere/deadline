@@ -1,13 +1,11 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
-import { isLive } from '@shared/schemas';
-import { nightCityDate } from '@shared/time';
 import { LogOut, Plus, Search } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { api, useCrew, useGig, useGigs, useMe, useRunner, useSettings } from '@/lib/api';
+import { api, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export const logout = async () => {
@@ -41,8 +39,7 @@ interface Channel {
 }
 
 /**
- * The board's terminal. Desktop: a rail on the left with numbered channels and a status
- * readout. Phones: the channels along the bottom (easier to reach with a thumb) and a
+ * The board's terminal. Desktop: a rail on the left with numbered channels. Phones: the channels along the bottom (easier to reach with a thumb) and a
  * floating button for new gigs. Everyone gets the prompt bar on top, which shows where
  * you are and opens the command palette (Ctrl+K).
  */
@@ -151,7 +148,7 @@ export function Layout() {
 
 const channelNo = (n: number) => String(n).padStart(2, '0');
 
-/** Desktop: the board's bezel. Logo, numbered channels, new gig, then status and the user at the bottom. */
+/** Desktop: the board's bezel. Logo, numbered channels, then the user at the bottom. */
 function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;
@@ -183,9 +180,7 @@ function Rail({ channels }: { channels: Channel[] }) {
             </nav>
 
 
-            <div className="mt-auto space-y-3 border-t-2 border-primary/40 px-4 py-4">
-                <p className="text-xs tracking-widest text-muted-foreground">// STATUS</p>
-                <Readout />
+            <div className="mt-auto border-t-2 border-primary/40 px-4 py-4">
                 <div className="flex items-center gap-2">
                     <Link to="/me" className="flex min-w-0 flex-1 items-center gap-2 hover:text-primary" title="Your settings">
                         <Avatar member={me} />
@@ -200,45 +195,31 @@ function Rail({ channels }: { channels: Channel[] }) {
     );
 }
 
-/** Live gigs, today's date in the game (51 years on) and whether the browser is online. */
-function Readout() {
-    const gigs = useGigs().data ?? [];
-    const live = gigs.filter((g) => isLive(g.status)).length;
-    const date = useInWorldDate();
-    const online = useOnline();
-
-    return (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-            <dt className="text-muted-foreground">LIVE</dt>
-            <dd className="text-primary tabular-nums">
-                {live} contract{live === 1 ? '' : 's'}
-            </dd>
-            <dt className="text-muted-foreground">DATE</dt>
-            <dd className="tabular-nums">{date}</dd>
-            <dt className="text-muted-foreground">LINK</dt>
-            <dd className={online ? 'text-success' : 'text-destructive'}>{online ? 'uplink stable' : 'no signal'}</dd>
-        </dl>
-    );
-}
-
 /**
- * Where you are, as a path the board's AI would print, in place of page titles. Click it
- * (or Ctrl+K) to jump anywhere.
+ * Where you are, as a shell prompt (name@DEADLINE:~/gigs$), in place of page titles. The name
+ * goes to your settings. The rest (or Ctrl+K) opens the jump-anywhere palette.
  */
 function PromptBar({ onOpen }: { onOpen: () => void }) {
+    const { data: me } = useMe();
     const path = usePath();
     return (
         // Phones: the first row, under the browser bar. Desktop: stuck to the bottom of the window.
         <div className="order-first flex h-12 w-full shrink-0 items-center gap-2 border-b-2 border-primary/40 bg-background px-4 text-sm md:sticky md:bottom-0 md:z-20 md:order-none md:border-t md:border-b-0 md:px-8">
-            <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center gap-2 self-stretch text-left outline-none">
-                <img src="/logo.svg" alt="" className="size-5 md:hidden" />
-                <span className="text-primary">&gt;</span>
-                <span className="min-w-0 truncate">
-                    <span className="text-muted-foreground">DEADLINE://</span>
-                    {path}
-                    <span className="blink ml-0.5 inline-block h-4 w-2 translate-y-0.5 bg-primary" />
-                </span>
-            </button>
+            <img src="/logo.svg" alt="" className="size-5 shrink-0 md:hidden" />
+            <span className="flex min-w-0 flex-1 items-center self-stretch">
+                <Link to="/me" title="Your settings" className="max-w-[40%] shrink-0 truncate text-primary hover:underline">
+                    {me?.name}
+                </Link>
+                <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex min-w-0 flex-1 cursor-text items-center self-stretch text-left outline-none">
+                    <span className="min-w-0 truncate">
+                        <span className="text-primary">@DEADLINE</span>
+                        <span className="text-muted-foreground">:</span>
+                        <span className="text-accent">~{path && `/${path}`}</span>
+                        <span className="text-muted-foreground">$</span>
+                        <span className="blink ml-1.5 inline-block h-4 w-2 translate-y-0.5 bg-primary" />
+                    </span>
+                </button>
+            </span>
             <button type="button" onClick={onOpen} aria-label="Jump to... (Ctrl+K)" className="flex shrink-0 cursor-pointer items-center text-muted-foreground outline-none">
                 <Search className="size-4 md:hidden" />
                 <kbd className="cut hidden bg-muted px-2 py-0.5 text-xs tracking-widest [--cut:4px] md:block">CTRL K</kbd>
@@ -264,39 +245,6 @@ function usePath(): string {
     const name = gig ? gig.ref.toUpperCase() : (runner?.slug ?? crew?.slug);
     if (record && name) parts[1] = name;
     return parts.join('/');
-}
-
-/**
- * Today's date in Night City, 51 years on, e.g. "05 NOV 2077". It's the date on Night City's
- * clock (Pacific time), whatever the viewer's zone. Checked again on each page change and when
- * the tab comes back into view.
- */
-function useInWorldDate(): string {
-    const { pathname } = useLocation();
-    const [today, setToday] = useState(() => new Date());
-    useEffect(() => {
-        setToday(new Date());
-    }, [pathname]);
-    useEffect(() => {
-        const onShow = () => document.visibilityState === 'visible' && setToday(new Date());
-        document.addEventListener('visibilitychange', onShow);
-        return () => document.removeEventListener('visibilitychange', onShow);
-    }, []);
-    return nightCityDate(today.getTime());
-}
-
-function useOnline() {
-    const [online, setOnline] = useState(() => navigator.onLine);
-    useEffect(() => {
-        const update = () => setOnline(navigator.onLine);
-        window.addEventListener('online', update);
-        window.addEventListener('offline', update);
-        return () => {
-            window.removeEventListener('online', update);
-            window.removeEventListener('offline', update);
-        };
-    }, []);
-    return online;
 }
 
 /** One channel in the phone bar: its number over its short name. The active one gets a bar on top. */

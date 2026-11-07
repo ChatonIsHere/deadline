@@ -32,7 +32,7 @@ export function GigCard({ gig }: { gig: GigView }) {
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="flex gap-0.5">
                             {gig.slots.map((s) => (
-                                <span key={s.id} className={cn('h-3 w-1.5', s.runner ? 'bg-primary' : 'bg-muted')} />
+                                <span key={s.id} className={cn('h-3 w-1.5', s.runner ? 'bg-primary' : 'bg-border')} />
                             ))}
                         </span>
                         {taken}/{gig.slots.length}
