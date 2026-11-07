@@ -99,7 +99,7 @@ export function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]
                     {gigs.map((g) => (
                         <li key={g.id} className="flex flex-wrap items-center gap-2">
                             <StatusBadge status={g.status} />
-                            <Link to={`/gigs/${g.ref}`} className="hover:text-primary">
+                            <Link to={`/gigs/${g.ref}`} className="hover:text-accent">
                                 {g.name}
                             </Link>
                             {g.sessionAt && <span className="ml-auto text-xs text-muted-foreground">{formatSession(g.sessionAt)}</span>}

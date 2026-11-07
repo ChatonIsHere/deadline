@@ -129,7 +129,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                                         onClick={() => toggleExtra(r)}
                                         className={cn(
                                             'cut cursor-pointer px-2 py-1 font-display text-xs tracking-wider uppercase [--cut:5px]',
-                                            form.extraRoles.includes(r) ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                                            form.extraRoles.includes(r) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
                                         )}
                                     >
                                         {r}

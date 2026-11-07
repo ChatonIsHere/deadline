@@ -2,6 +2,7 @@
 @import '@fontsource/chakra-petch/500.css';
 @import '@fontsource/chakra-petch/700.css';
 @import '@fontsource-variable/jetbrains-mono';
+@import './reveal.css';
 
 @theme {
     --color-background: #0a0a12;
@@ -132,7 +133,7 @@
 
 /*
  * Things animate in as they appear: quick, in steps, like a terminal drawing them. Panels
- * open from a flat line, headings and labels type out, pictures scan in, nav links step
+ * open from a flat line, headings and labels type out, pictures appear a square at a time, nav links step
  * in. Items in grids and stacks start a beat after the one before (--d).
  * Fill mode is `backwards`, so nothing (scale, clip) is left applied once it's done.
  * People who turn motion off get none of it.
@@ -155,14 +156,6 @@
 @keyframes type-in {
     from {
         clip-path: inset(0 100% 0 0);
-    }
-    to {
-        clip-path: inset(0 0 0 0);
-    }
-}
-@keyframes scan-in {
-    from {
-        clip-path: inset(0 0 100% 0);
     }
     to {
         clip-path: inset(0 0 0 0);
@@ -209,12 +202,7 @@
         animation-delay: calc(var(--d, 0ms) + 120ms);
     }
 
-    /* Pictures (not icons or cut-corner avatars) draw in top to bottom, a band at a time.
-       Specific enough to beat the panel fade, so every picture does the same thing. */
-    main img:is([class*='aspect-'], [class*='object-cover']):not(.cut) {
-        animation: scan-in 140ms steps(5, end) backwards;
-        animation-delay: calc(var(--d, 0ms) + 60ms);
-    }
+    /* Pictures (not icons or cut-corner avatars) appear a square at a time: see reveal.css */
 
     aside nav > a,
     nav.shrink-0 a {

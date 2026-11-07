@@ -35,7 +35,7 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
     );
     // Deleted runners (id 0) have no profile
     return runner.id ? (
-        <Link to={`/runners/${runner.slug || runner.id}`} className="inline-flex items-center gap-2 align-middle hover:text-primary">
+        <Link to={`/runners/${runner.slug || runner.id}`} className="inline-flex items-center gap-2 align-middle text-accent hover:underline">
             {inner}
         </Link>
     ) : (
@@ -61,11 +61,14 @@ export function RoleIcon({ role, className }: { role: string; className?: string
     return CORE_ROLES.includes(role) ? <Icon name={`role_${role.toLowerCase()}`} className={className} /> : null;
 }
 
-/** Main role first, then any extras. */
+/** Main role first (white, with its icon), then any extras. Grey, since filled colours mean a gig's status. */
 export function Roles({ runner, className }: { runner: Pick<RunnerCard, 'role' | 'extraRoles'>; className?: string }) {
     return (
         <span className={cn('inline-flex flex-wrap gap-1', className)}>
-            <Badge>{runner.role}</Badge>
+            <Badge variant="muted" className="gap-1 text-foreground">
+                <RoleIcon role={runner.role} className="size-3.5 align-[-2px]" />
+                {runner.role}
+            </Badge>
             {runner.extraRoles.map((r) => (
                 <Badge key={r} variant="muted">
                     {r}

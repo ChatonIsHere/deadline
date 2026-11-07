@@ -72,7 +72,7 @@ function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
     return (
         <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
             <div>
-                <h3 className="flex items-center gap-2 text-xl text-primary">
+                <h3 className="flex items-center gap-2 text-xl">
                     <Icon name="crew" className="size-5" /> <span className="truncate">{crew.name}</span>
                 </h3>
                 {crew.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground italic">"{crew.tagline}"</p>}
@@ -103,7 +103,7 @@ function Count({ label, value }: { label: string; value: number }) {
     return (
         <div>
             <dt className="text-xs tracking-widest text-muted-foreground uppercase">{label}</dt>
-            <dd className="font-display text-xl text-primary tabular-nums">{value}</dd>
+            <dd className="font-display text-xl tabular-nums">{value}</dd>
         </div>
     );
 }

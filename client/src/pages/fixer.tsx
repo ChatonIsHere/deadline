@@ -38,7 +38,7 @@ export function FixerPage() {
             <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
                 <RunnerAvatar runner={fixer} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
                 <div className="min-w-0 space-y-3">
-                    <p className="text-xs tracking-widest text-accent">// FIXER</p>
+                    <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
                     <h1 className="text-3xl break-words text-accent">{fixer.handle}</h1>
                     <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         <RatingLine rating={fixer.rating} />
@@ -107,7 +107,7 @@ function Reviews({ reviews }: { reviews: Review[] }) {
                     <li key={r.gig.id + (r.by?.handle ?? '')} className="space-y-1">
                         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <Stars value={r.stars} />
-                            <Link to={`/gigs/${r.gig.ref}`} className="hover:text-primary">
+                            <Link to={`/gigs/${r.gig.ref}`} className="hover:text-accent">
                                 {r.gig.name}
                             </Link>
                             {r.by && <RunnerChip runner={r.by} />}

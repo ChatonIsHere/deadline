@@ -24,7 +24,7 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
             <CardTitle help="the time the gig gets played, set by an admin. everyone on it is asked by DM to confirm, and confirmed runners get reminders.">Session</CardTitle>
             {gig.sessionAt ? (
                 <>
-                    <p className="font-display text-lg text-primary">{formatSession(gig.sessionAt, tz)}</p>
+                    <p className="font-display text-lg text-accent">{formatSession(gig.sessionAt, tz)}</p>
                     <p className="text-xs text-muted-foreground">
                         {confirmed}/{filled.length} confirmed
                     </p>

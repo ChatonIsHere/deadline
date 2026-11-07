@@ -88,7 +88,7 @@ function CrewInvites() {
                     return (
                         <li key={`${i.crew.id}-${i.runner.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-2">
                             <span>
-                                <Link to={`/crews/${i.crew.slug}`} className="text-primary hover:underline">
+                                <Link to={`/crews/${i.crew.slug}`} className="text-accent hover:underline">
                                     {i.crew.name}
                                 </Link>{' '}
                                 wants <RunnerChip runner={i.runner} />
