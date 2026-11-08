@@ -28,7 +28,7 @@ export function Board() {
                     label: t.label,
                     count: list.length,
                     content: (
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="card-rows sm:[--cols:2] lg:[--cols:3]">
                             {list.map((g) => (
                                 <GigCard key={liveKey(g.id, g)} gig={g} />
                             ))}

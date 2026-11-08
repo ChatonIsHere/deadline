@@ -148,6 +148,20 @@
         opacity: 0;
     }
 }
+/* Rows of cards: like a grid, but a short last row sits in the middle. --cols is how many fit across, --gap the space between. */
+@utility card-rows {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--gap, 1rem);
+
+    & > * {
+        flex: none;
+        /* A hair under the exact width, so rounding can't push the last card of a full row onto the next */
+        width: calc((100% - (var(--cols, 1) - 1) * var(--gap, 1rem)) / var(--cols, 1) - 0.1px);
+    }
+}
+
 @utility blink {
     animation: blink 1s steps(1) infinite;
     @media (prefers-reduced-motion: reduce) {

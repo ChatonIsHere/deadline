@@ -32,7 +32,7 @@ export function FixersPage() {
             {isPending ? (
                 <Loading>pinging contacts...</Loading>
             ) : fixers?.length ? (
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] lg:[--cols:3] xl:[--cols:4]">
                     {fixers.map((f) => (
                         <FixerCard key={liveKey(f.id, f)} fixer={f} />
                     ))}
@@ -46,7 +46,7 @@ export function FixersPage() {
 
 function RunnerGrid({ runners }: { runners: RunnerSummary[] }) {
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="card-rows sm:[--cols:2] lg:[--cols:3]">
             {runners.map((r) => (
                 <RunnerTile key={liveKey(r.id, r)} runner={r} />
             ))}

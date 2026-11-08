@@ -45,11 +45,11 @@ function CrewGrid({ title, crews, mine }: { title: string | null; crews: CrewVie
     return (
         <section className="space-y-3">
             {title && (
-                <h2 className="text-xs tracking-widest text-muted-foreground">
+                <h2 className="text-center text-xs tracking-widest text-muted-foreground">
                     // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
                 </h2>
             )}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="card-rows sm:[--cols:2] lg:[--cols:3]">
                 {crews.map((c) => (
                     <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />
                 ))}

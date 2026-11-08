@@ -45,7 +45,7 @@ export function Crew() {
                 </Live>
 
                 <section className="space-y-4">
-                    <h2 className="text-xs text-accent">
+                    <h2 className="text-center text-xs text-accent">
                         Runners <span className="text-muted-foreground">{crew.members.length}</span>
                     </h2>
                     {!crew.members.length && <Say>no runners yet.</Say>}
@@ -54,8 +54,8 @@ export function Crew() {
                         if (!members.length) return null;
                         return (
                             <div key={rank} className="space-y-2">
-                                <p className="font-display text-xs tracking-widest text-muted-foreground uppercase">{rank}</p>
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <p className="text-center font-display text-xs tracking-widest text-muted-foreground uppercase">{rank}</p>
+                                <div className="card-rows sm:[--cols:2]">
                                     {members.map((m) => {
                                         const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (
