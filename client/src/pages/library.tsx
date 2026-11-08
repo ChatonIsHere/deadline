@@ -22,13 +22,12 @@ export function LibraryPage() {
     const orphans = data.regions.filter((r) => r.district && !districts.some((d) => d.name === r.district));
 
     return (
-        <div className="space-y-8">
-            <div>
-                <SettingsTabs />
+        <div className="flex flex-col xl:flex-1">
+            <SettingsTabs />
+            <div className="space-y-8 xl:my-auto">
                 <Say>gig pictures. a gig gets one from its region, then its district, then the general pool.</Say>
-            </div>
 
-            <Pictures title="General pool" ids={data.pool} region={null} />
+                <Pictures title="General pool" ids={data.pool} region={null} />
 
             {districts.map((d) => (
                 <section key={d.id} className="space-y-3">
@@ -43,7 +42,8 @@ export function LibraryPage() {
                 <Pictures key={r.id} title={r.name} ids={r.images} region={r} />
             ))}
 
-            <NewRegion districts={districts.map((d) => d.name)} />
+                <NewRegion districts={districts.map((d) => d.name)} />
+            </div>
         </div>
     );
 }

@@ -44,7 +44,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         { to: '/fixers', label: 'Fixers' },
         { to: '/crews', label: 'Crews' },
         { to: '/me', label: 'Me' },
-        ...(me.isAdmin ? [{ to: '/availability', label: 'Availability' }, { to: '/settings', label: 'Settings' }, { to: '/settings/library', label: 'Picture library' }] : []),
+        ...(me.isAdmin ? [{ to: '/availability', label: 'Availability' }, { to: '/settings', label: 'Settings' }, { to: '/settings/library', label: 'Image library' }] : []),
         ...(canCreateGig(me) ? [{ to: '/gigs/new', label: 'New gig' }] : []),
         { to: '/runners/new', label: 'New runner' },
         ...(canCreateCrew(me) ? [{ to: '/crews/new', label: 'Register a crew' }] : []),

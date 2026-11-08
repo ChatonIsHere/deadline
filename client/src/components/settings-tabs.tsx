@@ -2,11 +2,8 @@ import { NavLink } from 'react-router';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-    { to: '/settings', label: 'Discord' },
-    { to: '/settings/scheduling', label: 'Scheduling' },
-    { to: '/settings/roles', label: 'Runner roles' },
-    { to: '/settings/bot', label: 'Bot' },
-    { to: '/settings/library', label: 'Library' },
+    { to: '/settings', label: 'General' },
+    { to: '/settings/library', label: 'Image library' },
 ];
 
 /** The heading and tabs shared by the admin pages under Settings. */

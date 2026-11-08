@@ -22,7 +22,7 @@ import { SetupPage } from '@/pages/setup';
 import { RunnerPage } from '@/pages/runner';
 import { RunnerEdit } from '@/pages/runner-edit';
 import { FixersPage, RunnersPage } from '@/pages/runners';
-import { BotSettings, RoleSettings, SchedulingSettings, SettingsPage } from '@/pages/settings';
+import { SettingsPage } from '@/pages/settings';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
 
@@ -60,9 +60,10 @@ void loadConfig().then(() =>
                             <Route path="setup" element={<SetupPage />} />
                             <Route path="availability" element={<AvailabilityPage />} />
                             <Route path="settings" element={<SettingsPage />} />
-                            <Route path="settings/scheduling" element={<SchedulingSettings />} />
-                            <Route path="settings/roles" element={<RoleSettings />} />
-                            <Route path="settings/bot" element={<BotSettings />} />
+                            {/* Used to be tabs of their own */}
+                            <Route path="settings/scheduling" element={<Navigate to="/settings" replace />} />
+                            <Route path="settings/roles" element={<Navigate to="/settings" replace />} />
+                            <Route path="settings/bot" element={<Navigate to="/settings" replace />} />
                         </Route>
                     </Routes>
                 </BrowserRouter>
