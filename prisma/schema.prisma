@@ -277,6 +277,8 @@ model GigSlot {
   askedAt  DateTime?   @map("asked_at") @db.Timestamptz(3)
   nudged   Boolean     @default(false)
   position Int
+  /// No limit on this group of slots (the gig's crew, or anyone). It always keeps one empty slot to sign up to.
+  unlimited Boolean    @default(false)
 
   gig    Gig     @relation(fields: [gigId], references: [id], onDelete: Cascade)
   crew   Crew?   @relation(fields: [crewId], references: [id], onDelete: SetNull)

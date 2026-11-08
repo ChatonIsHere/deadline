@@ -34,7 +34,8 @@ export const voice = {
 
     // Replies to the person who pressed a button
     interested: () => say('info', "noted. you're on the list. you'll get a ping when the session time is set."),
-    joined: (open: number) => say('good', `slot locked in. ${open ? `${open} left on the contract.` : 'crew is full.'}`),
+    /** `open` is null when the gig has no limit. */
+    joined: (open: number | null) => say('good', `slot locked in.${open === null ? '' : open ? ` ${open} left on the contract.` : ' crew is full.'}`),
     reserve: (position: number) => say('info', `slots are full. you're reserve #${position}. you'll get a ping if one opens up.`),
     confirmed: () => say('good', 'attendance confirmed. see you there, choom.'),
     left: () => say('quiet', 'slot released. no hard feelings, choom.'),

@@ -1,3 +1,4 @@
+import { slotCount } from '@shared/slots';
 import { completeInput, type CompleteInput, type GigView, isLive } from '@shared/schemas';
 import { CalendarClock, Minus, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
@@ -158,14 +159,13 @@ function DebriefForm({ gig }: { gig: GigView }) {
 /** The basics, for reference while writing the debrief. */
 function GigDetails({ gig }: { gig: GigView }) {
     const formatSession = useFormatSession();
-    const filled = gig.slots.filter((s) => s.runner).length;
     return (
         <Card className="space-y-2">
             <CardTitle>Details</CardTitle>
             <Detail icon="fixer" label="Fixer" value={gig.fixerName} />
             <Detail icon="location" label="Location" value={gig.location} />
             {gig.sessionAt && <Detail icon={<CalendarClock className="size-4 shrink-0 text-accent" />} label="Session" value={formatSession(gig.sessionAt)} />}
-            <Detail icon="crew" label="Crew" value={`${filled}/${gig.slots.length}`} />
+            <Detail icon="crew" label="Crew" value={slotCount(gig.slots)} />
             {/* Admins know every bonus, undisclosed ones included */}
             <Detail icon="eb" label="On offer" value={<Pay gig={{ ...gig, objectives: gig.objectives.map((o) => ({ ...o, secret: false })) }} />} />
         </Card>

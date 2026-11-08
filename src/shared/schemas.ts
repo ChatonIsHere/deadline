@@ -75,7 +75,8 @@ export const gigInput = z.object({
         )
         .max(8),
     slots: z
-        .array(z.object({ crewId: id.nullable(), count: z.number().int().min(1) }))
+        // A count of 0 means no limit on that group
+        .array(z.object({ crewId: id.nullable(), count: z.number().int().min(0, 'Set how many slots, or 0 for unlimited') }))
         .min(1, 'Add at least one slot')
         .refine((groups) => groups.reduce((sum, g) => sum + g.count, 0) <= MAX_SLOTS, `${MAX_SLOTS} slots max`),
 });
@@ -92,9 +93,7 @@ export const completeInput = z.object({
     ip: optionalAmount,
     hqIp: optionalAmount,
     text: optionalText(200),
-    runners: z
-        .array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, hqIp: optionalAmount, text: optionalText(200) }))
-        .max(MAX_SLOTS),
+    runners: z.array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, hqIp: optionalAmount, text: optionalText(200) })),
 });
 export type CompleteInput = z.infer<typeof completeInput>;
 
@@ -413,6 +412,8 @@ export interface SlotView {
     state: RunnerState;
     /** Unix ms. When an awaiting runner gets dropped if they haven't confirmed. */
     confirmBy: number | null;
+    /** Part of a group with no limit. */
+    unlimited: boolean;
 }
 
 export interface Rewards {

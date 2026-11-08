@@ -1,6 +1,6 @@
 import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import type { Payout } from '../gigs/debrief.service';
-import { groupSlots } from '../shared/slots';
+import { groupSlots, slotCount } from '../shared/slots';
 import { type GigView, payRange, type RunnerCard } from '../shared/schemas';
 import { layoutEmbeds, packEmbeds, toMessages } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
@@ -60,13 +60,13 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
 
     // Once a time is set, say who has confirmed. Before that everyone is just interested.
     const runnerLine = (s: GigView['slots'][number]) => {
-        if (!s.runner) return `${icon('slot_open', '□')} open`;
+        if (!s.runner) return `${icon('slot_open', '□')} open${s.unlimited ? ', no limit' : ''}`;
         const state = gig.sessionAt && s.state !== 'confirmed' ? ` · *${s.state}*` : '';
         return `${icon('slot_filled', '▣')} **${s.runner.handle}**${state}`;
     };
     // One field per crew (and one for anyone), side by side, with how many of its slots are taken
     const slotFields: APIEmbedField[] = groupSlots(gig.slots).map((group) => ({
-        name: `${group.crew ? group.crew.name : 'Freelance'} · ${group.slots.filter((x) => x.runner).length}/${group.slots.length}`,
+        name: `${group.crew ? group.crew.name : 'Freelance'} · ${slotCount(group.slots)}`,
         value: group.slots.map(runnerLine).join('\n'),
         inline: true,
     }));

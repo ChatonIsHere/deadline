@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { groupSlots } from '../shared/slots';
-import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, Slot } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, Slot, spareChanges } from './slots';
 
 const slot = (id: string, crewId: string | null, userId: string | null = null): Slot => ({ id, crewId, userId });
 
@@ -60,6 +60,35 @@ describe('diffSlots', () => {
     it('leaves matching slots alone', () => {
         const existing = [slot('s1', 'moxes', 'a'), slot('s2', null)];
         assert.deepEqual(diffSlots(existing, [{ crewId: 'moxes', count: 1 }, { crewId: null, count: 1 }]), { add: [], remove: [] });
+    });
+});
+
+describe('unlimited slots', () => {
+    it('makes one empty slot for a new unlimited group', () => {
+        assert.deepEqual(diffSlots([], [{ crewId: null, count: 0 }]), { add: [null], remove: [] });
+    });
+
+    it('keeps taken slots and one empty slot when a group goes unlimited', () => {
+        const existing = [slot('s1', null, 'a'), slot('s2', null), slot('s3', null)];
+        assert.deepEqual(diffSlots(existing, [{ crewId: null, count: 0 }]), { add: [], remove: ['s2'] });
+    });
+
+    it('adds an empty slot when an unlimited group is full', () => {
+        const existing = [{ ...slot('s1', null, 'a'), unlimited: true }];
+        assert.deepEqual(spareChanges(existing), { add: [null], remove: [] });
+    });
+
+    it('drops extra empty slots, keeping the last', () => {
+        const existing = [slot('s1', null), slot('s2', null, 'a'), slot('s3', null)].map((s) => ({ ...s, unlimited: true }));
+        assert.deepEqual(spareChanges(existing), { add: [], remove: ['s1'] });
+    });
+
+    it('makes room for every reserve', () => {
+        assert.deepEqual(spareChanges([{ ...slot('s1', 'moxes'), unlimited: true }], 3), { add: ['moxes', 'moxes'], remove: [] });
+    });
+
+    it('leaves limited groups alone', () => {
+        assert.deepEqual(spareChanges([slot('s1', null), slot('s2', null), slot('s3', null, 'a')]), { add: [], remove: [] });
     });
 });
 

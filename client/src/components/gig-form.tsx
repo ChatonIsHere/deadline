@@ -52,7 +52,12 @@ function toForm(gig?: GigView): FormState {
         };
     }
     const counts = new Map<string, number>();
-    for (const s of gig.slots) counts.set(String(s.crew?.id ?? ''), (counts.get(String(s.crew?.id ?? '')) ?? 0) + 1);
+    const unlimited = new Set<string>();
+    for (const s of gig.slots) {
+        const crewId = String(s.crew?.id ?? '');
+        counts.set(crewId, (counts.get(crewId) ?? 0) + 1);
+        if (s.unlimited) unlimited.add(crewId);
+    }
     return {
         name: gig.name,
         fixerName: gig.fixerName,
@@ -65,7 +70,7 @@ function toForm(gig?: GigView): FormState {
         imageId: gig.imageId,
         imageAuto: false,
         objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each, hidden: o.hidden })),
-        slots: [...counts].map(([crewId, count]) => ({ crewId, count: String(count) })),
+        slots: [...counts].map(([crewId, count]) => ({ crewId, count: unlimited.has(crewId) ? '0' : String(count) })),
     };
 }
 
@@ -78,7 +83,8 @@ function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
         // Blank extra parts are dropped rather than failing the form
         primaryObjective: form.primaryObjective.filter((p, i) => i === 0 || p.trim()),
         objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each, hidden: o.hidden })),
-        slots: form.slots.map((s) => ({ crewId: s.crewId || null, count: Number(s.count) })),
+        // Blank fails validation, rather than reading as 0 (unlimited)
+        slots: form.slots.map((s) => ({ crewId: s.crewId || null, count: s.count === '' ? -1 : Number(s.count) })),
     };
 }
 
@@ -124,6 +130,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
     }, [pictures?.key]);
 
     const totalSlots = form.slots.reduce((sum, s) => sum + (Number(s.count) || 0), 0);
+    const noLimit = form.slots.some((s) => s.count === '0');
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -334,10 +341,10 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                 </Card>
 
                 <Card className="space-y-3">
-                    <CardTitle help="one runner per slot. crew slots are kept for that crew's runners until an admin opens them up. full gigs still take sign-ups as reserves.">
+                    <CardTitle help="one runner per slot. crew slots are kept for that crew's runners until an admin opens them up. full gigs still take sign-ups as reserves. set a row to 0 for unlimited.">
                         {/* The cap only shows once it's reached */}
-                        Slots {totalSlots}
-                        {totalSlots >= MAX_SLOTS && <span className={cn(totalSlots > MAX_SLOTS && 'text-destructive')}> / {MAX_SLOTS} max</span>}
+                        Slots {noLimit ? '∞' : totalSlots}
+                        {!noLimit && totalSlots >= MAX_SLOTS && <span className={cn(totalSlots > MAX_SLOTS && 'text-destructive')}> / {MAX_SLOTS} max</span>}
                     </CardTitle>
                     {form.slots.map((s, i) => (
                         <div key={i} className="flex gap-2">
@@ -346,7 +353,7 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                                 onChange={(crewId) => setRow('slots', i, { crewId })}
                                 options={[{ value: '', label: 'Freelance' }, ...crews.map((c) => ({ value: String(c.id), label: c.name, hint: 'Crew' }))]}
                             />
-                            <Input className="w-20 shrink-0" type="number" min={1} value={s.count} onChange={(e) => setRow('slots', i, { count: e.target.value })} />
+                            <Input className="w-20 shrink-0" type="number" min={0} value={s.count} onChange={(e) => setRow('slots', i, { count: e.target.value })} />
                             <Button type="button" variant="ghost" size="icon" className="mt-0.5" onClick={() => removeRow('slots', i)}>
                                 <X className="size-4" />
                             </Button>

@@ -252,6 +252,53 @@ describe('GigsService', () => {
             await assert.rejects(gigs.join('c', gig.id), /already on the reserves/);
         });
 
+        describe('unlimited slots', () => {
+            const unlimited = [{ crewId: null, count: 0 }];
+            const roster = async (id: string) => (await gigs.view(id, admin)).slots.map((s) => s.runner?.handle ?? null);
+
+            it('never fills, and always has one empty slot', async () => {
+                const gig = await gigs.create(admin, input(unlimited));
+                assert.deepEqual(await roster(gig.id), [null]);
+                for (const p of ['a', 'b', 'c']) await gigs.join(p, gig.id);
+                assert.deepEqual(await roster(gig.id), ['a', 'b', 'c', null]);
+                assert.ok((await gigs.view(gig.id, admin)).slots.every((s) => s.unlimited));
+                assert.equal((await gigs.view(gig.id, admin)).reserves.length, 0);
+            });
+
+            it('goes back to one empty slot when someone leaves', async () => {
+                const gig = await gigs.create(admin, input(unlimited));
+                for (const p of ['a', 'b']) await gigs.join(p, gig.id);
+                await gigs.leave('a', gig.id);
+                assert.deepEqual(await roster(gig.id), ['b', null]);
+            });
+
+            it('moves every reserve up when a full gig goes unlimited', async () => {
+                const gig = await gigs.create(admin, input(one));
+                for (const p of ['a', 'b', 'c']) await gigs.join(p, gig.id);
+                await gigs.update(admin, gig.id, input(unlimited));
+                await settle();
+                const view = await gigs.view(gig.id, admin);
+                assert.deepEqual(view.slots.map((s) => s.runner?.handle ?? null), ['a', 'b', 'c', null]);
+                assert.equal(view.reserves.length, 0);
+            });
+
+            it('can get a limit again, but not below who is on it', async () => {
+                const gig = await gigs.create(admin, input(unlimited));
+                for (const p of ['a', 'b']) await gigs.join(p, gig.id);
+                await assert.rejects(gigs.update(admin, gig.id, input(one)), /already taken/);
+                const limited = await gigs.update(admin, gig.id, input([{ crewId: null, count: 3 }]));
+                assert.deepEqual(limited.slots.map((s) => [s.runner?.handle ?? null, s.unlimited]), [['a', false], ['b', false], [null, false]]);
+            });
+
+            it('keeps an unlimited crew group for that crew', async () => {
+                const crew = await crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.b });
+                const gig = await gigs.create(admin, input([{ crewId: crew.id, count: 0 }]));
+                await gigs.join('b', gig.id);
+                assert.match((await gigs.join('a', gig.id)).text, /reserve #1/);
+                assert.deepEqual(await roster(gig.id), ['b', null]);
+            });
+        });
+
         it('refuses non-runners and closed gigs', async () => {
             const gig = await gigs.create(admin, input(two));
             await assert.rejects(gigs.join('fixer', gig.id), /edgerunner role/);

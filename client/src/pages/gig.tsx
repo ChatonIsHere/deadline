@@ -1,3 +1,4 @@
+import { slotCount } from '@shared/slots';
 import { canDeleteGig, canEditGig, NEXT_STATUSES } from '@shared/permissions';
 import { type GigStatus, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
@@ -190,7 +191,7 @@ export function Gig() {
                                 className="flex items-center gap-2"
                                 help="runners hold a slot while the session time is being sorted, then confirm once it's set. when the slots are full, sign-ups wait on the reserves in order."
                             >
-                                <Icon name="crew" /> Crew {gig.slots.filter((s) => s.runner).length}/{gig.slots.length}
+                                <Icon name="crew" /> Crew {slotCount(gig.slots)}
                             </CardTitle>
                         </Live>
                         <SlotList

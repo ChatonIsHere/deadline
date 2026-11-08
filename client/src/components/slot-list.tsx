@@ -48,7 +48,7 @@ export function SlotList({
                         {group.slots.map((slot) => (
                             <li key={liveKey(slot.id, slot)} className="live-in flex min-h-8 items-center gap-2">
                                 <Icon name={slot.runner ? 'slot_filled' : 'slot_open'} />
-                                {slot.runner ? <RunnerChip runner={slot.runner} /> : <span className="text-muted-foreground">open</span>}
+                                {slot.runner ? <RunnerChip runner={slot.runner} /> : <span className="text-muted-foreground">open{slot.unlimited && ', no limit'}</span>}
                                 {slot.runner && gig.sessionAt && slot.state !== 'confirmed' && (
                                     <Badge variant="muted" title={slot.confirmBy ? `Dropped if not confirmed by ${formatSession(slot.confirmBy)}` : undefined}>
                                         {slot.state}

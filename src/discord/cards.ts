@@ -2,7 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import type { GigView, Review, RunnerView } from '../shared/schemas';
 import type { EmojiLookup } from './emoji.service';
 import { COLOURS, SITE } from './colours';
-import { openSlots, payText } from './gig-embed';
+import { payText } from './gig-embed';
+import { slotCount } from '../shared/slots';
 import { voice } from './voice';
 
 // Compact cards for slash command replies. The full gig card is the forum post (gig-embed.ts).
@@ -13,7 +14,6 @@ const stars = (avg: number) => '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - 
 
 /** /gig: the essentials and links to the post and board. */
 export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imageUrl: string | null) {
-    const taken = gig.slots.length - openSlots(gig);
     const embed = new EmbedBuilder()
         .setColor(COLOURS[gig.status])
         .setTitle(gig.name)
@@ -24,7 +24,7 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
             { name: 'Location', value: gig.location, inline: true },
             { name: 'Pay', value: payText(gig, emoji), inline: true },
             { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled', inline: true },
-            { name: 'Crew', value: `${taken}/${gig.slots.length}${gig.reserves.length ? ` (+${gig.reserves.length} reserve)` : ''}`, inline: true },
+            { name: 'Crew', value: `${slotCount(gig.slots)}${gig.reserves.length ? ` (+${gig.reserves.length} reserve)` : ''}`, inline: true },
             { name: 'Status', value: gig.status === 'open' ? 'Taking runners' : 'Sign-ups locked', inline: true },
         )
         .setThumbnail(imageUrl);

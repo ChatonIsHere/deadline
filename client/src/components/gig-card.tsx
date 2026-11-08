@@ -1,4 +1,5 @@
 import type { GigView } from '@shared/schemas';
+import { slotCount } from '@shared/slots';
 import { Icon, LinkCard, Pay, StatusBadge } from '@/components/common';
 import { useFormatSession } from '@/lib/time';
 import { mediumUrl } from '@/lib/api';
@@ -6,7 +7,8 @@ import { cn } from '@/lib/utils';
 
 export function GigCard({ gig }: { gig: GigView }) {
     const formatSession = useFormatSession();
-    const taken = gig.slots.filter((s) => s.runner).length;
+    // A pip per slot, unless there's no telling how many that will be
+    const pips = !gig.slots.some((s) => s.unlimited);
     // The picture runs to the card's edge, and the card's corner is cut to match the picture's
     // frame: 72 + 2 x 4 margin at 1280 wide, so 6.25% of the card's width (cqw of the wrapper)
     return (
@@ -30,12 +32,14 @@ export function GigCard({ gig }: { gig: GigView }) {
                 <div className="flex items-center justify-between gap-4">
                     <Pay gig={gig} />
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="flex gap-0.5">
-                            {gig.slots.map((s) => (
-                                <span key={s.id} className={cn('h-3 w-1.5', s.runner ? 'bg-primary' : 'bg-border')} />
-                            ))}
-                        </span>
-                        {taken}/{gig.slots.length}
+                        {pips && (
+                            <span className="flex gap-0.5">
+                                {gig.slots.map((s) => (
+                                    <span key={s.id} className={cn('h-3 w-1.5', s.runner ? 'bg-primary' : 'bg-border')} />
+                                ))}
+                            </span>
+                        )}
+                        {slotCount(gig.slots)}
                     </span>
                 </div>
             </LinkCard>

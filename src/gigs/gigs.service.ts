@@ -15,7 +15,7 @@ import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, ob
 import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
-import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, spareChanges, unlimitedGroups } from './slots';
 
 export const ACTIVE = LIVE_STATUSES;
 const SWEEP_MS = 6 * 60 * 60 * 1000;
@@ -357,7 +357,7 @@ export class GigsService {
     }
 
     /** Takes a slot or a place on the reserves. The gig is locked meanwhile, so two people can't take the same slot. */
-    private async add(runner: Runner, id: string, assigned: boolean): Promise<{ state?: RunnerState; left: number; reserve?: number }> {
+    private async add(runner: Runner, id: string, assigned: boolean): Promise<{ state?: RunnerState; left: number | null; reserve?: number }> {
         const userId = runner.ownerId!;
         const crewIds = await this.crewIds(runner.id);
         const result = await this.prisma.$transaction(async (tx) => {
@@ -380,7 +380,8 @@ export class GigsService {
 
             const state: RunnerState = !gig.sessionAt ? 'interested' : assigned ? 'awaiting' : 'confirmed';
             await tx.gigSlot.update({ where: { id: slot.id }, data: { userId, runnerId: runner.id, ...(state === 'awaiting' ? asked() : { state }) } });
-            return { state, left: slots.filter((s) => s.userId === null).length - 1 };
+            await this.keepSpares(tx, id);
+            return { state, left: slots.some((s) => s.unlimited) ? null : slots.filter((s) => s.userId === null).length - 1 };
         });
 
         this.post(id, { ask: !result.reserve && result.state === 'awaiting' ? [userId] : [] });
@@ -402,7 +403,7 @@ export class GigsService {
     private async afterRemoval(id: string, note?: Note) {
         const gig = await this.row(id);
         const played = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
-        const promoted = ACTIVE.includes(gig.status) && !played ? await this.promote(id) : [];
+        const promoted = await this.promote(id, ACTIVE.includes(gig.status) && !played);
         this.post(id, { note, ask: gig.sessionAt ? promoted.map((p) => p.userId) : [] });
         if (!gig.sessionAt) {
             for (const p of promoted) this.notify.fire('gigUpdates', [p.userId], async () => linked(voice.movedUp(gig.name, await this.handle(p.runnerId)), 'Open on board', boardLink(gig)));
@@ -412,15 +413,17 @@ export class GigsService {
     /**
      * Moves reserves into any empty slots they can take. A crew member sitting in an open slot
      * moves over to an empty slot of their crew first, so the open slot goes to a reserve.
-     * Returns who moved up.
+     * `fill` false only tidies the spare slots. Returns who moved up.
      */
-    private async promote(id: string): Promise<{ userId: string; runnerId: string }[]> {
+    private async promote(id: string, fill: boolean): Promise<{ userId: string; runnerId: string }[]> {
         return this.prisma.$transaction(async (tx) => {
             await lockGig(tx, id);
             const gig = await tx.gig.findUniqueOrThrow({ where: { id } });
-            let slots = await tx.gigSlot.findMany({ where: { gigId: id } });
-            const reserves = await tx.gigReserve.findMany({ where: { gigId: id }, orderBy: { joinedAt: 'asc' } });
+            const reserves = fill ? await tx.gigReserve.findMany({ where: { gigId: id }, orderBy: { joinedAt: 'asc' } }) : [];
+            // An unlimited group has room for every reserve. Back to one spare afterwards.
+            await this.keepSpares(tx, id, Math.max(reserves.length, 1));
             if (!reserves.length) return [];
+            let slots = await tx.gigSlot.findMany({ where: { gigId: id } });
             const runnerIds = [...reserves.map((r) => r.runnerId), ...slots.flatMap((s) => (s.runnerId ? [s.runnerId] : []))];
             const memberships = await tx.crewMember.findMany({ where: { runnerId: { in: runnerIds } } });
             const crewsOf = (runnerId: string | null) => memberships.filter((m) => m.runnerId === runnerId).map((m) => m.crewId);
@@ -443,6 +446,7 @@ export class GigsService {
                 await tx.gigReserve.delete({ where: { gigId_userId: { gigId: id, userId } } });
                 moved.push({ userId, runnerId });
             }
+            await this.keepSpares(tx, id);
             return moved;
         });
     }
@@ -703,6 +707,7 @@ export class GigsService {
                 runner: s.userId ? (s.runner ? toCard(s.runner) : unknownRunner(s.userId)) : null,
                 state: s.state,
                 confirmBy: this.confirmBy(s, gig.sessionAt),
+                unlimited: s.unlimited,
             })),
             reserves: gig.reserves.map((r) => toCard(r.runner)),
             sessionAt: gig.sessionAt?.getTime() ?? null,
@@ -724,7 +729,7 @@ export class GigsService {
     }
 
     private async writeSlots(tx: Tx, gigId: string, groups: GigInput['slots']) {
-        const existing = await tx.gigSlot.findMany({ where: { gigId } });
+        const existing = await tx.gigSlot.findMany({ where: { gigId }, orderBy: { position: 'asc' } });
         let changes;
         try {
             changes = diffSlots(existing, groups);
@@ -735,6 +740,19 @@ export class GigsService {
         if (changes.add.length) {
             const start = existing.length ? Math.max(...existing.map((s) => s.position)) + 1 : 0;
             await tx.gigSlot.createMany({ data: changes.add.map((crewId, i) => ({ gigId, crewId, position: start + i })) });
+        }
+        const unlimited = unlimitedGroups(groups);
+        for (const crewId of new Set(groups.map((g) => g.crewId))) await tx.gigSlot.updateMany({ where: { gigId, crewId }, data: { unlimited: unlimited.has(crewId) } });
+    }
+
+    /** Gives each unlimited group `spare` empty slots. */
+    private async keepSpares(tx: Tx, gigId: string, spare = 1) {
+        const slots = await tx.gigSlot.findMany({ where: { gigId }, orderBy: { position: 'asc' } });
+        const { add, remove } = spareChanges(slots, spare);
+        if (remove.length) await tx.gigSlot.deleteMany({ where: { id: { in: remove }, userId: null } });
+        if (add.length) {
+            const start = Math.max(...slots.map((s) => s.position)) + 1;
+            await tx.gigSlot.createMany({ data: add.map((crewId, i) => ({ gigId, crewId, unlimited: true, position: start + i })) });
         }
     }
 }

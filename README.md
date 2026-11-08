@@ -52,7 +52,7 @@ Handles, fixer aliases and crew names are one of a kind, compared as they appear
 
 Each gig is one session.
 
-- Before an admin sets a session time, signing up marks a runner **interested** and takes a slot. When the slots are full, runners go on the **reserves**, first come first served.
+- Before an admin sets a session time, signing up marks a runner **interested** and takes a slot. When the slots are full, runners go on the **reserves**, first come first served. Setting a row of slots to 0 makes that row unlimited, so it never fills.
 - Setting the time (on the gig's web page) DMs everyone in a slot to **confirm** or pull out. If someone's DMs are closed they get pinged in the gig's thread instead. Changing the time asks everyone again.
 - Once a time is set, new sign-ups are confirmed straight away.
 - When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time. A crew member in an open slot moves over to a freed slot of their crew, so the open slot goes to a reserve. Not once the session has happened: removing a no-show doesn't pull a reserve in.

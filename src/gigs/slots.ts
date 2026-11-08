@@ -4,6 +4,7 @@ export interface Slot {
     id: string;
     crewId: string | null;
     userId: string | null;
+    unlimited?: boolean;
 }
 
 /** The slot a runner should take: one of their crews' slots first, then an open one. */
@@ -19,7 +20,8 @@ export interface SlotChanges {
 
 /**
  * Works out how to turn the current slots into the requested groups. Filled slots
- * are never removed, so asking for fewer slots than are filled is an error.
+ * are never removed, so asking for fewer slots than are filled is an error. A group with a
+ * count of 0 has no limit, and is left with one empty slot.
  */
 export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
     const wanted = new Map<string | null, number>();
@@ -27,9 +29,16 @@ export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
 
     const changes: SlotChanges = { add: [], remove: [] };
     const crewIds = new Set([...wanted.keys(), ...existing.map((s) => s.crewId)]);
+    const unlimited = unlimitedGroups(groups);
 
     for (const crewId of crewIds) {
         const current = existing.filter((s) => s.crewId === crewId);
+        if (unlimited.has(crewId)) {
+            const empty = current.filter((s) => s.userId === null);
+            if (!empty.length) changes.add.push(crewId);
+            changes.remove.push(...empty.slice(0, -1).map((s) => s.id));
+            continue;
+        }
         const filled = current.filter((s) => s.userId !== null).length;
         const count = wanted.get(crewId) ?? 0;
 
@@ -42,6 +51,26 @@ export function diffSlots(existing: Slot[], groups: SlotGroup[]): SlotChanges {
             const empty = current.filter((s) => s.userId === null);
             changes.remove.push(...empty.slice(0, current.length - count).map((s) => s.id));
         }
+    }
+    return changes;
+}
+
+/** The groups asked for with no limit (a count of 0). */
+export function unlimitedGroups(groups: SlotGroup[]): Set<string | null> {
+    return new Set(groups.filter((g) => g.count === 0).map((g) => g.crewId));
+}
+
+/**
+ * What an unlimited group needs so it has `spare` empty slots: one to sign up to normally,
+ * more while reserves are moving in. Later slots are the ones kept, so the spare stays at the
+ * end of the list. Takes slots in position order.
+ */
+export function spareChanges(slots: Slot[], spare = 1): SlotChanges {
+    const changes: SlotChanges = { add: [], remove: [] };
+    for (const crewId of new Set(slots.filter((s) => s.unlimited).map((s) => s.crewId))) {
+        const empty = slots.filter((s) => s.crewId === crewId && s.userId === null);
+        for (let i = empty.length; i < spare; i++) changes.add.push(crewId);
+        changes.remove.push(...empty.slice(0, Math.max(0, empty.length - spare)).map((s) => s.id));
     }
     return changes;
 }
