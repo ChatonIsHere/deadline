@@ -16,6 +16,7 @@ const EMPTY: Settings = {
     reminderHours: 8,
     confirmHours: 48,
     runnerRoles: CORE_ROLES,
+    maxSignups: 0,
 };
 
 /**
@@ -57,7 +58,7 @@ export class SettingsService implements OnModuleInit {
                 if (roleId && !roles.some((r) => r.id === roleId)) throw new BadRequestException('That role is not in this server.');
             }
         } else {
-            next = { ...EMPTY, reminderHours: next.reminderHours, confirmHours: next.confirmHours, runnerRoles: next.runnerRoles };
+            next = { ...EMPTY, reminderHours: next.reminderHours, confirmHours: next.confirmHours, runnerRoles: next.runnerRoles, maxSignups: next.maxSignups };
         }
 
         // Fixer always stays: it's what makes a runner a fixer

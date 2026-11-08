@@ -20,7 +20,7 @@ export function money(amount: number, emoji: EmojiLookup): string {
  */
 export function payText(gig: GigView, emoji: EmojiLookup): string {
     const { min, max, open } = payRange(gig);
-    return (max > min ? `${money(min, emoji)} – ${max.toLocaleString('en-GB')}` : money(min, emoji)) + (open ? '+' : '');
+    return (max > min ? `${money(min, emoji)} – ${max.toLocaleString('en-GB')}` : money(min, emoji)) + (open ? '+' : '') + (gig.splitPay ? ' split' : ' per head');
 }
 
 /** A secondary objective's bonus: "+€$ 500", or "+€$ 50 each" when it's paid per time. */
@@ -29,8 +29,9 @@ const bonusText = (o: GigView['objectives'][number], emoji: EmojiLookup) => (o.b
 /** The primary objective: one part with its pay on the line, or a list of parts and the pay under them. */
 function primaryText(gig: GigView, emoji: EmojiLookup, icon: string): string {
     const parts = gig.primaryObjective;
-    if (parts.length === 1) return `${icon} ${parts[0]} · ${money(gig.pay, emoji)}`.trim();
-    return [...parts.map((p) => `${icon} ${p}`.trim()), `**Pays** ${money(gig.pay, emoji)}`].join('\n');
+    const pay = `${money(gig.pay, emoji)}${gig.splitPay ? ' split' : ''}`;
+    if (parts.length === 1) return `${icon} ${parts[0]} · ${pay}`.trim();
+    return [...parts.map((p) => `${icon} ${p}`.trim()), `**Pays** ${pay}`].join('\n');
 }
 
 export const openSlots = (gig: GigView) => gig.slots.filter((s) => !s.runner).length;
@@ -41,8 +42,9 @@ const cut = (text: string, max = 1024) => (text.length > max ? `${text.slice(0, 
 function debriefFields(gig: GigView, emoji: EmojiLookup): APIEmbedField[] {
     if (gig.status !== 'completed' || !gig.crewRewards) return [];
     const r = gig.crewRewards;
-    const rewards = [r.eb ? money(r.eb, emoji) : '', r.ip ? `${r.ip} IP` : '', r.hqIp ? `${r.hqIp} HQ IP` : '', r.text ?? ''].filter(Boolean);
-    const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.hqIp ? `+${x.hqIp} HQ IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
+    const runners = gig.slots.filter((s) => s.runner).length;
+    const rewards = [r.eb ? `${money(r.eb, emoji)}${gig.splitPay ? ` split between ${runners}` : ''}` : '', r.ip ? `${r.ip} IP` : '', r.hqIp ? `${r.hqIp} HQ IP` : '', r.text ?? ''].filter(Boolean);
+    const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.share ? money(x.share, emoji) : '', x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.hqIp ? `+${x.hqIp} HQ IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
     return [
         ...(gig.summary ? [{ name: 'Debrief', value: gig.summary }] : []),
         ...(rewards.length || extra.length ? [{ name: 'Crew rewards', value: [rewards.join(' · ') || 'none', ...extra].join('\n') }] : []),

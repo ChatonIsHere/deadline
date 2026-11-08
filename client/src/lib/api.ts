@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { mediumFile, plainFile, thumbFile, webFile } from '@shared/images';
+import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import { artPreviewFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -29,6 +29,8 @@ export const useUser = () => useMe().data!;
 export const useGigs = () => useQuery({ queryKey: ['gigs'], queryFn: () => api<GigView[]>('/api/gigs') });
 export const useGig = (id: string | undefined) =>
     useQuery({ queryKey: ['gigs', id], queryFn: () => api<GigView>(`/api/gigs/${id}`), enabled: !!id });
+/** How many live gigs the signed in player is on, and the limit. Under 'gigs' so it refreshes with them. */
+export const useMySignups = () => useQuery({ queryKey: ['gigs', 'my-signups'], queryFn: () => api<MySignups>('/api/gigs/my-signups') });
 export const useGigTypes = () => useQuery({ queryKey: ['gig-types'], queryFn: () => api<string[]>('/api/gigs/types') });
 
 export const usePrefs = () => useQuery({ queryKey: ['prefs'], queryFn: () => api<Prefs>('/api/prefs') });
@@ -54,11 +56,11 @@ export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api
 /** Everyone who can be given a runner. Admins only. */
 export const usePlayers = (enabled: boolean) => useQuery({ queryKey: ['players'], queryFn: () => api<Member[]>('/api/players'), enabled });
 
-/** `library` adds it to the picture library (admins). `avatar` makes a square runner picture. */
+/** `library` adds it to the picture library (admins). `avatar` makes a square runner picture, `art` a runner's full art. */
 export interface UploadOptions {
     library?: boolean;
     regionId?: string | null;
-    kind?: 'gig' | 'avatar';
+    kind?: UploadKind;
 }
 
 /** Uploads a picture and returns its ID. Use UploadButton rather than calling this. */
@@ -88,6 +90,9 @@ export const plainImageUrl = (id: string) => stored(plainFile(id));
 /** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
 export const thumbUrl = (id: string) => stored(thumbFile(id));
 export const mediumUrl = (id: string) => stored(mediumFile(id));
+/** A runner's full art, and the smaller copy for their profile. */
+export const artUrl = plainImageUrl;
+export const artPreviewUrl = (id: string) => stored(artPreviewFile(id));
 
 /**
  * A change sent to the server. Every one says what happened, as a notification from the

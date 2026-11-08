@@ -15,16 +15,16 @@ Gig board for a Cyberpunk RED campaign. Fixers and admins post gigs on the web, 
 | Role | Can |
 | --- | --- |
 | Admin | Everything. Approves gigs and runs them (status, session time, runners, debrief), edits any unfinished gig, crew or runner. |
-| Fixer | Submits gigs from one of their fixer characters, and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
+| Fixer | Drafts and submits gigs from one of their fixer characters, and edits them until an admin approves. After that the gig is a session and admins (the GMs) run it. |
 | Edgerunner | Signs their runners up for gigs, founds crews. |
 
 People with none of these roles can't log in. Admins are people with the admin role, anyone with Manage Server, and the app's owner. Only the owner can change the server. The owner can turn on **player view** on the Me page to use the board and bot as a normal player with their real Discord roles. It only shows, and only turns off, on the Me page.
 
 ## Runners and fixers
 
-- Players make **runners** (characters): a handle, a main role, extra roles and a square picture. The roles come from a list in Settings, starting with RED's core ten. Admins can make runners for any player (or hand one over) from the runner form on the web.
+- Players make **runners** (characters): a handle, a tagline, a main role, extra roles, a bio, a square picture and optional full art (any shape, 15 MB max, scaled to 2000px and compressed). The roles come from a list in Settings, starting with RED's core ten. Admins can make runners for any player (or hand one over) from the runner form on the web.
 - Gigs, crews and Discord posts show runners, not Discord names. A player puts one runner on a gig. If they have several, the post's button asks which (a private menu), and so does the web.
-- A runner with the Fixer role is a **fixer** once their player has the Discord fixer role. Fixers show on the Fixers tab with an office, specialties, how to reach them, a bio, their gigs and their rating. Admins can add NPC fixers that have no player.
+- A runner with the Fixer role is a **fixer** once their player has the Discord fixer role. Fixers show on the Fixers tab with an office, specialties, how to reach them, their gigs and their rating. Admins can add NPC fixers that have no player.
 - A fixer's gigs come from one of their fixer characters. Admins can pick any fixer or type a name for a one-off.
 
 ## Crews
@@ -48,6 +48,11 @@ Runners can retire (a break, they can come back) or flatline (dead, with an obit
 
 Handles, fixer aliases and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist, as handles or aliases. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
+## Drafts and pay
+
+- Fixers and admins can save a gig as a **draft**. Only a name is needed. Its author and admins can see it, and nothing is posted or sent. Sending checks it's complete: a fixer's goes to Pending for approval, an admin's posts.
+- Pay is **per head** (everyone gets that much) or **overall** (one pot). A pot is the primary pay plus any bonuses earned, divided between the runners on the gig when it's completed. Odd eddies go 1 each to the oldest characters.
+
 ## Sessions
 
 Each gig is one session.
@@ -56,6 +61,7 @@ Each gig is one session.
 - Setting the time (on the gig's web page) DMs everyone in a slot to **confirm** or pull out. If someone's DMs are closed they get pinged in the gig's thread instead. Changing the time asks everyone again.
 - Once a time is set, new sign-ups are confirmed straight away.
 - When a slot frees up, the oldest reserve who can take it moves up, and gets a DM to confirm if there's a time. A crew member in an open slot moves over to a freed slot of their crew, so the open slot goes to a reserve. Not once the session has happened: removing a no-show doesn't pull a reserve in.
+- Settings can limit how many live gigs a player can be on, slots and reserves together, across all their runners. Admins adding someone can go over it.
 - Admins can add runners from the gig page, even after sign-ups lock. It works like signing up, except they're asked to confirm a set time.
 - Runners can pull out after sign-ups lock. Only completing or cancelling the gig stops that.
 - Runners asked to confirm have 48 hours (Settings), ending an hour before the session if that's sooner, and at least an hour. They get one nudge with 12 hours left. If they still haven't answered they're dropped, told by DM, and the next reserve is asked.

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import sharp from 'sharp';
 import { type Db, PrismaService } from '../prisma/prisma.service';
-import { cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, webFile } from '../shared/images';
+import { artPreviewFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
 import { StorageService } from '../storage/storage.service';
 import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
@@ -15,6 +15,19 @@ const POOL_DIR = join(__dirname, '..', '..', 'assets', 'pool');
 const IMAGE_FILE = /\.(jpe?g|png|webp)$/i;
 /** High quality WebP: no visible loss, a bit smaller than JPEG. */
 const WEBP = { quality: 85, effort: 5 };
+
+/** Full art keeps its shape. The longest side is capped, and it's squeezed harder if it's still big. */
+const ART = { longest: 2000, preview: 900, quality: 82, fallbackQuality: 65, maxBytes: 1.5 * 1024 * 1024 };
+
+/** Fits art inside the size limit as WebP. Metadata (camera, location) is dropped. */
+export async function compressArt(data: Buffer): Promise<Buffer> {
+    const encode = (quality: number) =>
+        sharp(data).rotate().resize({ width: ART.longest, height: ART.longest, fit: 'inside', withoutEnlargement: true }).webp({ quality, effort: 5 }).toBuffer();
+    const art = await encode(ART.quality);
+    return art.length > ART.maxBytes ? encode(ART.fallbackQuality) : art;
+}
+
+const artPreview = (art: Buffer) => sharp(art).resize({ width: ART.preview, height: ART.preview, fit: 'inside', withoutEnlargement: true }).webp(WEBP).toBuffer();
 
 /**
  * The picture library: Night City regions, their pictures and the general pool. Files live in
@@ -49,10 +62,15 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         let built = 0;
         const stale: string[] = [];
         for (const { id, kind } of rows) {
-            const current = [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)];
+            const current = kind === 'art' ? [plainFile(id), artPreviewFile(id)] : [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)];
             if (current.some((key) => !stored.has(key)) && stored.has(plainFile(id))) {
                 const plain = (await this.storage.get(plainFile(id)))!;
-                built += await this.writeCopies(id, kind, plain, (key) => !stored.has(key));
+                if (kind === 'art') {
+                    await this.storage.put(artPreviewFile(id), await artPreview(plain), 'image/webp');
+                    built++;
+                } else {
+                    built += await this.writeCopies(id, kind, plain, (key) => !stored.has(key));
+                }
             }
             const prefix = imagePrefix(id);
             stale.push(...[...stored].filter((key) => key.startsWith(prefix) && !current.includes(key)));
@@ -70,14 +88,13 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
 
     /**
      * Crops to the kind's size (16:9 for gigs, square for runners), stores the plain picture
-     * and its framed copies, and returns the new image's ID.
+     * and its framed copies, and returns the new image's ID. Art isn't cropped or framed.
      */
-    async add(data: Buffer, opts: { regionId: string | null; inLibrary: boolean; createdBy: string | null; kind?: ImageKind }): Promise<string> {
+    async add(data: Buffer, opts: { regionId: string | null; inLibrary: boolean; createdBy: string | null; kind?: UploadKind }): Promise<string> {
         const kind = opts.kind ?? 'gig';
-        const { width, height } = SIZES[kind];
         let plain: Buffer;
         try {
-            plain = await sharp(data).rotate().resize(width, height, { fit: 'cover' }).webp(WEBP).toBuffer();
+            plain = kind === 'art' ? await compressArt(data) : await sharp(data).rotate().resize(SIZES[kind].width, SIZES[kind].height, { fit: 'cover' }).webp(WEBP).toBuffer();
         } catch {
             throw new BadRequestException("That file isn't an image I can read.");
         }
@@ -85,7 +102,8 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         const row = await this.prisma.image.create({ data: { ...opts, kind, unusedSince: opts.inLibrary ? null : new Date() } });
         try {
             await this.storage.put(plainFile(row.id), plain, 'image/webp');
-            await this.writeCopies(row.id, kind, plain);
+            if (kind === 'art') await this.storage.put(artPreviewFile(row.id), await artPreview(plain), 'image/webp');
+            else await this.writeCopies(row.id, kind, plain);
         } catch (err) {
             // No row without its files: storage refused, so the picture doesn't exist
             await this.storage.delete(await this.storage.list(imagePrefix(row.id))).catch(() => undefined);
@@ -118,9 +136,9 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         return written;
     }
 
-    /** Library pictures are admins only. Gig pictures are for fixers and admins. Runner pictures are for anyone. */
-    async upload(user: Me, data: Buffer, opts: { regionId: string | null; inLibrary: boolean; kind: ImageKind }): Promise<string> {
-        const allowed = opts.inLibrary ? user.isAdmin : opts.kind === 'avatar' || user.isAdmin || user.isFixer;
+    /** Library pictures are admins only. Gig pictures are for fixers and admins. Runner pictures and art are for anyone. */
+    async upload(user: Me, data: Buffer, opts: { regionId: string | null; inLibrary: boolean; kind: UploadKind }): Promise<string> {
+        const allowed = opts.inLibrary ? user.isAdmin : opts.kind !== 'gig' || user.isAdmin || user.isFixer;
         if (!allowed) throw new ForbiddenException();
         if (opts.regionId && !(await this.prisma.region.findUnique({ where: { id: opts.regionId } }))) throw new NotFoundException('No such region.');
         return this.add(data, { ...opts, createdBy: user.id });
@@ -144,9 +162,9 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
      */
     async refreshUsage(ids: (string | null | undefined)[], db: Db = this.prisma) {
         for (const id of new Set(ids.filter((i): i is string => !!i))) {
-            const image = await db.image.findUnique({ where: { id }, select: { inLibrary: true, unusedSince: true, _count: { select: { gigs: true, runners: true } } } });
+            const image = await db.image.findUnique({ where: { id }, select: { inLibrary: true, unusedSince: true, _count: { select: { gigs: true, runners: true, artOf: true } } } });
             if (!image) continue;
-            const used = image.inLibrary || image._count.gigs > 0 || image._count.runners > 0;
+            const used = image.inLibrary || image._count.gigs > 0 || image._count.runners > 0 || image._count.artOf > 0;
             if (used && image.unusedSince) await db.image.update({ where: { id }, data: { unusedSince: null } });
             if (!used && !image.unusedSince) await db.image.update({ where: { id }, data: { unusedSince: new Date() } });
         }

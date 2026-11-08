@@ -7,7 +7,7 @@ import { isTimeZone, WEEK_HOURS } from './time';
 export const LIVE_TOPICS = ['gigs', 'runners', 'fixers', 'crews', 'library', 'settings', 'availability'] as const;
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 
-export const GIG_STATUSES = ['pending', 'open', 'closed', 'completed', 'cancelled', 'rejected'] as const;
+export const GIG_STATUSES = ['draft', 'pending', 'open', 'closed', 'completed', 'cancelled', 'rejected'] as const;
 export type GigStatus = (typeof GIG_STATUSES)[number];
 
 /** Live gigs are posted and not finished: open, or with sign-ups locked. */
@@ -64,6 +64,8 @@ export const gigInput = z.object({
     primaryObjective: z.array(oneLine(150)).min(1, 'Add the primary objective').max(8),
     /** What the primary objective pays. */
     pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
+    /** The pay is one pot divided between the runners, rather than this much each. */
+    splitPay: z.boolean().default(false),
     imageId: id.nullable(),
     objectives: z
         // `each`: paid for each time it's done ("x for each y"), not once on completion.
@@ -81,6 +83,25 @@ export const gigInput = z.object({
         .refine((groups) => groups.reduce((sum, g) => sum + g.count, 0) <= MAX_SLOTS, `${MAX_SLOTS} slots max`),
 });
 export type GigInput = z.infer<typeof gigInput>;
+
+/** A gig being worked on. Only the name is needed; the rest is checked against gigInput when it's sent. */
+export const gigDraftInput = z.object({
+    name: text(100),
+    fixerName: z.string().trim().max(60),
+    fixerRunnerId: id.nullable(),
+    location: z.string().trim().max(100),
+    type: z.string().trim().max(40).nullable(),
+    brief: z.string().trim().max(4000),
+    primaryObjective: z.array(z.string().trim().max(150)).max(8),
+    pay: z.number().int().min(0),
+    splitPay: z.boolean().default(false),
+    imageId: id.nullable(),
+    objectives: z.array(z.object({ text: z.string().trim().max(150), bonus: z.number().int().min(1).nullable(), each: z.boolean(), hidden: z.boolean() })).max(8),
+    slots: z
+        .array(z.object({ crewId: id.nullable(), count: z.number().int().min(0) }))
+        .refine((groups) => groups.reduce((sum, g) => sum + g.count, 0) <= MAX_SLOTS, `${MAX_SLOTS} slots max`),
+});
+export type GigDraftInput = z.infer<typeof gigDraftInput>;
 export type SlotGroup = GigInput['slots'][number];
 
 export const statusInput = z.object({ status: z.enum(SET_STATUSES) });
@@ -110,13 +131,18 @@ export const runnerInput = z.object({
     role: text(30),
     extraRoles: z.array(text(30)).max(9),
     imageId: id.nullable(),
+    /** Full art, any shape. */
+    artId: id.nullable().default(null),
+    /** One line under their name. */
+    tagline: optionalText(120).default(null),
+    /** About the character. Markdown. */
+    bio: optionalText(2000),
     // Fixer profile, shown when the runner counts as a fixer
     /** The name they go by as a fixer, if not their handle. One of a kind, like handles. */
     fixerAlias: optionalText(40),
     officeLocation: optionalText(100),
     specialties: optionalText(150),
     contact: optionalText(150),
-    bio: optionalText(2000),
     /** Admins only: who plays this runner. null makes an NPC fixer. Left out means the person saving it (new) or no change (edit). */
     ownerId: z
         .string()
@@ -292,6 +318,8 @@ export const settingsInput = z.object({
     reminderHours: z.number().int().min(1).max(72),
     confirmHours: z.number().int().min(1).max(168),
     runnerRoles: z.array(text(30)).min(1).max(30),
+    /** How many live gigs a player can be signed up to, across all their runners. 0 is no limit. */
+    maxSignups: z.number().int().min(0).max(50),
 });
 export type Settings = z.infer<typeof settingsInput>;
 
@@ -337,6 +365,7 @@ export interface RunnerCard {
     role: string;
     extraRoles: string[];
     imageId: string | null;
+    tagline: string | null;
     /** The player. Null for NPC fixers. */
     ownerId: string | null;
     status: RunnerStatus;
@@ -378,6 +407,7 @@ export interface GigLink {
 }
 
 export interface RunnerView extends RunnerSummary {
+    artId: string | null;
     fixerAlias: string | null;
     officeLocation: string | null;
     specialties: string | null;
@@ -437,6 +467,8 @@ export interface GigView {
     type: string | null;
     /** What the primary objective pays. */
     pay: number;
+    /** The pay is one pot divided between the runners, rather than this much each. */
+    splitPay: boolean;
     brief: string;
     /** One or more parts. */
     primaryObjective: string[];
@@ -458,8 +490,10 @@ export interface GigView {
     createdAt: number;
     /** Set once completed. */
     summary: string | null;
+    /** On a gig with overall pay, `eb` is the whole pot. */
     crewRewards: (Rewards & { hqIp: number | null }) | null;
-    runnerRewards: (Rewards & { hqIp: number | null; runner: RunnerCard })[];
+    /** `share`: their cut of the pot, on a gig with overall pay. The rest is extra, on top. */
+    runnerRewards: (Rewards & { hqIp: number | null; share: number | null; runner: RunnerCard })[];
     /** Whether the signed in player had a runner on this finished gig and can rate its fixer. */
     canRate: boolean;
     /** The signed in player's rating of the fixer for this gig. */
@@ -522,7 +556,7 @@ export interface CrewInvite {
  * bonuses count once and make it open-ended (`open`: shown with a + after the top end).
  * Undisclosed objectives don't count (players can't know them) but make it open-ended too.
  */
-export const payRange = (gig: { pay: number; objectives: { bonus: number | null; each?: boolean; secret?: boolean }[] }) => {
+export const payRange = (gig: { pay: number; splitPay?: boolean; objectives: { bonus: number | null; each?: boolean; secret?: boolean }[] }) => {
     const known = gig.objectives.filter((o) => !o.secret);
     return {
         min: gig.pay,
@@ -530,6 +564,12 @@ export const payRange = (gig: { pay: number; objectives: { bonus: number | null;
         open: known.some((o) => o.each && !!o.bonus) || gig.objectives.some((o) => o.secret),
     };
 };
+
+/** How many live gigs a player is signed up to, against the limit (0 is no limit). */
+export interface MySignups {
+    used: number;
+    max: number;
+}
 
 /** Undisclosed objectives come out when sign-ups lock and the job is on. */
 export const objectivesRevealed = (status: GigStatus) => status === 'closed' || status === 'completed';

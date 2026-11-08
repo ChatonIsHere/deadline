@@ -119,6 +119,7 @@ export const voice = {
     notIn: "you're not on this contract.",
     nothingToConfirm: "there's no session time to confirm yet.",
     notRunner: 'you need the edgerunner role to take gigs.',
+    atLimit: (max: number) => `you're signed up to ${max} live gig${max === 1 ? '' : 's'}, which is the limit. pull out of one or wait for one to finish.`,
     playerAlreadyIn: 'that player already has a runner on this gig.',
     playerAlreadyReserve: 'that player already has a runner on the reserves.',
     broken: 'something broke on our end. try again in a minute.',

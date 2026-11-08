@@ -17,6 +17,7 @@ export const SITE = {
 
 /** A gig's status, as the site's status tags colour it. */
 export const COLOURS: Record<GigStatus, number> = {
+    draft: SITE.grey,
     pending: SITE.grey,
     open: SITE.yellow,
     closed: SITE.cyan,

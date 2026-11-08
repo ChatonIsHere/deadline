@@ -96,6 +96,7 @@ export class RunnersService {
             specialties: r.specialties,
             contact: r.contact,
             bio: r.bio,
+            artId: r.artId,
             obituary: r.status === 'dead' ? r.obituary : null,
             crews: memberOf.map((m) => m.crew),
             gigs: ran.filter(visible).map(link),
@@ -117,7 +118,7 @@ export class RunnersService {
         const slug = await this.handleSlug(input.handle);
         const alias = await this.alias(fields.fixerAlias, slug);
         const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ownerId, slug } });
-        await this.library.refreshUsage([row.imageId]);
+        await this.library.refreshUsage([row.imageId, row.artId]);
         return this.get(user, row.id);
     }
 
@@ -141,7 +142,7 @@ export class RunnersService {
         await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ownerId, slug } });
         // A fixer character's gigs follow it to its new player
         if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
-        await this.library.refreshUsage([input.imageId, r.imageId]);
+        await this.library.refreshUsage([input.imageId, r.imageId, input.artId, r.artId]);
         this.gigs.refresh(await this.liveGigs(id));
         return this.get(user, id);
     }
@@ -202,7 +203,7 @@ export class RunnersService {
         const crewIds = await this.crews.crewsOf(id);
         await this.prisma.runner.delete({ where: { id } });
         await this.crews.keepFounders(crewIds);
-        await this.library.refreshUsage([r.imageId]);
+        await this.library.refreshUsage([r.imageId, r.artId]);
     }
 
     canManage(user: Me, runner: { ownerId: string | null }) {
@@ -256,7 +257,9 @@ export class RunnersService {
         for (const role of [input.role, ...input.extraRoles]) {
             if (!allowed.has(role)) throw new BadRequestException(`"${role}" isn't one of the roles.`);
         }
-        if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Upload it again.');
+        for (const imageId of [input.imageId, input.artId]) {
+            if (imageId && !(await this.library.exists(imageId))) throw new BadRequestException('That picture is gone. Upload it again.');
+        }
     }
 
     /** Live gigs that show this runner, as a runner or the fixer. */

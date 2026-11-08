@@ -77,7 +77,7 @@ export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', boardUr
         .setColor(runner.status === 'dead' ? SITE.red : runner.status === 'retired' ? SITE.grey : fixer ? SITE.cyan : SITE.yellow)
         .setTitle(runner.status === 'dead' ? `${name} †` : name)
         .setURL(url)
-        .setDescription(runner.obituary ? cut(runner.obituary, 400) : fixer && runner.bio ? cut(runner.bio, 400) : null)
+        .setDescription([runner.tagline && `*${runner.tagline}*`, runner.obituary ? cut(runner.obituary, 400) : runner.bio && cut(runner.bio, 400)].filter(Boolean).join('\n\n') || null)
         .addFields(fields)
         .setThumbnail(imageUrl);
     return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link('Profile', url))] };

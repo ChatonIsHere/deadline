@@ -1,6 +1,7 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ArtField } from '@/components/art';
 import { Loading, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -43,6 +44,8 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         role: runner?.role ?? '',
         extraRoles: runner?.extraRoles ?? [],
         imageId: runner?.imageId ?? null,
+        artId: runner?.artId ?? null,
+        tagline: runner?.tagline ?? null,
         fixerAlias: runner?.fixerAlias ?? null,
         officeLocation: runner?.officeLocation ?? null,
         specialties: runner?.specialties ?? null,
@@ -95,50 +98,64 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                 </Card>
             )}
 
-            <div className="grid gap-5 sm:grid-cols-[12rem_1fr]">
-                <Card className="space-y-3">
-                    <CardTitle help="a square picture, shown on gigs, crews and the runner's profile.">Picture</CardTitle>
-                    <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
-                    <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
-                </Card>
+            <div className="grid items-start gap-5 sm:grid-cols-[12rem_1fr]">
+                <div className="space-y-5">
+                    <Card className="space-y-3">
+                        <CardTitle help="a square picture, shown on gigs, crews and the runner's profile.">Picture</CardTitle>
+                        <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
+                        <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
+                    </Card>
+                    <ArtField value={form.artId} onChange={(artId) => set({ artId })} />
+                </div>
 
-                <Card className="space-y-4">
-                    <CardTitle>Runner</CardTitle>
-                    <div>
-                        <Label htmlFor="handle">Handle</Label>
-                        <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
-                    </div>
-                    <div>
-                        <Label htmlFor="role">Role</Label>
-                        <Select
-                            id="role"
-                            value={form.role}
-                            placeholder="Pick a role"
-                            onChange={(role) => set({ role, extraRoles: form.extraRoles.filter((r) => r !== role) })}
-                            options={roleList.map((r) => ({ value: r, label: r }))}
-                        />
-                    </div>
-                    <div>
-                        <Label help="other roles this runner has. Fixer gives them a fixer profile.">Extra roles</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                            {roleList
-                                .filter((r) => r !== form.role)
-                                .map((r) => (
-                                    <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => toggleExtra(r)}
-                                        className={cn(
-                                            'cut cursor-pointer px-2 py-1 font-display text-xs tracking-wider uppercase [--cut:5px]',
-                                            form.extraRoles.includes(r) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
-                                        )}
-                                    >
-                                        {r}
-                                    </button>
-                                ))}
+                <div className="space-y-5">
+                    <Card className="space-y-4">
+                        <CardTitle>Runner</CardTitle>
+                        <div>
+                            <Label htmlFor="handle">Handle</Label>
+                            <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
                         </div>
-                    </div>
-                </Card>
+                        <div>
+                            <Label htmlFor="tagline" help="one line, shown under their name.">Tagline</Label>
+                            <Input id="tagline" value={form.tagline ?? ''} onChange={(e) => set({ tagline: e.target.value })} maxLength={120} />
+                        </div>
+                        <div>
+                            <Label htmlFor="role">Role</Label>
+                            <Select
+                                id="role"
+                                value={form.role}
+                                placeholder="Pick a role"
+                                onChange={(role) => set({ role, extraRoles: form.extraRoles.filter((r) => r !== role) })}
+                                options={roleList.map((r) => ({ value: r, label: r }))}
+                            />
+                        </div>
+                        <div>
+                            <Label help="other roles this runner has. Fixer gives them a fixer profile.">Extra roles</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {roleList
+                                    .filter((r) => r !== form.role)
+                                    .map((r) => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => toggleExtra(r)}
+                                            className={cn(
+                                                'cut cursor-pointer px-2 py-1 font-display text-xs tracking-wider uppercase [--cut:5px]',
+                                                form.extraRoles.includes(r) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                                            )}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="space-y-2">
+                        <CardTitle help="who they are. shown on their profile.">Bio</CardTitle>
+                        <MarkdownEditor value={form.bio ?? ''} onChange={(bio) => set({ bio })} max={2000} />
+                    </Card>
+                </div>
             </div>
 
             {isFixer && (
@@ -168,10 +185,6 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                             <Label htmlFor="specialties">Specialties</Label>
                             <Input id="specialties" value={form.specialties ?? ''} onChange={(e) => set({ specialties: e.target.value })} maxLength={150} />
                         </div>
-                    </div>
-                    <div>
-                        <Label>Bio</Label>
-                        <MarkdownEditor value={form.bio ?? ''} onChange={(bio) => set({ bio })} max={2000} />
                     </div>
                 </Card>
             )}

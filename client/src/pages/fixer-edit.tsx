@@ -1,6 +1,7 @@
 import { FIXER_ROLE, runnerInput, type RunnerInput, type RunnerView } from '@shared/schemas';
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
+import { ArtField } from '@/components/art';
 import { Loading, Say } from '@/components/common';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
@@ -36,6 +37,8 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
         role: FIXER_ROLE,
         extraRoles: [],
         imageId: fixer?.imageId ?? null,
+        artId: fixer?.artId ?? null,
+        tagline: fixer?.tagline ?? null,
         fixerAlias: null,
         officeLocation: fixer?.officeLocation ?? null,
         specialties: fixer?.specialties ?? null,
@@ -64,18 +67,25 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
 
     return (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">
-            <div className="grid gap-5 sm:grid-cols-[12rem_1fr]">
-                <Card className="space-y-3">
-                    <CardTitle help="a square picture, shown on gigs and the fixer's profile.">Picture</CardTitle>
-                    <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
-                    <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
-                </Card>
+            <div className="grid items-start gap-5 sm:grid-cols-[12rem_1fr]">
+                <div className="space-y-5">
+                    <Card className="space-y-3">
+                        <CardTitle help="a square picture, shown on gigs and the fixer's profile.">Picture</CardTitle>
+                        <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
+                        <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
+                    </Card>
+                    <ArtField value={form.artId} onChange={(artId) => set({ artId })} />
+                </div>
 
                 <Card className="space-y-4">
                     <CardTitle help="an NPC fixer has no player. they show on the Fixers tab and can be picked for gigs.">NPC fixer</CardTitle>
                     <div>
                         <Label htmlFor="handle">Name</Label>
                         <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
+                    </div>
+                    <div>
+                        <Label htmlFor="tagline" help="one line, shown under their name.">Tagline</Label>
+                        <Input id="tagline" value={form.tagline ?? ''} onChange={(e) => set({ tagline: e.target.value })} maxLength={120} />
                     </div>
                     <div>
                         <Label htmlFor="office">Office location</Label>

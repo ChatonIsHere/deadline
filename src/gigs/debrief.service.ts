@@ -6,6 +6,7 @@ import { linked, NotifyService } from '../discord/notify.service';
 import { gigRef } from '../shared/slug';
 import { type Said, voice } from '../discord/voice';
 import { PrismaService } from '../prisma/prisma.service';
+import { splitPot } from '../shared/pay';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
 import { ACTIVE, GigsService } from './gigs.service';
 
@@ -35,9 +36,17 @@ export class DebriefService {
         const gig = await this.gigs.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException('Only live gigs can be completed.');
 
-        const slots = (await this.prisma.gigSlot.findMany({ where: { gigId: id } })).filter((s) => s.userId && s.runnerId);
+        const slots = (await this.prisma.gigSlot.findMany({ where: { gigId: id }, include: { runner: { select: { createdAt: true } } } })).filter((s) => s.userId && s.runnerId);
         const onGig = new Set(slots.map((s) => s.runnerId!));
         if (input.runners.some((r) => !onGig.has(r.runnerId))) throw new BadRequestException('Runner rewards can only go to runners on the gig.');
+
+        // Overall pay: everyone's cut of the pot, with the odd eddies going to the oldest characters
+        const shares = new Map<string, number>();
+        if (gig.splitPay) {
+            const oldestFirst = [...slots].sort((a, b) => a.runner!.createdAt.getTime() - b.runner!.createdAt.getTime() || a.runnerId!.localeCompare(b.runnerId!));
+            const cuts = splitPot(input.eb ?? 0, oldestFirst.length);
+            oldestFirst.forEach((s, i) => shares.set(s.runnerId!, cuts[i]));
+        }
 
         await this.prisma.$transaction(async (tx) => {
             await tx.gig.update({
@@ -48,7 +57,11 @@ export class DebriefService {
             // Nobody is waiting for a slot on a finished gig
             await this.gigs.clearReserves(id, tx);
             const extras = input.runners.filter((r) => r.eb || r.ip || r.hqIp || r.text);
-            if (extras.length) await tx.gigReward.createMany({ data: extras.map((r) => ({ gigId: id, ...r })) });
+            const rows = new Map(extras.map((r) => [r.runnerId, { gigId: id, ...r, share: shares.get(r.runnerId) ?? null }]));
+            for (const [runnerId, share] of shares) {
+                if (!rows.has(runnerId)) rows.set(runnerId, { gigId: id, runnerId, eb: null, ip: null, hqIp: null, text: null, share });
+            }
+            if (rows.size) await tx.gigReward.createMany({ data: [...rows.values()] });
         });
 
         const view = await this.gigs.view(id);
@@ -100,7 +113,7 @@ export function payoutFor(gig: GigView, userId: string, runnerId: string): Payou
     return {
         userId,
         handle,
-        eb: (crew?.eb ?? 0) + (own?.eb ?? 0),
+        eb: (gig.splitPay ? (own?.share ?? 0) : (crew?.eb ?? 0)) + (own?.eb ?? 0),
         ip: (crew?.ip ?? 0) + (own?.ip ?? 0),
         hqIp: (crew?.hqIp ?? 0) + (own?.hqIp ?? 0),
         extras: [crew?.text, own?.text].filter((t): t is string => !!t),

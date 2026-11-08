@@ -21,15 +21,18 @@ export function Money({ amount, className }: { amount: number; className?: strin
     );
 }
 
-/** A gig's pay: the primary objective alone, up to that plus every bonus. A + means per-each bonuses can take it higher. */
-export function Pay({ gig, className }: { gig: Parameters<typeof payRange>[0]; className?: string }) {
+/** A gig's pay: the primary objective alone, up to that plus every bonus. A + means per-each bonuses can take it higher. Says whether it's each or one pot. */
+export function Pay({ gig, compact, className }: { gig: Parameters<typeof payRange>[0]; /** Only say so when it's a split: cards have no room for the default. */ compact?: boolean; className?: string }) {
     const { min, max, open } = payRange(gig);
     return (
-        <span className={cn('inline-flex items-center gap-1 font-semibold text-primary', className)}>
-            <Icon name="eb" />
-            {min.toLocaleString('en-GB')}
-            {max > min && ` – ${max.toLocaleString('en-GB')}`}
-            {open && '+'}
+        <span className={cn('inline-flex flex-wrap items-center gap-x-1 font-semibold text-primary', className)}>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                <Icon name="eb" />
+                {min.toLocaleString('en-GB')}
+                {max > min && ` – ${max.toLocaleString('en-GB')}`}
+                {open && '+'}
+            </span>
+            {(gig.splitPay || !compact) && <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">{gig.splitPay ? 'split' : 'per head'}</span>}
         </span>
     );
 }
@@ -52,6 +55,7 @@ export function Person({ member }: { member: Member }) {
 }
 
 const STATUS_BADGE = {
+    draft: 'muted',
     pending: 'muted',
     open: 'default',
     closed: 'accent',

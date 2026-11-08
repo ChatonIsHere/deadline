@@ -1,7 +1,7 @@
 // Deadline's database. Postgres on db-data-01 in production, the local Docker one in dev.
 // Tables and columns are snake_case in the database, camelCase in code.
-// Some checks Prisma can't express (stars 1 to 5, pay above 0, a single settings row) are added
-// by hand in the first migration.
+// Some checks Prisma can't express (stars 1 to 5, pay above 0 once out of draft, a single settings
+// row) are added by hand in the migrations.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,6 +13,8 @@ datasource db {
 }
 
 enum GigStatus {
+  /// Saved but not sent in. Only its author and admins can see it.
+  draft
   pending
   open
   closed
@@ -41,10 +43,11 @@ enum RunnerState {
   @@map("runner_state")
 }
 
-/// gig: a 16:9 post picture. avatar: a square runner picture.
+/// gig: a 16:9 post picture. avatar: a square runner picture. art: a runner's full art, any shape.
 enum ImageKind {
   gig
   avatar
+  art
 
   @@map("image_kind")
 }
@@ -63,6 +66,8 @@ model Settings {
   confirmHours     Int     @default(48) @map("confirm_hours")
   /// Roles runners can pick (string[]). Starts as RED's core ten.
   runnerRoles      Json    @default("[]") @map("runner_roles")
+  /// How many live gigs a player can be signed up to, across all their runners. 0 is no limit.
+  maxSignups       Int     @default(0) @map("max_signups")
 
   @@map("settings")
 }
@@ -163,6 +168,12 @@ model Runner {
   /// More roles (string[])
   extraRoles     Json         @default("[]") @map("extra_roles")
   imageId        String?      @map("image_id") @db.Uuid
+  /// Full art, any shape, shown on their profile
+  artId          String?      @map("art_id") @db.Uuid
+  /// One line under their name
+  tagline        String?
+  /// About the character. Markdown. Shown on the runner and fixer profiles.
+  bio            String?
   // Fixer profile
   /// The name they go by as a fixer, if not their handle. Shown on the fixer side only.
   fixerAlias     String?      @map("fixer_alias")
@@ -171,7 +182,6 @@ model Runner {
   officeLocation String?      @map("office_location")
   specialties    String?
   contact        String?
-  bio            String?
   status         RunnerStatus @default(active)
   /// When they retired or died
   retiredAt      DateTime?    @map("retired_at") @db.Timestamptz(3)
@@ -179,7 +189,8 @@ model Runner {
   obituary       String?
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  image       Image?       @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  image       Image?       @relation("RunnerPicture", fields: [imageId], references: [id], onDelete: SetNull)
+  art         Image?       @relation("RunnerArt", fields: [artId], references: [id], onDelete: SetNull)
   memberships CrewMember[]
   allyOf      CrewAlly[]
   invites     CrewInvite[]
@@ -190,6 +201,7 @@ model Runner {
 
   @@index([ownerId])
   @@index([imageId])
+  @@index([artId])
   @@map("runners")
 }
 
@@ -209,6 +221,8 @@ model Gig {
   primaryObjective   Json      @default("[]") @map("primary_objective")
   /// What the primary objective pays. The gig's pay runs from this to this plus every bonus.
   pay                Int
+  /// Pay is one pot divided between the runners, rather than this much each
+  splitPay           Boolean   @default(false) @map("split_pay")
   imageId            String?   @map("image_id") @db.Uuid
   /// Storage key of the current gig card (the picture with the name on it) for Discord
   cardKey            String?   @map("card_key")
@@ -314,6 +328,8 @@ model GigReward {
   ip       Int?
   hqIp     Int?    @map("hq_ip")
   text     String?
+  /// Their cut of the pot, on a gig with overall pay
+  share    Int?
 
   gig    Gig    @relation(fields: [gigId], references: [id], onDelete: Cascade)
   runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
@@ -364,7 +380,8 @@ model Image {
 
   region  Region?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
   gigs    Gig[]
-  runners Runner[]
+  runners Runner[] @relation("RunnerPicture")
+  artOf   Runner[] @relation("RunnerArt")
 
   @@index([regionId])
   @@index([unusedSince])

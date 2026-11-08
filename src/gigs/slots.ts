@@ -75,6 +75,15 @@ export function spareChanges(slots: Slot[], spare = 1): SlotChanges {
     return changes;
 }
 
+/** The groups stored slots came from, for checking a saved gig against gigInput. */
+export function slotGroups(slots: Slot[]): SlotGroup[] {
+    const crewIds = [...new Set(slots.map((s) => s.crewId))];
+    return crewIds.map((crewId) => {
+        const group = slots.filter((s) => s.crewId === crewId);
+        return { crewId, count: group.some((s) => s.unlimited) ? 0 : group.length };
+    });
+}
+
 export interface Reserve {
     userId: string;
     crewIds: string[];

@@ -1,3 +1,4 @@
+import { MAX_UPLOAD } from '@shared/images';
 import { Upload } from 'lucide-react';
 import { type ChangeEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -9,7 +10,7 @@ import { cn } from '@/lib/utils';
 /**
  * The one way pictures get uploaded: an Upload button with a hidden file picker. Each picked
  * file goes through the crop tool, then up, then `onUploaded` gets the new image IDs.
- * Cancelling skips the rest. Errors show as toasts.
+ * Cancelling skips the rest. Errors show as toasts. Art keeps its shape, so it skips the crop.
  */
 export function UploadButton({
     options,
@@ -31,6 +32,10 @@ export function UploadButton({
     const pick = (e: ChangeEvent<HTMLInputElement>) => {
         const files = [...(e.target.files ?? [])];
         e.target.value = '';
+        if (options?.kind === 'art') {
+            void uploadArt(files[0]);
+            return;
+        }
         setQueue(files);
         setIndex(0);
         setIds([]);
@@ -42,6 +47,22 @@ export function UploadButton({
         if (!done.length) return;
         toast.success(done.length === 1 ? 'picture uploaded.' : `${done.length} pictures uploaded.`);
         await onUploaded(done);
+    };
+
+    const uploadArt = async (file?: File) => {
+        if (!file) return;
+        if (file.size > MAX_UPLOAD) {
+            toast.error(`that file's too big. ${MAX_UPLOAD / 1024 / 1024} MB max.`);
+            return;
+        }
+        setUploading(true);
+        try {
+            await finish([await uploadImage(file, options)]);
+        } catch (err) {
+            toast.error((err as Error).message);
+        } finally {
+            setUploading(false);
+        }
     };
 
     const upload = async (picture: Blob) => {
@@ -70,7 +91,7 @@ export function UploadButton({
             <input ref={input} type="file" accept="image/*" multiple={multiple} hidden onChange={pick} />
             <CropDialog
                 file={uploading ? null : (queue[index] ?? null)}
-                kind={options?.kind ?? 'gig'}
+                kind={options?.kind === 'avatar' ? 'avatar' : 'gig'}
                 step={queue.length > 1 ? `${index + 1} of ${queue.length}` : undefined}
                 onDone={upload}
                 onCancel={() => finish(ids)}

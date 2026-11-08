@@ -1,4 +1,5 @@
-// Demo data for trying the whole site out. Run inside the app's container, piped in:
+// Demo data for trying the whole site out. Not for the live site: it has real players now.
+// Run it against a local or throwaway database, inside the app's container or from the repo root:
 //
 //   ssh <server> "docker exec -i -e TEST_DATA=check -e TEST_DATA_OWNER=<discord id> deadline node -" < scripts/test-data.js
 //
@@ -11,7 +12,7 @@
 // live gigs to the forum straight away; otherwise the six-hourly refresh does it.
 
 const { PrismaClient } = require('@prisma/client');
-const { completeInput, gigInput, runnerInput } = require('./dist/shared/schemas.js');
+const { completeInput, gigDraftInput, gigInput, runnerInput } = require('./dist/shared/schemas.js');
 const { toSlug } = require('./dist/shared/slug.js');
 
 const prisma = new PrismaClient();
@@ -24,16 +25,16 @@ const fakePlayer = (n) => `90000000000000${String(n).padStart(4, '0')}`;
 
 // Runners: three player fixers, three NPC fixers, and thirteen on made-up players
 const RUNNERS = [
-    { key: 'cass', handle: 'Cass Okoye', role: 'Fixer', extra: ['Exec'], owner: ME, alias: 'The Notary', office: 'Back room of the Paper Lantern', specialties: 'Contracts, corporate leaks, quiet exits', contact: 'Leave a card with the bartender', bio: 'Used to draft contracts for a living. Now she just makes sure they get **honoured**.' },
+    { key: 'cass', tagline: 'Read it twice. Sign it once.', handle: 'Cass Okoye', role: 'Fixer', extra: ['Exec'], owner: ME, alias: 'The Notary', office: 'Back room of the Paper Lantern', specialties: 'Contracts, corporate leaks, quiet exits', contact: 'Leave a card with the bartender', bio: 'Used to draft contracts for a living. Now she just makes sure they get **honoured**.' },
     { key: 'dmitri', handle: 'Dmitri Vale', role: 'Fixer', extra: ['Nomad'], owner: ME, office: 'A truck, somewhere on the 101', specialties: 'Smuggling, convoys, border runs', contact: 'Channel 19 after dark', bio: 'No alias, no office, no patience for people who are late.' },
-    { key: 'pixel', handle: 'Pixel Moreau', role: 'Fixer', extra: ['Media'], owner: ME, alias: 'Madame Static', office: 'Studio 4, Pirate Radio Row', specialties: 'Data heists, blackmail, broadcasts', contact: 'Request a song on 88.3', bio: 'If it was recorded, she has a copy.' },
-    { key: 'ember', handle: 'Mother Ember', role: 'Fixer', owner: null, office: 'The Ash Kitchen, Pacifica', specialties: 'Protection work, missing persons', contact: 'Ask for soup', bio: 'Feeds half the block and owns the other half.' },
+    { key: 'pixel', tagline: 'You are listening to the truth, unfortunately.', handle: 'Pixel Moreau', role: 'Fixer', extra: ['Media'], owner: ME, alias: 'Madame Static', office: 'Studio 4, Pirate Radio Row', specialties: 'Data heists, blackmail, broadcasts', contact: 'Request a song on 88.3', bio: 'If it was recorded, she has a copy.' },
+    { key: 'ember', tagline: 'Nobody leaves hungry. Nobody leaves owing nothing.', handle: 'Mother Ember', role: 'Fixer', owner: null, office: 'The Ash Kitchen, Pacifica', specialties: 'Protection work, missing persons', contact: 'Ask for soup', bio: 'Feeds half the block and owns the other half.' },
     { key: 'tin', handle: 'Tin Saint', role: 'Fixer', owner: null, office: 'Chapel of the Open Port', specialties: 'Netrunning, cyberware, salvage', contact: 'Light a candle at the terminal', bio: 'Nobody has seen who is inside the suit.' },
     { key: 'lucky', handle: 'Lucky Okafor', role: 'Fixer', owner: null, office: 'Table nine, the Silver Dollar', specialties: 'Muscle, debts, card games', contact: 'Bring cash', bio: 'Has never lost a bet he told you about.' },
-    { key: 'brick', handle: 'Brick Tanaka', role: 'Solo', extra: [], owner: fakePlayer(1) },
-    { key: 'hexa', handle: 'Hexa', role: 'Netrunner', extra: [], owner: fakePlayer(2) },
-    { key: 'wrench', handle: 'Wrench Adeyemi', role: 'Tech', extra: [], owner: fakePlayer(3) },
-    { key: 'sorrel', handle: 'Doc Sorrel', role: 'Medtech', extra: [], owner: fakePlayer(4) },
+    { key: 'brick', handle: 'Brick Tanaka', role: 'Solo', extra: [], owner: fakePlayer(1), tagline: 'Doors are a suggestion.', bio: 'Ex-Militech breacher. Got **tired of the paperwork** and kept the arm.' },
+    { key: 'hexa', handle: 'Hexa', role: 'Netrunner', extra: [], owner: fakePlayer(2), tagline: 'Already in your subnet.', bio: 'Nobody has met her in meatspace twice.\n\n- Owes three data brokers\n- Is owed by nine' },
+    { key: 'wrench', handle: 'Wrench Adeyemi', role: 'Tech', extra: [], owner: fakePlayer(3), tagline: 'If it hums, I can fix it.' },
+    { key: 'sorrel', handle: 'Doc Sorrel', role: 'Medtech', extra: [], owner: fakePlayer(4), bio: 'Lost her licence in a town that no longer exists.' },
     { key: 'riot', handle: 'Riot Lacroix', role: 'Rockerboy', extra: ['Solo'], owner: fakePlayer(5) },
     { key: 'scoop', handle: 'Scoop Ibarra', role: 'Media', extra: [], owner: fakePlayer(6) },
     { key: 'margaux', handle: 'Margaux Thorne', role: 'Exec', extra: ['Media'], owner: fakePlayer(7) },
@@ -67,6 +68,13 @@ const GIGS = [
     { name: 'Standing Room Only', typedFixer: 'A voice on the phone', location: 'City Center', pay: 1500, brief: 'A full crew with people waiting. Pull someone out to watch a reserve move up.', primary: ['Crash the gala'], slots: take('riot', 'sorrel', 'glitch'), reserves: ['reyes', 'kestrel'] },
     { name: 'Lockdown', fixer: 'lucky', location: 'Pacifica', pay: 5000, status: 'closed', sessionDays: 9, brief: 'Sign-ups locked and a session booked, so the hidden objective shows.', primary: ['Clear the arcade', 'Hold it until morning'], objectives: [{ text: 'Find out who sold the keys', bonus: 1500, hidden: true }], slots: take('brick', 'hexa', 'sorrel') },
 
+    { name: 'Even Split', fixer: 'ember', location: 'Kabuki', pay: 605, splitPay: true, brief: 'One pot, six runners. Complete it to see who gets the odd eddies.', primary: ['Move the crates before sunrise'], slots: take('wrench', 'sorrel', 'riot', 'scoop', 'reyes', 'dusty') },
+    { name: 'Big Score', fixer: 'tin', location: 'Westbrook', pay: 8000, splitPay: true, brief: 'Overall pay, and a bonus that goes in the pot too.', primary: ['Empty the vault'], objectives: [{ text: 'Nobody gets flatlined', bonus: 2000 }], slots: [...take('kestrel'), ...open(3)] },
+
+    // Still being written
+    { name: 'Harbour Job', fixer: 'cass', location: 'Watson', pay: 2200, status: 'draft', brief: 'Finished and ready. Send it in to see it reach the admins.', primary: ['Take the harbour master for a walk'], slots: open(4) },
+    { name: 'Untitled Thing In Pacifica', typedFixer: '', location: '', pay: 0, status: 'draft', brief: '', primary: [], slots: [] },
+
     // Waiting on an admin
     { name: 'Favour For A Friend', fixer: 'pixel', location: 'Westbrook', pay: 900, status: 'pending', brief: 'Waiting on sign-off. Approve it to see it go live.', primary: ['Lose the paperwork'], slots: open(2) },
     { name: 'Absolutely Not', fixer: 'cass', location: 'Heywood', pay: 200, status: 'rejected', brief: 'An admin already said no.', primary: ['Rob the clinic'], slots: open(2) },
@@ -97,12 +105,12 @@ function fail(message) {
 /** Runs everything past the rules the web forms use. */
 function validate() {
     for (const r of RUNNERS) {
-        runnerInput.parse({ handle: r.handle, role: r.role, extraRoles: r.extra, imageId: null, fixerAlias: r.alias ?? null, officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null });
+        runnerInput.parse({ handle: r.handle, tagline: r.tagline ?? null, role: r.role, extraRoles: r.extra, imageId: null, fixerAlias: r.alias ?? null, officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null });
     }
     for (const g of GIGS) {
         const counts = new Map();
         for (const s of g.slots) counts.set(s.crew ?? null, (counts.get(s.crew ?? null) ?? 0) + 1);
-        gigInput.parse({
+        (g.status === 'draft' ? gigDraftInput : gigInput).parse({
             name: g.name,
             fixerName: g.typedFixer ?? '',
             fixerRunnerId: g.fixer ? runner(g.fixer).id : null,
@@ -111,6 +119,7 @@ function validate() {
             brief: g.brief,
             primaryObjective: g.primary,
             pay: g.pay,
+            splitPay: !!g.splitPay,
             imageId: null,
             objectives: g.objectives.map((o) => ({ text: o.text, bonus: o.bonus ?? null, each: !!o.each, hidden: !!o.hidden })),
             slots: [...counts].map(([key, count]) => ({ crewId: key ? crew(key).id : null, count })),
@@ -150,14 +159,16 @@ async function picture(location, n) {
 
 async function seed() {
     const pictures = new Map();
-    for (const [i, g] of GIGS.entries()) pictures.set(g.id, await picture(g.location, i));
+    for (const [i, g] of GIGS.entries()) pictures.set(g.id, g.location ? await picture(g.location, i) : null);
     const now = Date.now();
 
     await prisma.$transaction(
         async (tx) => {
             await tx.runner.createMany({
                 data: RUNNERS.map((r) => ({
-                    id: r.id, ownerId: r.owner, handle: r.handle, slug: r.slug, role: r.role, extraRoles: r.extra, fixerAlias: r.alias ?? null, fixerSlug: r.fixerSlug,
+                    id: r.id, ownerId: r.owner, handle: r.handle, slug: r.slug, role: r.role, extraRoles: r.extra, tagline: r.tagline ?? null, fixerAlias: r.alias ?? null, fixerSlug: r.fixerSlug,
+                    // Earlier in the list is older, for who gets the odd eddies from a split pot
+                    createdAt: new Date(now - (RUNNERS.length - RUNNERS.indexOf(r)) * DAY),
                     officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null,
                     status: r.status ?? 'active', retiredAt: r.goneDays ? new Date(now - r.goneDays * DAY) : null, obituary: r.obituary ?? null,
                 })),
@@ -172,7 +183,7 @@ async function seed() {
                 await tx.gig.create({
                     data: {
                         id: g.id, name: g.name, fixerName: g.typedFixer ?? fixer.alias ?? fixer.handle, fixerRunnerId: fixer?.id ?? null, fixerId: fixer?.owner ?? null,
-                        location: g.location, brief: g.brief, primaryObjective: g.primary, pay: g.pay, imageId: pictures.get(g.id), status: g.status, createdBy: ME, sessionAt,
+                        location: g.location, brief: g.brief, primaryObjective: g.primary, pay: g.pay, splitPay: !!g.splitPay, imageId: pictures.get(g.id), status: g.status, createdBy: ME, sessionAt,
                         summary: g.done?.summary ?? null, rewardEb: g.done?.eb ?? null, rewardIp: g.done?.ip ?? null, rewardHqIp: g.done?.hqIp ?? null, rewardText: g.done?.text ?? null,
                         // Newest first on the board, in the order they're listed here
                         createdAt: new Date(now - g.daysAgo * DAY - i * 60_000),

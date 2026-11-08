@@ -19,13 +19,15 @@ export function DebriefCard({ gig }: { gig: GigView }) {
             <div>
                 <p className="mb-1 font-display text-xs tracking-widest text-muted-foreground uppercase">Crew rewards</p>
                 <RewardLine rewards={crew} hqIp={crew.hqIp} />
+                {gig.splitPay && !!crew.eb && <p className="mt-1 text-xs text-muted-foreground">split between {gig.slots.filter((s) => s.runner).length} runners</p>}
             </div>
             {gig.runnerRewards.length > 0 && (
                 <ul className="space-y-2">
                     {gig.runnerRewards.map((r) => (
                         <li key={r.runner.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <RunnerChip runner={r.runner} />
-                            <RewardLine rewards={r} hqIp={r.hqIp} plus />
+                            {r.share !== null && <Money amount={r.share} />}
+                            {(r.share === null || r.eb || r.ip || r.hqIp || r.text) && <RewardLine rewards={r} hqIp={r.hqIp} plus />}
                         </li>
                     ))}
                 </ul>

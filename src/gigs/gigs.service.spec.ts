@@ -8,7 +8,7 @@ import type { MembersService } from '../discord/members.service';
 import { NotifyService } from '../discord/notify.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
-import type { GigInput, Me } from '../shared/schemas';
+import type { GigDraftInput, GigInput, Me } from '../shared/schemas';
 import { toSlug } from '../shared/slug';
 import { DebriefService, type Payout } from './debrief.service';
 import { GigsService } from './gigs.service';
@@ -38,8 +38,16 @@ const members = {
     isFixerRunner: (r: { role: string; extraRoles: string[]; ownerId: string | null }) =>
         (r.role === 'Fixer' || r.extraRoles.includes('Fixer')) && (!r.ownerId || r.ownerId === 'fixer'),
     admins: () => ['admin'],
-    dm: async () => [],
+    dm: async (ids: string[]) => {
+        dmed.push(...ids);
+        return [];
+    },
 } as unknown as MembersService;
+/** Everyone sent a DM by the notifications. */
+let dmed: string[] = [];
+/** The status of every gig that reached the post code. */
+let synced: string[] = [];
+let maxSignups = 0;
 
 /** DMs the service sent, by kind. */
 let asked: string[] = [];
@@ -48,7 +56,11 @@ let dropped: string[] = [];
 let reminders: string[][] = [];
 let payouts: Payout[] = [];
 const posts = {
-    sync: async () => ({ threadId: 'thread', overflowIds: [] }),
+    sync: async (gig: { status: string }) => {
+        synced.push(gig.status);
+        return { threadId: 'thread', overflowIds: [] };
+    },
+    newGigMessage: async () => ({}),
     askToConfirm: async (_gig: unknown, _thread: string, ids: string[], _by: number, nudge = false) => (nudge ? nudged : asked).push(...ids),
     remind: async (_gig: unknown, _thread: string, ids: string[], kind: string) => reminders.push([kind, ...ids]),
     notifyDropped: async (_gig: unknown, ids: string[]) => dropped.push(...ids),
@@ -56,7 +68,7 @@ const posts = {
 } as unknown as GigPostService;
 /** Post updates (and DMs) run in the background. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
-const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
+const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48, maxSignups }) } as unknown as SettingsService;
 const H = 3_600_000;
 const library = { exists: async () => true, pick: async () => null, refreshUsage: async () => {} } as unknown as LibraryService;
 const noRewards = { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] };
@@ -68,6 +80,7 @@ const input = (slots: GigInput['slots'], patch: Partial<GigInput> = {}): GigInpu
     location: 'Watson',
     type: null,
     pay: 2000,
+    splitPay: false,
     brief: 'Get in, get out.',
     primaryObjective: ['Grab the case.'],
     imageId: null,
@@ -75,6 +88,8 @@ const input = (slots: GigInput['slots'], patch: Partial<GigInput> = {}): GigInpu
     slots,
     ...patch,
 });
+/** A draft with only a name. */
+const blank: GigDraftInput = { name: 'Half done', fixerName: '', fixerRunnerId: null, location: '', type: null, brief: '', primaryObjective: [], pay: 0, splitPay: false, imageId: null, objectives: [], slots: [] };
 const one = [{ crewId: null, count: 1 }];
 const two = [{ crewId: null, count: 2 }];
 
@@ -109,6 +124,9 @@ describe('GigsService', () => {
         dropped = [];
         reminders = [];
         payouts = [];
+        dmed = [];
+        synced = [];
+        maxSignups = 0;
     });
 
     after(async () => {
@@ -535,6 +553,170 @@ describe('GigsService', () => {
             await debrief.rate('a', gig.id, 5);
             assert.deepEqual((await gigs.view(gig.id, people[2])).myRating, { stars: 5, comment: null });
             await assert.rejects(debrief.rate('b', gig.id, 1), /only runners on the gig/);
+        });
+    });
+
+    describe('overall pay', () => {
+        const three = [{ crewId: null, count: 3 }];
+        const pot = { summary: null, eb: 1001, ip: 2, hqIp: null, text: null, runners: [] };
+        /** c is the oldest character, then a, then b. */
+        const age = async () => {
+            for (const [handle, day] of [['c', 1], ['a', 2], ['b', 3]] as const) await prisma.runner.update({ where: { id: ids[handle] }, data: { createdAt: new Date(2026, 0, day) } });
+        };
+        const joinAll = async (id: string) => {
+            for (const p of ['a', 'b', 'c']) await gigs.join(p, id);
+        };
+
+        it('gives the odd eddies to the oldest characters', async () => {
+            await age();
+            const gig = await gigs.create(admin, input(three, { splitPay: true }));
+            await joinAll(gig.id);
+            const done = await debrief.complete(admin, gig.id, pot);
+            await settle();
+            assert.deepEqual(payouts.map((p) => [p.handle, p.eb, p.ip]).sort(), [['a', 334, 2], ['b', 333, 2], ['c', 334, 2]]);
+            assert.equal(done.crewRewards?.eb, 1001);
+            assert.deepEqual(done.runnerRewards.map((r) => [r.runner.handle, r.share]).sort(), [['a', 334], ['b', 333], ['c', 334]]);
+        });
+
+        it('adds a runner\'s own reward on top of their cut', async () => {
+            await age();
+            const gig = await gigs.create(admin, input(three, { splitPay: true }));
+            await joinAll(gig.id);
+            await debrief.complete(admin, gig.id, { ...pot, runners: [{ runnerId: ids.b, eb: 100, ip: null, hqIp: null, text: 'Found the keys' }] });
+            await settle();
+            const b = payouts.find((p) => p.handle === 'b')!;
+            assert.deepEqual([b.eb, b.extras], [433, ['Found the keys']]);
+        });
+
+        it('still pays the full amount to everyone per head', async () => {
+            const gig = await gigs.create(admin, input(three));
+            await joinAll(gig.id);
+            await debrief.complete(admin, gig.id, pot);
+            await settle();
+            assert.deepEqual(payouts.map((p) => p.eb), [1001, 1001, 1001]);
+            assert.equal(await prisma.gigReward.count({ where: { gigId: gig.id } }), 0);
+        });
+    });
+
+    describe('drafts', () => {
+        it('saves with only a name, without posting or telling anyone', async () => {
+            const gig = await gigs.createDraft(fixer, blank);
+            assert.equal(gig.status, 'draft');
+            await gigs.updateDraft(fixer, gig.id, { ...blank, name: 'Better name' });
+            await settle();
+            assert.deepEqual([synced, dmed], [[], []]);
+            assert.equal((await gigs.view(gig.id, fixer)).name, 'Better name');
+        });
+
+        it('shows drafts to their author and admins, and nobody else', async () => {
+            const gig = await gigs.createDraft(fixer, blank);
+            const other = person('other-fixer', { isFixer: true });
+            assert.equal((await gigs.get(admin, gig.id)).name, 'Half done');
+            assert.equal((await gigs.get(fixer, gig.id)).name, 'Half done');
+            await assert.rejects(gigs.get(other, gig.id), /Not Found/);
+            assert.deepEqual(await gigs.list(people[2]), []);
+        });
+
+        it('lets admins edit a fixer\'s draft, but not other fixers', async () => {
+            const gig = await gigs.createDraft(fixer, blank);
+            assert.equal((await gigs.updateDraft(admin, gig.id, { ...blank, name: 'Tidied up' })).name, 'Tidied up');
+            await assert.rejects(gigs.updateDraft(person('other-fixer', { isFixer: true }), gig.id, blank), /Forbidden/);
+        });
+
+        it("won't send a draft that isn't finished", async () => {
+            const gig = await gigs.createDraft(fixer, blank);
+            await assert.rejects(gigs.send(fixer, gig.id), /Not ready to send/);
+            assert.equal((await gigs.view(gig.id, fixer)).status, 'draft');
+        });
+
+        it('sends a fixer\'s draft to the admins for approval', async () => {
+            const gig = await gigs.createDraft(fixer, input(one));
+            const sent = await gigs.send(fixer, gig.id);
+            await settle();
+            assert.equal(sent.status, 'pending');
+            assert.deepEqual(dmed, ['admin']);
+            assert.equal((await gigs.approve(admin, gig.id, true)).status, 'open');
+        });
+
+        it('posts straight away when an admin sends it, and tells the fixer', async () => {
+            const gig = await gigs.createDraft(fixer, input(one));
+            assert.equal((await gigs.send(admin, gig.id)).status, 'open');
+            await settle();
+            assert.ok(synced.includes('open'));
+            assert.deepEqual(dmed, ['fixer']);
+        });
+
+        it('keeps an unlimited group unlimited when sent', async () => {
+            const gig = await gigs.createDraft(admin, input([{ crewId: null, count: 0 }]));
+            const sent = await gigs.send(admin, gig.id);
+            assert.deepEqual(sent.slots.map((s) => s.unlimited), [true]);
+        });
+
+        it('only sends once', async () => {
+            const gig = await gigs.createDraft(admin, input(one));
+            await gigs.send(admin, gig.id);
+            await assert.rejects(gigs.send(admin, gig.id), /not a draft/);
+        });
+
+        it('can be deleted by its author', async () => {
+            const gig = await gigs.createDraft(fixer, blank);
+            await gigs.delete(fixer, gig.id);
+            await assert.rejects(gigs.view(gig.id), /No such gig/);
+        });
+    });
+
+    describe('sign-up limit', () => {
+        it('stops a player at the limit, however many runners they have', async () => {
+            maxSignups = 2;
+            await addRunner('a', 'a2');
+            const [first, second, third] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
+            await gigs.join('a', first.id, ids.a);
+            await gigs.join('a', second.id, ids.a2);
+            await assert.rejects(gigs.join('a', third.id, ids.a), /the limit/);
+            assert.deepEqual(await gigs.mySignups('a'), { used: 2, max: 2 });
+            await gigs.join('b', third.id);
+        });
+
+        it('asks a player at the limit which runner, not at all', async () => {
+            maxSignups = 1;
+            await addRunner('a', 'a2');
+            const [first, second] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
+            assert.equal((await gigs.runnerChoices('a', first.id)).length, 2);
+            await gigs.join('a', first.id, ids.a);
+            assert.deepEqual(await gigs.runnerChoices('a', second.id), []);
+            await assert.rejects(gigs.join('a', second.id), /the limit/);
+        });
+
+        it('counts reserve places', async () => {
+            maxSignups = 1;
+            const full = await gigs.create(admin, input(one));
+            const other = await gigs.create(admin, input(one));
+            await gigs.join('a', full.id);
+            await gigs.join('b', full.id);
+            assert.deepEqual(await gigs.mySignups('b'), { used: 1, max: 1 });
+            await assert.rejects(gigs.join('b', other.id), /the limit/);
+        });
+
+        it('lets admins put someone over the limit', async () => {
+            maxSignups = 1;
+            const [first, second] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
+            await gigs.join('a', first.id);
+            await gigs.assign(admin, second.id, ids.a);
+            assert.equal((await gigs.mySignups('a')).used, 2);
+        });
+
+        it('frees up a place when a gig ends', async () => {
+            maxSignups = 1;
+            const [first, second] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
+            await gigs.join('a', first.id);
+            await gigs.setStatus(admin, first.id, 'cancelled');
+            await gigs.join('a', second.id);
+            assert.equal((await gigs.mySignups('a')).used, 1);
+        });
+
+        it('has no limit at 0', async () => {
+            for (let i = 0; i < 3; i++) await gigs.join('a', (await gigs.create(admin, input(two))).id);
+            assert.deepEqual(await gigs.mySignups('a'), { used: 3, max: 0 });
         });
     });
 });

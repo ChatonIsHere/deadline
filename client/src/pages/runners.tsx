@@ -61,6 +61,7 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
                     <span className={cn(picture, 'grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{f.fixerName[0]?.toUpperCase()}</span>
                 )}
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.fixerName}</h3>
+                {f.tagline && <p className="mb-1 truncate text-xs text-accent">{f.tagline}</p>}
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
                 <div className="mt-auto flex justify-end text-right">
                     <RatingLine rating={f.rating} count={false} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />

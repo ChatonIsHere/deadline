@@ -1,5 +1,6 @@
 import type { Review } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { ArtPanel } from '@/components/art';
 import { ConfirmButton, Live, liveKey, Loading, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RatingLine, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
 import { useTimeZone } from '@/lib/time';
+import { cn } from '@/lib/utils';
 import { GigList } from '@/pages/runner';
 
 /**
@@ -36,67 +38,82 @@ export function FixerPage() {
     ].filter((f) => f.value);
 
     return (
-        <div className="space-y-6">
-            <Live value={[fixer.fixerName, fixer.imageId, fixer.rating, fixer.fixerGigs.length, fields, fixer.owner]}>
-                <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
-                    <RunnerAvatar runner={{ handle: fixer.fixerName, imageId: fixer.imageId }} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
-                    <div className="min-w-0 space-y-3">
-                        <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
-                        <h1 className="text-3xl break-words text-accent">{fixer.fixerName}</h1>
-                        <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <RatingLine rating={fixer.rating} />
-                            <span className="text-xs text-muted-foreground">
-                                {fixer.fixerGigs.length} gig{fixer.fixerGigs.length === 1 ? '' : 's'} put out
-                            </span>
-                        </p>
-                        {fields.length > 0 && (
-                            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 pt-1">
-                                {fields.map((f) => (
-                                    <div key={f.label} className="contents">
-                                        <dt className="text-muted-foreground">{f.label}</dt>
-                                        <dd className="break-words">{f.value}</dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        )}
-                        <div className="flex flex-wrap gap-2 pt-2">
-                            {fixer.owner && (
-                                <Button asChild variant="outline" size="sm">
-                                    <Link to={`/runners/${fixer.slug}`}>View runner profile</Link>
-                                </Button>
+        <div className={cn('grid items-start gap-6', fixer.artId && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+            {fixer.artId && (
+                <div className="max-lg:hidden lg:col-start-2 lg:row-start-1">
+                    <ArtPanel artId={fixer.artId} name={fixer.fixerName} />
+                </div>
+            )}
+            <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
+                <Live value={[fixer.fixerName, fixer.tagline, fixer.imageId, fixer.rating, fixer.fixerGigs.length, fields, fixer.owner]}>
+                    <div className="cut-frame grid gap-6 p-5 [--cut:20px] [--frame:var(--color-accent)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:p-6">
+                        <RunnerAvatar runner={{ handle: fixer.fixerName, imageId: fixer.imageId }} framed className="aspect-square h-auto w-40 text-5xl sm:w-full" />
+                        <div className="min-w-0 space-y-3">
+                            <p className="text-xs tracking-widest text-muted-foreground">// FIXER</p>
+                            <h1 className="text-3xl break-words text-accent">{fixer.fixerName}</h1>
+                            {fixer.tagline && <p className="italic">{fixer.tagline}</p>}
+                            <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <RatingLine rating={fixer.rating} />
+                                <span className="text-xs text-muted-foreground">
+                                    {fixer.fixerGigs.length} gig{fixer.fixerGigs.length === 1 ? '' : 's'} put out
+                                </span>
+                            </p>
+                            {fields.length > 0 && (
+                                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 pt-1">
+                                    {fields.map((f) => (
+                                        <div key={f.label} className="contents">
+                                            <dt className="text-muted-foreground">{f.label}</dt>
+                                            <dd className="break-words">{f.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
                             )}
-                            {canManage && (
-                                <Button asChild variant="outline" size="sm">
-                                    <Link to={fixer.ownerId ? `/runners/${fixer.slug}/edit` : `/fixers/${fixer.slug}/edit`}>Edit</Link>
-                                </Button>
-                            )}
-                            {/* A player's fixer is their runner, so it's deleted from the runner profile */}
-                            {canManage && !fixer.owner && (
-                                <ConfirmButton
-                                    size="sm"
-                                    label="Delete"
-                                    title={`Delete ${fixer.fixerName}?`}
-                                    description="They're taken off any live gigs. Finished gigs keep the record."
-                                    onConfirm={() => remove.mutate()}
-                                />
-                            )}
+                            <div className="flex flex-wrap gap-2 pt-2">
+                                {fixer.owner && (
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link to={`/runners/${fixer.slug}`}>View runner profile</Link>
+                                    </Button>
+                                )}
+                                {canManage && (
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link to={fixer.ownerId ? `/runners/${fixer.slug}/edit` : `/fixers/${fixer.slug}/edit`}>Edit</Link>
+                                    </Button>
+                                )}
+                                {/* A player's fixer is their runner, so it's deleted from the runner profile */}
+                                {canManage && !fixer.owner && (
+                                    <ConfirmButton
+                                        size="sm"
+                                        label="Delete"
+                                        title={`Delete ${fixer.fixerName}?`}
+                                        description="They're taken off any live gigs. Finished gigs keep the record."
+                                        onConfirm={() => remove.mutate()}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </Live>
-
-            {fixer.bio && (
-                <Live value={fixer.bio}>
-                    <Card>
-                        <CardTitle>About</CardTitle>
-                        <Markdown text={fixer.bio} />
-                    </Card>
                 </Live>
-            )}
 
-            <div className="grid gap-5 lg:grid-cols-2">
-                <GigList title="Gigs put out" gigs={fixer.fixerGigs} empty="no gigs yet." />
-                {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
+                {/* On phones it goes under their name, not above it */}
+                {fixer.artId && (
+                    <div className="lg:hidden">
+                        <ArtPanel artId={fixer.artId} name={fixer.fixerName} />
+                    </div>
+                )}
+
+                {fixer.bio && (
+                    <Live value={fixer.bio}>
+                        <Card>
+                            <CardTitle>About</CardTitle>
+                            <Markdown text={fixer.bio} />
+                        </Card>
+                    </Live>
+                )}
+
+                <div className="grid gap-5 lg:grid-cols-2">
+                    <GigList title="Gigs put out" gigs={fixer.fixerGigs} empty="no gigs yet." />
+                    {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
+                </div>
             </div>
         </div>
     );

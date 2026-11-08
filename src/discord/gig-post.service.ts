@@ -106,7 +106,7 @@ export class GigPostService {
      * gig gets archived. Returns where the post is now.
      */
     async sync(gig: GigView, post: PostRef & { cardKey: string | null }, note?: Note): Promise<PostRef> {
-        if (gig.status === 'pending' || gig.status === 'rejected') return { threadId: post.threadId, overflowIds: post.overflowIds };
+        if (gig.status === 'draft' || gig.status === 'pending' || gig.status === 'rejected') return { threadId: post.threadId, overflowIds: post.overflowIds };
 
         // Emoji load on startup; posts built before that would fall back to plain text
         await this.emoji.ready;

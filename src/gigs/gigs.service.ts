@@ -11,11 +11,11 @@ import { LibraryService } from '../library/library.service';
 import { stringList } from '../prisma/json';
 import { PrismaService, type Tx } from '../prisma/prisma.service';
 import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from '../shared/permissions';
-import { type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
+import { type GigDraftInput, gigInput, type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, type MySignups, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
 import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
 import { confirmDeadline, sessionWork } from './sessions';
-import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, spareChanges, unlimitedGroups } from './slots';
+import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, slotGroups, spareChanges, unlimitedGroups } from './slots';
 
 export const ACTIVE = LIVE_STATUSES;
 const SWEEP_MS = 6 * 60 * 60 * 1000;
@@ -44,6 +44,7 @@ export const toCard = (r: Runner): RunnerCard => ({
     role: r.role,
     extraRoles: stringList(r.extraRoles),
     imageId: r.imageId,
+    tagline: r.tagline,
     ownerId: r.ownerId,
     status: r.status,
 });
@@ -112,12 +113,89 @@ export class GigsService {
         });
 
         await this.library.refreshUsage([fields.imageId]);
+        this.announceSent(user, id, status, fields);
+        return this.view(id, user);
+    }
+
+    /** Posts a gig that just went live, or tells the admins one is waiting for them. */
+    private announceSent(user: Me, id: string, status: GigStatus, gig: { name: string; fixerName: string }) {
         if (status === 'open') {
             this.post(id, { after: (view) => this.announce(view) });
         } else {
             this.post(id);
             const admins = this.members.admins().filter((a) => a !== user.id);
-            this.notify.fire('approvals', admins, linked(voice.needsApproval(fields.name, fields.fixerName), 'Review it', boardLink({ id, name: fields.name })));
+            this.notify.fire('approvals', admins, linked(voice.needsApproval(gig.name, gig.fixerName), 'Review it', boardLink({ id, name: gig.name })));
+        }
+    }
+
+    /** Saves a new draft. Only the name has to be there yet. */
+    async createDraft(user: Me, input: GigDraftInput): Promise<GigView> {
+        if (!canCreateGig(user)) throw new ForbiddenException();
+        const { objectives, slots, ...fields } = await this.prepareDraft(user, input);
+        const id = await this.prisma.$transaction(async (tx) => {
+            const gig = await tx.gig.create({ data: { ...fields, status: 'draft', createdBy: user.id }, select: { id: true } });
+            await this.writeObjectives(tx, gig.id, objectives);
+            await this.writeSlots(tx, gig.id, slots);
+            return gig.id;
+        });
+        await this.library.refreshUsage([fields.imageId]);
+        return this.view(id, user);
+    }
+
+    async updateDraft(user: Me, id: string, input: GigDraftInput): Promise<GigView> {
+        const gig = await this.row(id);
+        if (!canEditGig(user, gig)) throw new ForbiddenException();
+        if (gig.status !== 'draft') throw new BadRequestException('That gig is not a draft any more.');
+        const { objectives, slots, ...fields } = await this.prepareDraft(user, input);
+        await this.prisma.$transaction(async (tx) => {
+            await tx.gig.update({ where: { id }, data: fields });
+            await tx.gigObjective.deleteMany({ where: { gigId: id } });
+            await this.writeObjectives(tx, id, objectives);
+            await this.writeSlots(tx, id, slots);
+        });
+        await this.library.refreshUsage([fields.imageId, gig.imageId]);
+        return this.view(id, user);
+    }
+
+    /**
+     * Sends a draft on, once it's complete. A fixer's goes to the admins for approval. An admin
+     * sending one is the approval, so it posts, and a fixer whose draft it was gets told.
+     */
+    async send(user: Me, id: string): Promise<GigView> {
+        const gig = await this.prisma.gig.findUnique({ where: { id }, include: { objectives: { orderBy: { position: 'asc' } }, slots: true } });
+        if (!gig) throw new NotFoundException('No such gig.');
+        if (!canEditGig(user, gig)) throw new ForbiddenException();
+        if (gig.status !== 'draft') throw new BadRequestException('That gig is not a draft any more.');
+
+        const checked = gigInput.safeParse({
+            name: gig.name,
+            fixerName: gig.fixerName,
+            fixerRunnerId: gig.fixerRunnerId,
+            location: gig.location,
+            type: gig.type,
+            brief: gig.brief,
+            primaryObjective: stringList(gig.primaryObjective),
+            pay: gig.pay,
+            splitPay: gig.splitPay,
+            imageId: gig.imageId,
+            objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus, each: o.each, hidden: o.hidden })),
+            slots: slotGroups(gig.slots),
+        });
+        if (!checked.success) {
+            const issue = checked.error.issues[0];
+            throw new BadRequestException(`Not ready to send. ${String(issue.path[0] ?? 'form')}: ${issue.message}`);
+        }
+
+        const { objectives: _, slots: __, ...fields } = await this.prepare(user, checked.data);
+        const status: GigStatus = user.isAdmin ? 'open' : 'pending';
+        // Only one send can win, so a double click can't post it twice
+        const { count } = await this.prisma.gig.updateMany({ where: { id, status: 'draft' }, data: { ...fields, status } });
+        if (!count) throw new BadRequestException('That gig is not a draft any more.');
+
+        await this.library.refreshUsage([fields.imageId, gig.imageId]);
+        this.announceSent(user, id, status, fields);
+        if (status === 'open' && gig.createdBy !== user.id) {
+            this.notify.fire('fixerApprovals', [gig.createdBy], linked(voice.gigApproved(fields.name), 'Open on board', boardLink({ id, name: fields.name })));
         }
         return this.view(id, user);
     }
@@ -216,6 +294,8 @@ export class GigsService {
         const slot = await this.slotOf(id, userId);
         if (slot?.state === 'awaiting') return this.confirm(userId, id);
         if ((await this.row(id)).status !== 'open') throw new BadRequestException(voice.notOpen);
+        // Before asking which runner, so nobody picks one only to be told no
+        if (!slot && !(await this.isReserve(id, userId))) await this.checkLimit(this.prisma, userId);
 
         const added = await this.add(await this.pickRunner(userId, runnerId), id, false);
         if (added.reserve) return voice.reserve(added.reserve);
@@ -230,6 +310,7 @@ export class GigsService {
         const gig = await this.prisma.gig.findUnique({ where: { id }, select: { status: true } });
         if (gig?.status !== 'open' || !this.members.isEdgerunner(userId)) return [];
         if ((await this.slotOf(id, userId)) || (await this.isReserve(id, userId))) return [];
+        if (await this.atLimit(this.prisma, userId)) return [];
         const mine = await this.runnersOf(userId);
         return mine.length > 1 ? mine.map(toCard) : [];
     }
@@ -371,6 +452,12 @@ export class GigsService {
             if (await tx.gigReserve.findUnique({ where: { gigId_userId: { gigId: id, userId } } })) {
                 throw new BadRequestException(assigned ? voice.playerAlreadyReserve : voice.alreadyReserve);
             }
+            // Admins putting someone on a gig can go over the limit
+            if (!assigned && this.settings.get().maxSignups) {
+                // One sign-up per player at a time, or two quick ones on different gigs could both fit
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+                await this.checkLimit(tx, userId);
+            }
 
             const slot = pickSlot(slots, crewIds);
             if (!slot) {
@@ -449,6 +536,25 @@ export class GigsService {
             await this.keepSpares(tx, id);
             return moved;
         });
+    }
+
+    /** Slots and reserve places on live gigs, across all the player's runners. */
+    private async signupCount(db: PrismaService | Tx, userId: string): Promise<number> {
+        const live = { userId, gig: { status: { in: ACTIVE } } };
+        return (await db.gigSlot.count({ where: live })) + (await db.gigReserve.count({ where: live }));
+    }
+
+    private async atLimit(db: PrismaService | Tx, userId: string): Promise<boolean> {
+        const { maxSignups } = this.settings.get();
+        return !!maxSignups && (await this.signupCount(db, userId)) >= maxSignups;
+    }
+
+    private async checkLimit(db: PrismaService | Tx, userId: string) {
+        if (await this.atLimit(db, userId)) throw new BadRequestException(voice.atLimit(this.settings.get().maxSignups));
+    }
+
+    async mySignups(userId: string): Promise<MySignups> {
+        return { used: await this.signupCount(this.prisma, userId), max: this.settings.get().maxSignups };
     }
 
     /** Which of the player's runners is signing up. One runner means no need to ask. */
@@ -600,6 +706,16 @@ export class GigsService {
         return { ...input, fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId, imageId };
     }
 
+    /** The same for a draft, which can leave things blank. A fixer who can't be worked out yet stays empty. */
+    private async prepareDraft(user: Me, input: GigDraftInput) {
+        const fixer = await this.resolveFixer(user, input).catch((err) => {
+            if (err instanceof BadRequestException) return { name: input.fixerName, runnerId: null, userId: null };
+            throw err;
+        });
+        if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Pick another.');
+        return { ...input, fixerName: fixer.name, fixerRunnerId: fixer.runnerId, fixerId: fixer.userId };
+    }
+
     private async resolveFixer(user: Me, input: GigInput): Promise<{ name: string; runnerId: string | null; userId: string | null }> {
         if (input.fixerRunnerId) {
             const runner = await this.prisma.runner.findUnique({ where: { id: input.fixerRunnerId } });
@@ -692,6 +808,7 @@ export class GigsService {
             location: gig.location,
             type: gig.type,
             pay: gig.pay,
+            splitPay: gig.splitPay,
             brief: gig.brief,
             primaryObjective: stringList(gig.primaryObjective),
             imageId: gig.imageId,
@@ -717,7 +834,7 @@ export class GigsService {
             createdAt: gig.createdAt.getTime(),
             summary: done ? gig.summary : null,
             crewRewards: done ? { eb: gig.rewardEb, ip: gig.rewardIp, hqIp: gig.rewardHqIp, text: gig.rewardText } : null,
-            runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, hqIp: r.hqIp, text: r.text })),
+            runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, hqIp: r.hqIp, text: r.text, share: r.share })),
             canRate: done && !!gig.fixerRunnerId && !!userId && gig.slots.some((s) => s.userId === userId),
             myRating: rating ? { stars: rating.stars, comment: rating.comment } : null,
         };
@@ -769,6 +886,6 @@ async function lockGig(tx: Tx, id: string) {
 const boardLink = (gig: { id: string; name: string }) => `${config.PUBLIC_URL}/gigs/${gigRef(gig)}`;
 
 /** A sign-up whose runner was deleted. */
-const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, ownerId: userId, status: 'active' });
+const unknownRunner = (userId: string): RunnerCard => ({ id: '', slug: '', handle: 'Unknown runner', role: '', extraRoles: [], imageId: null, tagline: null, ownerId: userId, status: 'active' });
 
 type AfterPost = (view: GigView, threadId: string) => Promise<void>;

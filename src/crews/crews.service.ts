@@ -16,8 +16,8 @@ const CREW_INCLUDE = {
     members: { include: { runner: true } },
     allies: { include: { runner: true } },
     invites: { include: { runner: true }, orderBy: { createdAt: 'asc' } },
-    // Gigs with slots for the crew. Only posted ones, so nobody sees a pending gig they shouldn't
-    slots: { where: { gig: { status: { notIn: ['pending', 'rejected'] } } }, select: { gig: true } },
+    // Gigs with slots for the crew. Only posted ones, so nobody sees an unposted gig they shouldn't
+    slots: { where: { gig: { status: { notIn: ['draft', 'pending', 'rejected'] } } }, select: { gig: true } },
 } as const satisfies Prisma.CrewInclude;
 type CrewRow = Prisma.CrewGetPayload<{ include: typeof CREW_INCLUDE }>;
 

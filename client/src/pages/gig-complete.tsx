@@ -1,3 +1,4 @@
+import { splitPot } from '@shared/pay';
 import { slotCount } from '@shared/slots';
 import { completeInput, type CompleteInput, type GigView, isLive } from '@shared/schemas';
 import { CalendarClock, Minus, Plus } from 'lucide-react';
@@ -39,6 +40,19 @@ type Done = { primary: boolean; objectives: number[] };
 /** The crew's pay from the objectives they pulled off. */
 const objectivesPay = (gig: GigView, done: Done) =>
     (done.primary ? gig.pay : 0) + gig.objectives.reduce((sum, o, i) => sum + (o.bonus ?? 0) * (done.objectives[i] ?? 0), 0);
+
+/** How a pot works out between the runners on the gig. */
+function PotLine({ pot, runners }: { pot: number; runners: number }) {
+    if (!runners) return <Say>nobody on the gig to split it.</Say>;
+    const cuts = splitPot(pot, runners);
+    const left = cuts.filter((c) => c > cuts[cuts.length - 1]).length;
+    return (
+        <p className="text-right text-xs text-muted-foreground">
+            {cuts[cuts.length - 1].toLocaleString('en-GB')} each between {runners}
+            {left > 0 && (left === 1 ? ', and the oldest character gets 1 more' : `, and the ${left} oldest characters get 1 more`)}
+        </p>
+    );
+}
 
 function DebriefForm({ gig }: { gig: GigView }) {
     const navigate = useNavigate();
@@ -98,7 +112,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
                     </Card>
 
                     <Card className="space-y-4">
-                        <CardTitle help="everyone on the gig gets these. pay comes from the objectives ticked off, plus any bonus.">Crew rewards</CardTitle>
+                        <CardTitle help={gig.splitPay ? 'the pot is divided between everyone on the gig. IP and anything else goes to each of them.' : 'everyone on the gig gets these. pay comes from the objectives ticked off, plus any bonus.'}>Crew rewards</CardTitle>
                         <div className="grid grid-cols-[1fr_auto] items-end gap-x-4 gap-y-3 sm:grid-cols-[auto_1fr_auto]">
                             <div className="hidden sm:block">
                                 <Label>Objectives</Label>
@@ -108,12 +122,13 @@ function DebriefForm({ gig }: { gig: GigView }) {
                             </div>
                             <Amount id="bonus" label="Bonus" icon value={crew.bonus} onChange={(v) => setCrew({ ...crew, bonus: v })} />
                             <div className="text-right">
-                                <Label>Pay</Label>
+                                <Label>{gig.splitPay ? 'Pot' : 'Pay'}</Label>
                                 <p className="flex h-9 items-center justify-end text-lg">
                                     <Money amount={pay} />
                                 </p>
                             </div>
                         </div>
+                        {gig.splitPay && <PotLine pot={pay} runners={runners.length} />}
                         <div className="grid grid-cols-2 gap-3">
                             <Amount id="ip" label="IP" value={crew.ip} onChange={(ip) => setCrew({ ...crew, ip })} />
                             <Amount id="hq" label="HQ IP" value={crew.hqIp} onChange={(hqIp) => setCrew({ ...crew, hqIp })} />

@@ -1,4 +1,4 @@
-import { gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } from '@shared/schemas';
+import { gigDraftInput, type GigDraftInput, gigInput, type GigInput, type GigView, type LibraryView, MAX_SLOTS } from '@shared/schemas';
 import { Eye, EyeOff, Plus, Shuffle, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -27,6 +27,8 @@ interface FormState {
     primaryObjective: string[];
     /** What the primary objective pays. */
     pay: string;
+    /** The pay is one pot divided between the runners. */
+    splitPay: boolean;
     imageId: string | null;
     /** The picture came from the library, so it follows the location. */
     imageAuto: boolean;
@@ -45,6 +47,7 @@ function toForm(gig?: GigView): FormState {
             brief: '',
             primaryObjective: [''],
             pay: '',
+            splitPay: false,
             imageId: null,
             imageAuto: true,
             objectives: [],
@@ -66,11 +69,13 @@ function toForm(gig?: GigView): FormState {
         type: gig.type ?? '',
         brief: gig.brief,
         primaryObjective: gig.primaryObjective.length ? gig.primaryObjective : [''],
-        pay: String(gig.pay),
+        // A draft can be saved with no pay yet
+        pay: gig.pay ? String(gig.pay) : '',
+        splitPay: gig.splitPay,
         imageId: gig.imageId,
-        imageAuto: false,
+        imageAuto: !gig.imageId,
         objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each, hidden: o.hidden })),
-        slots: [...counts].map(([crewId, count]) => ({ crewId, count: unlimited.has(crewId) ? '0' : String(count) })),
+        slots: counts.size ? [...counts].map(([crewId, count]) => ({ crewId, count: unlimited.has(crewId) ? '0' : String(count) })) : [{ crewId: '', count: '4' }],
     };
 }
 
@@ -85,6 +90,19 @@ function fromForm({ imageAuto: _, ...form }: FormState): GigInput {
         objectives: form.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? Number(o.bonus) : null, each: o.each, hidden: o.hidden })),
         // Blank fails validation, rather than reading as 0 (unlimited)
         slots: form.slots.map((s) => ({ crewId: s.crewId || null, count: s.count === '' ? -1 : Number(s.count) })),
+    };
+}
+
+/** The form as a draft: whatever's filled in so far. Blank rows are left out. */
+function toDraft({ imageAuto: _, ...form }: FormState): GigDraftInput {
+    return {
+        ...form,
+        fixerRunnerId: form.fixerRunnerId || null,
+        type: form.type.trim() || null,
+        pay: Math.max(Math.floor(Number(form.pay)) || 0, 0),
+        primaryObjective: form.primaryObjective.filter((p) => p.trim()),
+        objectives: form.objectives.map((o) => ({ text: o.text, bonus: Number(o.bonus) > 0 ? Math.floor(Number(o.bonus)) : null, each: o.each, hidden: o.hidden })),
+        slots: form.slots.filter((s) => s.count !== '' && Number(s.count) >= 0).map((s) => ({ crewId: s.crewId || null, count: Math.floor(Number(s.count)) })),
     };
 }
 
@@ -103,8 +121,10 @@ function randomFrom(ids: string[], not: string | null): string | null {
     return list.length ? list[Math.floor(Math.random() * list.length)] : null;
 }
 
-export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolean; onSave: (input: GigInput) => void }) {
+export function GigForm({ gig, saving, onSave, onDraft }: { gig?: GigView; saving: boolean; onSave: (input: GigInput) => void; onDraft: (input: GigDraftInput) => void }) {
     const me = useUser();
+    // A posted gig just saves. A new one or a draft can be kept as a draft or sent on.
+    const unsent = !gig || gig.status === 'draft';
     const [form, setForm] = useState(() => toForm(gig));
     const [error, setError] = useState('');
 
@@ -141,6 +161,16 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
         }
         setError('');
         onSave(result.data);
+    };
+
+    const saveDraft = () => {
+        const result = gigDraftInput.safeParse(toDraft(form));
+        if (!result.success) {
+            setError(firstIssue(result.error));
+            return;
+        }
+        setError('');
+        onDraft(result.data);
     };
 
     return (
@@ -192,9 +222,21 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         ) : (
                             <span />
                         )}
-                        <div className="relative w-40">
-                            <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
-                            <Input className="pl-8" type="number" min={1} value={form.pay} onChange={(e) => set({ pay: e.target.value })} placeholder="Pay" aria-label="Pay" />
+                        <div className="flex items-end gap-2">
+                            <Button
+                                type="button"
+                                variant={form.splitPay ? 'accent' : 'outline'}
+                                className="mb-0.5 w-24"
+                                aria-pressed={form.splitPay}
+                                title={form.splitPay ? 'One pot, divided between the runners on the gig' : 'Every runner gets this much'}
+                                onClick={() => set({ splitPay: !form.splitPay })}
+                            >
+                                {form.splitPay ? 'Overall' : 'Per head'}
+                            </Button>
+                            <div className="relative w-40">
+                                <Icon name="eb" className="absolute top-2.5 left-2 z-10" />
+                                <Input className="pl-8" type="number" min={1} value={form.pay} onChange={(e) => set({ pay: e.target.value })} placeholder="Pay" aria-label="Pay" />
+                            </div>
                         </div>
                     </div>
                 </Card>
@@ -335,8 +377,8 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
                         <Combobox id="type" value={form.type} onChange={(type) => set({ type })} suggestions={types.map((t) => ({ value: t }))} maxLength={40} />
                     </div>
                     <div>
-                        <Label help="the primary objective's pay, up to that plus every secondary bonus. a + means per-each bonuses can add more.">Pay</Label>
-                        <Pay gig={{ pay: Number(form.pay) || 0, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null, each: o.each, secret: o.hidden })) }} />
+                        <Label help="the primary objective's pay, up to that plus every secondary bonus. a + means per-each bonuses can add more. overall pay puts all of it in one pot, divided between the runners on the gig.">Pay</Label>
+                        <Pay gig={{ pay: Number(form.pay) || 0, splitPay: form.splitPay, objectives: form.objectives.map((o) => ({ bonus: Number(o.bonus) || null, each: o.each, secret: o.hidden })) }} />
                     </div>
                 </Card>
 
@@ -366,8 +408,13 @@ export function GigForm({ gig, saving, onSave }: { gig?: GigView; saving: boolea
 
                 {error && <p className="text-destructive">{error}</p>}
                 <Button type="submit" className="w-full" disabled={saving || noFixer}>
-                    {gig ? 'Save changes' : 'Post the gig'}
+                    {!unsent ? 'Save changes' : me.isAdmin ? 'Post the gig' : 'Send for approval'}
                 </Button>
+                {unsent && (
+                    <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={saveDraft}>
+                        Save draft
+                    </Button>
+                )}
             </div>
         </form>
     );

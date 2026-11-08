@@ -4,10 +4,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
-import { cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
+import sharp from 'sharp';
+import { artPreviewFile, cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
 import { DiskStorage, StorageService } from '../storage/storage.service';
 import { CleanupService } from './cleanup.service';
-import { LibraryService } from './library.service';
+import { compressArt, LibraryService } from './library.service';
 
 const DAY = 86_400_000;
 const folder = mkdtempSync(join(tmpdir(), 'deadline-objects-'));
@@ -69,6 +70,31 @@ describe('picture cleanup', () => {
         await prisma.runner.create({ data: { ownerId: 'a', handle: 'Vex', slug: 'vex', role: 'Solo', imageId: id } });
         assert.deepEqual(await cleanup.run(), { images: 0, files: 0 });
         assert.ok(await prisma.image.findUnique({ where: { id } }));
+    });
+
+    it('keeps art a runner is using', async () => {
+        const id = await picture();
+        await prisma.image.update({ where: { id }, data: { unusedSince: new Date(Date.now() - 40 * DAY) } });
+        await prisma.runner.create({ data: { ownerId: 'a', handle: 'Vex', slug: 'vex', role: 'Solo', artId: id } });
+        assert.deepEqual(await cleanup.run(), { images: 0, files: 0 });
+        await library.refreshUsage([id]);
+        assert.equal((await prisma.image.findUniqueOrThrow({ where: { id } })).unusedSince, null);
+    });
+
+    it('stores art at its own shape, with a preview and no frames', async () => {
+        const tall = await sharp({ create: { width: 1500, height: 3000, channels: 3, background: '#336699' } }).png().toBuffer();
+        const id = await library.add(tall, { regionId: null, inLibrary: false, createdBy: 'a', kind: 'art' });
+        assert.deepEqual((await storage.list(imagePrefix(id))).sort(), [artPreviewFile(id), plainFile(id)].sort());
+        const stored = await sharp((await storage.get(plainFile(id)))!).metadata();
+        assert.deepEqual([stored.format, stored.width, stored.height], ['webp', 1000, 2000]);
+        const preview = await sharp((await storage.get(artPreviewFile(id)))!).metadata();
+        assert.deepEqual([preview.width, preview.height], [450, 900]);
+    });
+
+    it('never makes small art bigger', async () => {
+        const small = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#993366' } }).png().toBuffer();
+        const { width, height } = await sharp(await compressArt(small)).metadata();
+        assert.deepEqual([width, height], [300, 200]);
     });
 
     it('deletes replaced gig cards 30 days after they were replaced', async () => {

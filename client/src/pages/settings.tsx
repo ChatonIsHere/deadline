@@ -162,6 +162,20 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                             {invalid.has('confirmHours') && <p className="mt-1 text-xs text-destructive">Whole hours, 1 to 168.</p>}
                             <p className="mt-1 text-xs text-muted-foreground">Ends an hour before the session if that's sooner. One nudge with 12 hours left, then the slot goes to the reserves.</p>
                         </div>
+                        <div>
+                            <Label htmlFor="max-signups">Most live gigs per player</Label>
+                            <Input
+                                id="max-signups"
+                                type="number"
+                                min={0}
+                                max={50}
+                                value={form.maxSignups}
+                                aria-invalid={invalid.has('maxSignups') || undefined}
+                                onChange={(e) => set({ maxSignups: Number(e.target.value) })}
+                            />
+                            {invalid.has('maxSignups') && <p className="mt-1 text-xs text-destructive">Whole number, 0 to 50.</p>}
+                            <p className="mt-1 text-xs text-muted-foreground">Across all of a player's runners, reserves included. 0 for no limit. Admins adding someone can go over it.</p>
+                        </div>
                     </Card>
                 </div>
 

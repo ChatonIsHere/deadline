@@ -1,6 +1,6 @@
 import { slotCount } from '@shared/slots';
 import { canDeleteGig, canEditGig, NEXT_STATUSES } from '@shared/permissions';
-import { type GigStatus, isLive } from '@shared/schemas';
+import { type GigStatus, type GigView, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -32,6 +32,7 @@ export function Gig() {
     const url = `/api/gigs/${gig?.id}`;
     const approve = useAction(() => api(`${url}/approve`, 'POST'), 'approved. posting to discord.');
     const reject = useAction(() => api(`${url}/reject`, 'POST'), 'contract rejected.');
+    const send = useAction(() => api<GigView>(`${url}/send`, 'POST'), (sent) => (sent.status === 'open' ? 'posted. going up on discord.' : 'sent to the admins for approval.'));
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'status updated.');
     const kick = useAction((slotId: string) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'runner removed.');
     const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'removed from the reserves.');
@@ -77,6 +78,20 @@ export function Gig() {
                 </div>
             </div>
 
+            {gig.status === 'draft' && (
+                <div className="cut-frame flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
+                    <Say className="flex-1">
+                        {!me.isAdmin
+                            ? 'draft. only you and the admins can see it.'
+                            : gig.createdBy.id === me.id
+                              ? 'your draft. nothing is posted until you post it.'
+                              : `${gig.createdBy.name}'s draft. posting it counts as approving it.`}
+                    </Say>
+                    <Button onClick={() => send.mutate()} disabled={send.isPending}>
+                        {me.isAdmin ? 'Post it' : 'Send for approval'}
+                    </Button>
+                </div>
+            )}
             {gig.status === 'pending' && (
                 <div className="cut-frame flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
                     <Say className="flex-1">
@@ -101,14 +116,16 @@ export function Gig() {
                     )}
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
                     {gig.canRate && <RateFixer gig={gig} />}
-                    <Live value={gig.brief}>
-                        <Card>
-                            <CardTitle>Brief</CardTitle>
-                            <Markdown text={gig.brief} />
-                        </Card>
-                    </Live>
+                    {gig.brief && (
+                        <Live value={gig.brief}>
+                            <Card>
+                                <CardTitle>Brief</CardTitle>
+                                <Markdown text={gig.brief} />
+                            </Card>
+                        </Live>
+                    )}
                     {gig.primaryObjective.length > 0 && (
-                        <Live value={[gig.primaryObjective, gig.pay]}>
+                        <Live value={[gig.primaryObjective, gig.pay, gig.splitPay]}>
                             <Card>
                                 <CardTitle className="flex items-center gap-2">
                                     <Icon name="objective" /> Primary objective
@@ -122,7 +139,10 @@ export function Gig() {
                                             </li>
                                         ))}
                                     </ul>
-                                    <Money amount={gig.pay} className="shrink-0 self-start" />
+                                    <span className="flex shrink-0 items-center gap-1 self-start">
+                                        <Money amount={gig.pay} />
+                                        {gig.splitPay && <span className="text-muted-foreground">split</span>}
+                                    </span>
                                 </div>
                             </Card>
                         </Live>
@@ -161,7 +181,7 @@ export function Gig() {
                 </div>
 
                 <div className="space-y-5">
-                    <Live value={[gig.fixerName, gig.fixerRunnerId, gig.fixerImageId, gig.location, gig.pay, gig.objectives]}>
+                    <Live value={[gig.fixerName, gig.fixerRunnerId, gig.fixerImageId, gig.location, gig.pay, gig.splitPay, gig.objectives]}>
                         <Card className="space-y-2">
                             <CardTitle>Details</CardTitle>
                             <Detail
@@ -174,12 +194,13 @@ export function Gig() {
                                             {gig.fixerName}
                                         </Link>
                                     ) : (
-                                        gig.fixerName
+                                        gig.fixerName || '-'
                                     )
                                 }
                             />
-                            <Detail icon="location" label="Location" value={gig.location} />
+                            <Detail icon="location" label="Location" value={gig.location || '-'} />
                             <Detail icon="eb" label="Pay" value={<Pay gig={gig} />} />
+                            {gig.splitPay && <PotEstimate gig={gig} />}
                         </Card>
                     </Live>
 
@@ -250,6 +271,18 @@ export function Gig() {
                 </div>
             </div>
         </div>
+    );
+}
+
+/** Roughly what each runner gets from an overall pay with a full crew, or who's on it so far if there's no limit. */
+function PotEstimate({ gig }: { gig: GigView }) {
+    const runners = gig.slots.some((s) => s.unlimited) ? gig.slots.filter((s) => s.runner).length : gig.slots.length;
+    if (!runners || !gig.pay) return null;
+    return (
+        <p className="text-xs text-muted-foreground">
+            about {Math.floor(gig.pay / runners).toLocaleString('en-GB')} each with {runners} runner{runners === 1 ? '' : 's'}
+            {gig.objectives.some((o) => o.bonus) ? ', before bonuses' : ''}. odd eddies go to the oldest characters.
+        </p>
     );
 }
 

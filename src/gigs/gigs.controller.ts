@@ -5,6 +5,8 @@ import { plainVoice, type Said, voice } from '../discord/voice';
 import {
     completeInput,
     type CompleteInput,
+    gigDraftInput,
+    type GigDraftInput,
     gigInput,
     type GigInput,
     joinInput,
@@ -41,6 +43,12 @@ export class GigsController {
         return this.posts.types().catch(() => []);
     }
 
+    /** How many live gigs the signed in player is on, and the limit. */
+    @Get('my-signups')
+    mySignups(@CurrentUser() user: Me) {
+        return this.gigs.mySignups(user.id);
+    }
+
     /** By gig link or UUID. */
     @Get(':id')
     get(@CurrentUser() user: Me, @Param('id') ref: string) {
@@ -50,6 +58,23 @@ export class GigsController {
     @Post()
     create(@CurrentUser() user: Me, @Body(new ZodPipe(gigInput)) body: GigInput) {
         return this.gigs.create(user, body);
+    }
+
+    /** Saves a new draft. Nothing is posted and nobody is told. */
+    @Post('draft')
+    createDraft(@CurrentUser() user: Me, @Body(new ZodPipe(gigDraftInput)) body: GigDraftInput) {
+        return this.gigs.createDraft(user, body);
+    }
+
+    @Patch(':id/draft')
+    updateDraft(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(gigDraftInput)) body: GigDraftInput) {
+        return this.gigs.updateDraft(user, id, body);
+    }
+
+    /** A fixer's draft goes to the admins for approval. An admin's send posts it. */
+    @Post(':id/send')
+    send(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.gigs.send(user, id);
     }
 
     @Patch(':id')

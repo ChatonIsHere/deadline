@@ -51,7 +51,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         ...(me.isAdmin ? [{ to: '/fixers/new', label: 'New NPC fixer' }] : []),
     ];
     // Live gigs first, finished ones after
-    const live = (s: string) => s === 'open' || s === 'closed' || s === 'pending';
+    const live = (s: string) => s === 'open' || s === 'closed' || s === 'pending' || s === 'draft';
     const sortedGigs = [...gigs].sort((a, b) => Number(live(b.status)) - Number(live(a.status)));
 
     return (

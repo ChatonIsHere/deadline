@@ -55,6 +55,7 @@ export function RunnerTile({ runner }: { runner: RunnerCard }) {
             <div className="min-w-0 space-y-1.5">
                 <h3 className={cn('truncate text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
                 {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
+                {runner.tagline && <p className="truncate text-xs text-muted-foreground">{runner.tagline}</p>}
             </div>
         </LinkCard>
     );

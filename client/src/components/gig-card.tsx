@@ -22,16 +22,21 @@ export function GigCard({ gig }: { gig: GigView }) {
                 </div>
                 <h3 className="mb-2 text-lg leading-tight">{gig.name}</h3>
                 <p className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                        <Icon name="fixer" /> {gig.fixerName}
-                    </span>
-                    <span className="flex items-center gap-1">
-                        <Icon name="location" /> {gig.location}
-                    </span>
+                    {/* Only a draft can have these blank */}
+                    {gig.fixerName && (
+                        <span className="flex items-center gap-1">
+                            <Icon name="fixer" /> {gig.fixerName}
+                        </span>
+                    )}
+                    {gig.location && (
+                        <span className="flex items-center gap-1">
+                            <Icon name="location" /> {gig.location}
+                        </span>
+                    )}
                     {gig.sessionAt && <span className="text-accent">{formatSession(gig.sessionAt)}</span>}
                 </p>
                 <div className="flex items-center justify-between gap-4">
-                    <Pay gig={gig} />
+                    <Pay gig={gig} compact />
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
                         {pips && (
                             <span className="flex gap-0.5">

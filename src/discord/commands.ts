@@ -187,6 +187,8 @@ export class Commands {
                 role: role.trim(),
                 extraRoles: [],
                 imageId: null,
+                artId: null,
+                tagline: null,
                 fixerAlias: null,
                 officeLocation: null,
                 specialties: null,
