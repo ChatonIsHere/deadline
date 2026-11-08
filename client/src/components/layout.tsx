@@ -113,7 +113,8 @@ export function Layout() {
                     {/* Desktop: pages sit in the middle of the space above the prompt bar, and taller ones start at the top. A page with tabs fills it instead (xl:flex-1), keeping its tab bar up top and centring what's under it. */}
                     <main className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))] xl:pb-6', CARD_LISTS.includes(pathname) && '3xl:w-[min(96rem,calc(100%-26rem))] 3xl:max-w-[96rem]')}>
                         {me.isAdmin && <SetupReminder />}
-                        <div className="flex flex-1 flex-col xl:*:my-auto xl:*:w-full">
+                        {/* A page that's only a line from the board (nothing here yet, no such gig) centres it */}
+                        <div className="flex flex-1 flex-col [&>p]:text-center xl:*:my-auto xl:*:w-full">
                             <Outlet />
                         </div>
                     </main>
