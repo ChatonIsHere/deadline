@@ -182,4 +182,5 @@ Types get an emoji when one is named `type_<type>`, e.g. `type_heist`. Runner ro
 | `npm test` | Tests. Needs `docker compose up -d`: they use the `deadline_test` database, emptied before each test |
 | `npm run typecheck` | Server and client |
 | `npm run emoji` | Redraws `assets/emoji` from `scripts/draw-emoji.js` |
+| `scripts/test-data.js` | Demo runners, crews and gigs: `check`, `seed` or `remove`. How to run it is at the top of the file |
 | `npx prisma migrate dev --name <what>` | New migration after changing `prisma/schema.prisma`. The container applies migrations on start (`prisma migrate deploy`). |
