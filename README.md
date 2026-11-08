@@ -94,13 +94,13 @@ Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb,
    - `http://localhost:3003/auth/callback`
    - `https://deadline.doxbox.org/auth/callback`
 4. Start Deadline and sign in as the app's owner. Until a server is set up, only the owner (or the owning team) can sign in.
-5. On **Settings > Discord**, use the invite link to add the bot to a server, then pick the server, the gig forum and the admin, fixer and edgerunner roles.
+5. On **Settings**, use the invite link to add the bot to a server, then pick the server, the gig forum and the admin, fixer and edgerunner roles.
 
 The bot needs these in the forum: View Channel, Create Posts, Send Messages in Posts, Read Message History, Manage Posts and Embed Links. It also needs Manage Channels to add its tags (Open, Full, Closed, Completed, Cancelled), switch the forum to gallery view and set the archive time. The invite link asks for all of these. Players get DMs, so they need DMs from server members turned on.
 
 Any other forum tags work as gig types. If a gig's type matches a tag, the post gets that tag.
 
-**Bot profile:** **Settings > Bot** sets the bot's Discord banner (a library picture with the board's frame) and About me. Its status shows how many gigs are open.
+**Bot profile:** **Settings** sets the bot's Discord banner (a library picture with the board's frame) and About me. Its status shows how many gigs are open.
 
 ## Getting started
 
@@ -127,7 +127,7 @@ Without S3 settings, pictures are kept in `./data/objects`. Without `REDIS_URL`,
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_CLIENT_SECRET` | OAuth secret. The client ID is the bot's application ID |
 
-Server, forum and roles live in the database and are set on **Settings > Discord**.
+Server, forum and roles live in the database and are set on **Settings**.
 
 ## Commands
 
@@ -158,7 +158,7 @@ Server, forum and roles live in the database and are set on **Settings > Discord
 
 Every gig has a picture, framed in the board's colours. There are six frame variants (`src/library/frame.ts`), the same shape with the colours and lengths moved around; each picture always gets the same one. Outside the frame's cut edge the picture is transparent, so it sits on any Discord theme. Each picture is stored as WebP in a few versions: plain, framed with a margin for Discord, framed to the edge for the web, and a small thumb (pickers, grids, avatars) and medium copy (gig cards) of the web one. They're built on upload, and on startup for anything missing. A fixer can upload one (a crop tool opens first: drag and zoom to pick the part to keep, or use it as is and the middle is taken), or it's picked from the library: the location's region first, then its district, then the general pool.
 
-Admins manage the library under **Settings > Library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
+Admins manage the library under **Settings > Image library**. Night City's 2077 districts are seeded on first start. The general pool starts with the photos in `assets/pool` (see its `CREDITS.md`).
 
 Pictures are stored under `images/<id>/` and linked straight from the bucket (`<endpoint>/<bucket>/images/...`), like the api's avatars: they're only character art and location shots, so the objects are public. They go up with one-year cache headers; a changed picture always gets a new file name, since names carry the frame version or a hash. The web app reads the bucket's address from `/api/config` when it loads. Locally, without S3, they're kept in `./data/objects` and served at `/images/`; with S3 that route only redirects to the bucket.
 

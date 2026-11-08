@@ -1,6 +1,6 @@
 import { type BotProfile, FIXER_ROLE, type GuildOptions, type Option, type Settings, type SettingsView, settingsInput } from '@shared/schemas';
 import { useQuery } from '@tanstack/react-query';
-import { type ComponentProps, type FormEvent, type ReactNode, useState } from 'react';
+import { type ComponentProps, type FormEvent, useState } from 'react';
 import { Loading, Say } from '@/components/common';
 import { SettingsTabs } from '@/components/settings-tabs';
 import { Button } from '@/components/ui/button';

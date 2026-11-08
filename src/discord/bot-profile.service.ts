@@ -36,7 +36,7 @@ export class BotProfileService {
     async get(): Promise<BotProfile> {
         const app = await this.client.application!.fetch();
         const user = await this.client.user!.fetch();
-        return { about: app.description ?? '', bannerUrl: user.bannerURL({ size: 600 }) ?? null };
+        return { about: app.description ?? '', bannerUrl: user.bannerURL({ size: 1024 }) ?? null };
     }
 
     /** Admins only. The banner is a library picture with the board's frame on it. */
