@@ -5,6 +5,8 @@
 @import './reveal.css';
 
 @theme {
+    /* Where the card lists have room for another column at their usual card size */
+    --breakpoint-3xl: 110rem;
     --color-background: #0a0a12;
     --color-foreground: #e6e6f0;
     --color-card: #11111c;
