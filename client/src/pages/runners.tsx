@@ -1,4 +1,5 @@
 import type { FixerSummary, RunnerSummary } from '@shared/schemas';
+import { CardPages } from '@/components/card-pages';
 import { LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RatingLine, RunnerTile } from '@/components/runner';
 import { PageTabs } from '@/components/ui/tabs';
@@ -16,8 +17,8 @@ export function RunnersPage() {
         <PageTabs
             empty={<Say>no runners on the board yet.</Say>}
             tabs={[
-                { key: 'active', label: 'Active', count: active.length, content: <RunnerGrid runners={active} /> },
-                { key: 'retired', label: 'Retired', count: retired.length, content: <RunnerGrid runners={retired} /> },
+                { key: 'active', label: 'Active', count: active.length, content: <RunnerGrid id="runners-active" runners={active} /> },
+                { key: 'retired', label: 'Retired', count: retired.length, content: <RunnerGrid id="runners-retired" runners={retired} /> },
             ]}
         />
     );
@@ -26,32 +27,21 @@ export function RunnersPage() {
 /** Fixers: player fixers (with the Discord fixer role) and NPC ones. */
 export function FixersPage() {
     const { data: fixers, isPending } = useFixers();
+    if (isPending) return <Loading>pinging contacts...</Loading>;
+    if (!fixers?.length) return <Say>no fixers yet. a runner with the Fixer role shows here once their player has the Discord fixer role.</Say>;
 
     return (
-        <div className="space-y-5">
-            {isPending ? (
-                <Loading>pinging contacts...</Loading>
-            ) : fixers?.length ? (
-                <div className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] lg:[--cols:3] xl:[--cols:4] 3xl:[--cols:5]">
-                    {fixers.map((f) => (
-                        <FixerCard key={liveKey(f.id, f)} fixer={f} />
-                    ))}
-                </div>
-            ) : (
-                <Say>no fixers yet. a runner with the Fixer role shows here once their player has the Discord fixer role.</Say>
-            )}
-        </div>
+        <CardPages
+            id="fixers"
+            items={fixers}
+            className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] lg:[--cols:3] xl:[--cols:4] 3xl:[--cols:5]"
+            card={(f) => <FixerCard key={liveKey(f.id, f)} fixer={f} />}
+        />
     );
 }
 
-function RunnerGrid({ runners }: { runners: RunnerSummary[] }) {
-    return (
-        <div className="card-rows sm:[--cols:2] lg:[--cols:3] 3xl:[--cols:4]">
-            {runners.map((r) => (
-                <RunnerTile key={liveKey(r.id, r)} runner={r} />
-            ))}
-        </div>
-    );
+function RunnerGrid({ id, runners }: { id: string; runners: RunnerSummary[] }) {
+    return <CardPages id={id} items={runners} className="card-rows sm:[--cols:2] lg:[--cols:3] 3xl:[--cols:4]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Tabs as T } from 'radix-ui';
 import { type ComponentProps, type ReactNode, useState } from 'react';
+import { useLocation } from 'react-router';
 import { cn } from '@/lib/utils';
 
 export const Tabs = T.Root;
@@ -22,6 +23,9 @@ export function TabsTrigger({ className, ...props }: ComponentProps<typeof T.Tri
     );
 }
 
+/** The tab each page had open, so going to a card and back returns to it. */
+const openTabs = new Map<string, string>();
+
 export interface PageTab {
     key: string;
     label: string;
@@ -36,12 +40,17 @@ export interface PageTab {
  */
 export function PageTabs({ tabs, empty }: { tabs: PageTab[]; empty: ReactNode }) {
     const shown = tabs.filter((t) => t.count > 0);
-    const [picked, setPicked] = useState(shown[0]?.key ?? '');
+    const { pathname } = useLocation();
+    const [picked, setPicked] = useState(openTabs.get(pathname) ?? shown[0]?.key ?? '');
+    const pick = (key: string) => {
+        openTabs.set(pathname, key);
+        setPicked(key);
+    };
     if (!shown.length) return <>{empty}</>;
     if (shown.length === 1) return <>{shown[0].content}</>;
     const value = shown.some((t) => t.key === picked) ? picked : shown[0].key;
     return (
-        <Tabs value={value} onValueChange={setPicked} className="xl:flex xl:flex-1 xl:flex-col">
+        <Tabs value={value} onValueChange={pick} className="xl:flex xl:flex-1 xl:flex-col">
             <TabsList>
                 {shown.map((t) => (
                     <TabsTrigger key={t.key} value={t.key}>
@@ -50,7 +59,7 @@ export function PageTabs({ tabs, empty }: { tabs: PageTab[]; empty: ReactNode })
                 ))}
             </TabsList>
             {shown.map((t) => (
-                <TabsContent key={t.key} value={t.key} className="xl:my-auto">
+                <TabsContent key={t.key} value={t.key} className="xl:data-[state=active]:flex xl:data-[state=active]:flex-1 xl:data-[state=active]:flex-col">
                     {t.content}
                 </TabsContent>
             ))}

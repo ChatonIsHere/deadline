@@ -19,9 +19,9 @@ export function RunnerAvatar({ runner, framed, className }: { runner: Pick<Runne
         );
     }
     return framed ? (
-        <img src={imageUrl(runner.imageId)} alt="" className={cn('aspect-square shrink-0', className)} />
+        <img src={imageUrl(runner.imageId)} alt="" loading="lazy" className={cn('aspect-square shrink-0', className)} />
     ) : (
-        <img src={thumbUrl(runner.imageId)} alt="" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
+        <img src={thumbUrl(runner.imageId)} alt="" loading="lazy" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
     );
 }
 

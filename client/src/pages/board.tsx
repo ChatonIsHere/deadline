@@ -1,5 +1,6 @@
 import { type GigView, isLive } from '@shared/schemas';
 import { liveKey, Loading, Say } from '@/components/common';
+import { CardPages } from '@/components/card-pages';
 import { GigCard } from '@/components/gig-card';
 import { PageTabs } from '@/components/ui/tabs';
 import { useGigs } from '@/lib/api';
@@ -27,13 +28,7 @@ export function Board() {
                     key: t.key,
                     label: t.label,
                     count: list.length,
-                    content: (
-                        <div className="card-rows sm:[--cols:2] lg:[--cols:3] 3xl:[--cols:4]">
-                            {list.map((g) => (
-                                <GigCard key={liveKey(g.id, g)} gig={g} />
-                            ))}
-                        </div>
-                    ),
+                    content: <CardPages id={`gigs-${t.key}`} items={list} className="card-rows sm:[--cols:2] lg:[--cols:3] 3xl:[--cols:4]" card={(g) => <GigCard key={liveKey(g.id, g)} gig={g} />} />,
                 };
             })}
         />
