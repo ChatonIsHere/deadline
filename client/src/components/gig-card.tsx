@@ -1,6 +1,7 @@
 import type { GigView } from '@shared/schemas';
 import { slotCount } from '@shared/slots';
 import { Icon, LinkCard, Pay, StatusBadge } from '@/components/common';
+import { StaggeredImage } from '@/components/staggered-image';
 import { useFormatSession } from '@/lib/time';
 import { mediumUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ export function GigCard({ gig }: { gig: GigView }) {
     return (
         <div className="@container">
             <LinkCard to={`/gigs/${gig.ref}`} className={gig.imageId ? '[--cut:6.25cqw]' : undefined}>
-                {gig.imageId && <img src={mediumUrl(gig.imageId)} alt="" loading="lazy" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" />}
+                {gig.imageId && <StaggeredImage src={mediumUrl(gig.imageId)} className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" />}
                 <div className="mb-2 flex items-center gap-2">
                     <StatusBadge status={gig.status} />
                     {gig.type && <span className="text-xs text-muted-foreground uppercase">{gig.type}</span>}

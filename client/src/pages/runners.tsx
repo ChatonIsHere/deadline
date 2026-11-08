@@ -2,6 +2,7 @@ import type { FixerSummary, RunnerSummary } from '@shared/schemas';
 import { CardPages } from '@/components/card-pages';
 import { LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RatingLine, RunnerTile } from '@/components/runner';
+import { StaggeredImage } from '@/components/staggered-image';
 import { PageTabs } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -55,7 +56,7 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
         <div className="@container">
             <LinkCard to={`/fixers/${f.fixerSlug}`} className={f.imageId ? 'flex h-full flex-col [--cut:11.1cqw]' : 'flex h-full flex-col'}>
                 {f.imageId ? (
-                    <img src={imageUrl(f.imageId)} alt="" loading="lazy" className={picture} />
+                    <StaggeredImage src={imageUrl(f.imageId)} className={picture} />
                 ) : (
                     <span className={cn(picture, 'grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{f.fixerName[0]?.toUpperCase()}</span>
                 )}

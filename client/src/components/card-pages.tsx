@@ -1,6 +1,7 @@
 import { fitPages, pageNumbers } from '@shared/pages';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { SkipImages } from '@/components/staggered-image';
 import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/lib/media';
 import { cn } from '@/lib/utils';
@@ -68,9 +69,11 @@ export function CardPages<T>({ id, items, className, card }: { id: string; items
         <div ref={root} className="relative xl:flex xl:flex-1 xl:flex-col">
             {desktop && (
                 <div aria-hidden className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
-                    <div ref={ruler} className={cn(className, 'items-start')}>
-                        {items.map(card)}
-                    </div>
+                    <SkipImages value>
+                        <div ref={ruler} className={cn(className, 'items-start')}>
+                            {items.map(card)}
+                        </div>
+                    </SkipImages>
                 </div>
             )}
             <div className="xl:flex xl:flex-1 xl:flex-col xl:justify-center">

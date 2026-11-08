@@ -17,18 +17,7 @@ export function Crews() {
     const { data: crews, isPending } = useCrews();
 
     if (isPending) return <Loading>scanning...</Loading>;
-    if (!crews?.length) {
-        return (
-            <div className="space-y-4">
-                <Say>no crews registered. a crew is a group of runners with ranks, and gigs can hold slots for one.</Say>
-                {canCreateCrew(me) && (
-                    <Button asChild>
-                        <Link to="/crews/new">Register a crew</Link>
-                    </Button>
-                )}
-            </div>
-        );
-    }
+    if (!crews?.length) return <Say>no crews registered. a crew is a group of runners with ranks, and gigs can hold slots for one.</Say>;
     const isMine = (c: CrewView) => c.members.some((m) => m.ownerId === me.id);
     const mine = crews.filter(isMine);
     const rest = crews.filter((c) => !isMine(c));
