@@ -100,37 +100,42 @@ export function AvailabilityPage() {
                     {!everyone ? <Loading>pulling schedules...</Loading> : <Heatmap cells={cells} total={placed.length} picked={picked} onPick={setPicked} />}
                 </Card>
 
-                <div className="space-y-5">
-                    <Card className="space-y-3">
-                        <CardTitle>{picked !== null ? `${DAYS[Math.floor(picked / 24)]} ${pad(picked % 24)}:00` : 'Pick an hour'}</CardTitle>
-                        {!cell ? (
-                            <Say>point at an hour to see who's free.</Say>
-                        ) : cell.skipped ? (
-                            <Say>your clocks skip this hour this week.</Say>
-                        ) : (
-                            <>
-                                <p>
-                                    <span className="text-primary">{free.length}</span> of {placed.length} free
-                                </p>
-                                <People title="Free" people={free} at={cell.start} />
-                                <People title="Busy" people={busy} at={cell.start} muted />
-                            </>
-                        )}
-                    </Card>
-
-                    {unset.length > 0 && (
-                        <Card className="space-y-3">
-                            <CardTitle help="they haven't picked a timezone or marked any hours yet, so they're not counted.">Not set</CardTitle>
-                            <ul className="space-y-2">
-                                {unset.map((p) => (
-                                    <li key={p.member.id} className="flex items-center gap-2">
-                                        <Avatar member={p.member} />
-                                        <span className="truncate">{p.member.name}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                {/* Wider screens: exactly as tall as the table, so pointing at hours never moves anything. Long lists scroll inside. */}
+                <div className="lg:relative">
+                    <div className="flex flex-col gap-5 lg:absolute lg:inset-0">
+                        <Card className="flex flex-col space-y-3 lg:min-h-0 lg:flex-1">
+                            <CardTitle>{picked !== null ? `${DAYS[Math.floor(picked / 24)]} ${pad(picked % 24)}:00` : 'Pick an hour'}</CardTitle>
+                            <div className="space-y-3 [scrollbar-width:thin] lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+                                {!cell ? (
+                                    <Say>point at an hour to see who's free.</Say>
+                                ) : cell.skipped ? (
+                                    <Say>your clocks skip this hour this week.</Say>
+                                ) : (
+                                    <>
+                                        <p>
+                                            <span className="text-primary">{free.length}</span> of {placed.length} free
+                                        </p>
+                                        <People title="Free" people={free} at={cell.start} />
+                                        <People title="Busy" people={busy} at={cell.start} muted />
+                                    </>
+                                )}
+                            </div>
                         </Card>
-                    )}
+
+                        {unset.length > 0 && (
+                            <Card className="flex shrink-0 flex-col space-y-3 lg:max-h-[40%]">
+                                <CardTitle help="they haven't picked a timezone or marked any hours yet, so they're not counted.">Not set</CardTitle>
+                                <ul className="space-y-2 [scrollbar-width:thin] lg:min-h-0 lg:overflow-y-auto">
+                                    {unset.map((p) => (
+                                        <li key={p.member.id} className="flex items-center gap-2">
+                                            <Avatar member={p.member} />
+                                            <span className="truncate">{p.member.name}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
