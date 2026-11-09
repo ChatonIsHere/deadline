@@ -64,8 +64,11 @@ const runner = (key) => RUNNERS.find((r) => r.key === key) ?? fail(`No runner ${
 
 const CREWS = [
     { key: 'jackals', name: 'Neon Jackals', tagline: 'Loud, fast and mostly sorry.', ranks: ['Founder', 'Enforcer', 'Member'], members: { brick: 'Founder', kestrel: 'Enforcer', hexa: 'Member', riot: 'Member', sable: 'Member' }, allies: ['tin'] },
-    { key: 'saints', name: 'Paper Saints', tagline: 'Everything is in the fine print.', ranks: ['Founder', 'Member'], members: { margaux: 'Founder', scoop: 'Member', sorrel: 'Member' }, allies: ['reyes'] },
-    { key: 'riders', name: 'Rust Belt Riders', tagline: '', ranks: ['Boss', 'Road Captain', 'Prospect'], members: { dusty: 'Boss', wrench: 'Road Captain', glitch: 'Prospect', harlan: 'Prospect' }, allies: [] },
+    { key: 'saints', name: 'Paper Saints', tagline: 'Everything is in the fine print.', ranks: ['Founder', 'Member'], members: { margaux: 'Founder', scoop: 'Member', sorrel: 'Member', kestrel: 'Member' }, allies: ['reyes'] },
+    { key: 'riders', name: 'Rust Belt Riders', tagline: '', ranks: ['Boss', 'Road Captain', 'Prospect'], members: { dusty: 'Boss', wrench: 'Road Captain', glitch: 'Prospect', harlan: 'Prospect', kestrel: 'Prospect', riot: 'Prospect' }, allies: [] },
+    // With the others, Kestrel is in five crews and Riot in two, to show how a profile copes
+    { key: 'choir', name: 'Chrome Choir', tagline: 'Singing through the static.', ranks: ['Cantor', 'Voice'], members: { glitch: 'Cantor', kestrel: 'Voice' }, allies: [] },
+    { key: 'shift', name: 'Night Shift', tagline: '', ranks: ['Foreman', 'Hand'], members: { sorrel: 'Foreman', kestrel: 'Hand' }, allies: [] },
 ].map((c, i) => ({ ...c, id: uid('d0d2', i + 1), slug: toSlug(c.name) }));
 const crew = (key) => CREWS.find((c) => c.key === key) ?? fail(`No crew ${key}`);
 

@@ -28,7 +28,7 @@ export function RunnerPage() {
     const canManage = me.isAdmin || runner.ownerId === me.id;
     const gone = runner.status !== 'active';
     const hasArt = runner.artIds.length > 0;
-    const hasSide = hasArt || runner.crews.length > 0;
+    const hasCrews = runner.crews.length > 0;
 
     const details = (
         <>
@@ -64,33 +64,34 @@ export function RunnerPage() {
 
     return (
         <div className="space-y-6">
-            {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
-            <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.isFixer, runner.status]}>
-                <div className="space-y-4">
-                    <div className="flex items-start gap-4 sm:gap-5">
-                        <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
-                        <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
-                            <p className="text-xs tracking-widest text-muted-foreground">
-                                // RUNNER
-                                {gone && <span className={runner.status === 'dead' ? 'text-destructive' : undefined}>{runner.status === 'dead' ? ' · FLATLINED' : ' · RETIRED'}</span>}
-                            </p>
-                            <h1 className={cn('text-2xl break-words sm:text-3xl', gone ? 'text-muted-foreground' : 'text-primary')}>{runner.handle}</h1>
-                            {runner.tagline && <p className="text-accent italic">{runner.tagline}</p>}
-                            <Roles runner={runner} />
-                            <div className="hidden space-y-3 sm:block">{details}</div>
+            {/* The same two columns as below, so the crews sit over the gallery */}
+            <div className={cn('grid items-start gap-6', hasCrews && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+                {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
+                <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.isFixer, runner.status]}>
+                    <div className="min-w-0 space-y-4">
+                        <div className="flex items-start gap-4 sm:gap-5">
+                            <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
+                            <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+                                <p className="text-xs tracking-widest text-muted-foreground">
+                                    // RUNNER
+                                    {gone && <span className={runner.status === 'dead' ? 'text-destructive' : undefined}>{runner.status === 'dead' ? ' · FLATLINED' : ' · RETIRED'}</span>}
+                                </p>
+                                <h1 className={cn('text-2xl break-words sm:text-3xl', gone ? 'text-muted-foreground' : 'text-primary')}>{runner.handle}</h1>
+                                {runner.tagline && <p className="text-accent italic">{runner.tagline}</p>}
+                                <Roles runner={runner} />
+                                <div className="hidden space-y-3 sm:block">{details}</div>
+                            </div>
                         </div>
+                        <div className="space-y-3 sm:hidden">{details}</div>
                     </div>
-                    <div className="space-y-3 sm:hidden">{details}</div>
-                </div>
-            </Live>
-            <div className={cn('grid items-start gap-6', hasSide && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+                </Live>
+                {hasCrews && <RunnerCrews crews={runner.crews} />}
+            </div>
+            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
                 {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
-                {hasSide && (
-                    <div className="space-y-4 lg:col-start-2 lg:row-start-1">
-                        {runner.crews.map((c) => (
-                            <CrewBox key={liveKey(c.id, c)} crew={c} />
-                        ))}
-                        {hasArt && <ArtGallery artIds={runner.artIds} name={runner.handle} gone={gone} />}
+                {hasArt && (
+                    <div className="lg:col-start-2 lg:row-start-1">
+                        <ArtGallery artIds={runner.artIds} name={runner.handle} gone={gone} />
                     </div>
                 )}
                 <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
@@ -121,10 +122,38 @@ export function RunnerPage() {
     );
 }
 
-/** A crew the runner is in: its logo and name, and their rank in it. */
-function CrewBox({ crew }: { crew: RunnerView['crews'][number] }) {
+type RunnerCrew = RunnerView['crews'][number];
+
+/** Two rows at most, to sit beside their picture. With three or more crews, the second row is just logos. */
+function RunnerCrews({ crews }: { crews: RunnerCrew[] }) {
     return (
-        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex items-center gap-3 [--frame:var(--color-accent)]">
+        <div className="space-y-3">
+            <CrewBox key={liveKey(crews[0].id, crews[0])} crew={crews[0]} />
+            {crews.length === 2 && <CrewBox key={liveKey(crews[1].id, crews[1])} crew={crews[1]} />}
+            {crews.length > 2 && <CrewLogos crews={crews.slice(1)} />}
+        </div>
+    );
+}
+
+/** Five places: with more crews than that, the last one says how many are left. */
+function CrewLogos({ crews }: { crews: RunnerCrew[] }) {
+    const shown = crews.slice(0, crews.length > 5 ? 4 : 5);
+    return (
+        <div className="live-in cut-frame grid grid-cols-[repeat(5,minmax(0,3.5rem))] items-center gap-2 px-4 py-3 [--frame:var(--color-accent)]">
+            {shown.map((c) => (
+                <Link key={liveKey(c.id, c)} to={`/crews/${c.slug}`} title={`${c.name} · ${c.rank}`} aria-label={`${c.name}, ${c.rank}`} className="hover:opacity-80">
+                    <RunnerAvatar runner={{ handle: c.name, imageId: c.imageId }} large className="aspect-square h-auto w-full text-2xl [--cut:8px]" />
+                </Link>
+            ))}
+            {crews.length > shown.length && <span className="text-center text-xs text-muted-foreground">+{crews.length - shown.length}</span>}
+        </div>
+    );
+}
+
+/** A crew the runner is in: its logo and name, and their rank in it. */
+function CrewBox({ crew }: { crew: RunnerCrew }) {
+    return (
+        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex items-center gap-3 py-3 [--frame:var(--color-accent)]">
             <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-14 text-2xl [--cut:8px]" />
             <div className="min-w-0">
                 <h2 className="truncate text-lg leading-tight text-accent">{crew.name}</h2>
