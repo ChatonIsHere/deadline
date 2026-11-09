@@ -22,7 +22,7 @@ People with none of these roles can't log in. Admins are people with the admin r
 
 ## Runners and fixers
 
-- Players make **runners** (characters): a handle, a tagline, a main role, extra roles, a bio, a square picture and optional full art (any shape, 15 MB max, scaled to 2000px and compressed). The roles come from a list in Settings, starting with RED's core ten. Admins can make runners for any player (or hand one over) from the runner form on the web.
+- Players make **runners** (characters): a handle, a tagline, a main role, extra roles, a bio, a square picture and a gallery of up to 12 pictures (any shape, 15 MB each, scaled to 2000px and compressed). The roles come from a list in Settings, starting with RED's core ten. Admins can make runners for any player (or hand one over) from the runner form on the web.
 - Gigs, crews and Discord posts show runners, not Discord names. A player puts one runner on a gig. If they have several, the post's button asks which (a private menu), and so does the web.
 - A runner with the Fixer role is a **fixer** once their player has the Discord fixer role. Fixers show on the Fixers tab with an office, specialties, how to reach them, their gigs and their rating. Admins can add NPC fixers that have no player.
 - A fixer's gigs come from one of their fixer characters. Admins can pick any fixer or type a name for a one-off.

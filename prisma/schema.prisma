@@ -178,8 +178,6 @@ model Runner {
   /// More roles (string[])
   extraRoles     Json         @default("[]") @map("extra_roles")
   imageId        String?      @map("image_id") @db.Uuid
-  /// Full art, any shape, shown on their profile
-  artId          String?      @map("art_id") @db.Uuid
   /// One line under their name
   tagline        String?
   /// About the character. Markdown. Shown on the runner and fixer profiles.
@@ -209,7 +207,7 @@ model Runner {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
   image       Image?       @relation("RunnerPicture", fields: [imageId], references: [id], onDelete: SetNull)
-  art         Image?       @relation("RunnerArt", fields: [artId], references: [id], onDelete: SetNull)
+  photos      RunnerPhoto[]
   memberships CrewMember[]
   allyOf      CrewAlly[]
   invites     CrewInvite[]
@@ -221,7 +219,6 @@ model Runner {
 
   @@index([ownerId])
   @@index([imageId])
-  @@index([artId])
   @@map("runners")
 }
 
@@ -359,6 +356,20 @@ model GigReward {
   @@map("gig_rewards")
 }
 
+/// A picture in a runner's gallery. Any shape. Lowest position shows first.
+model RunnerPhoto {
+  runnerId String @map("runner_id") @db.Uuid
+  imageId  String @map("image_id") @db.Uuid
+  position Int
+
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  image  Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@id([runnerId, imageId])
+  @@index([imageId])
+  @@map("runner_photos")
+}
+
 /// A change to a runner's downtime. A month's balance is that month's entries added up.
 model DowntimeEntry {
   id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -427,7 +438,7 @@ model Image {
   region  Region?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
   gigs    Gig[]
   runners Runner[] @relation("RunnerPicture")
-  artOf   Runner[] @relation("RunnerArt")
+  artOf   RunnerPhoto[]
 
   @@index([regionId])
   @@index([unusedSince])

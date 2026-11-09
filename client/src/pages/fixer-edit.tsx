@@ -37,7 +37,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
         role: FIXER_ROLE,
         extraRoles: [],
         imageId: fixer?.imageId ?? null,
-        artId: fixer?.artId ?? null,
+        artIds: fixer?.artIds ?? [],
         tagline: fixer?.tagline ?? null,
         living: null,
         lifestyle: null,
@@ -77,7 +77,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
                         <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
                         <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
                     </Card>
-                    <ArtField value={form.artId} onChange={(artId) => set({ artId })} />
+                    <ArtField value={form.artIds} onChange={(artIds) => set({ artIds })} />
                 </div>
 
                 <Card className="space-y-4">

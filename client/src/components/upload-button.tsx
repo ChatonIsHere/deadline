@@ -16,11 +16,14 @@ export function UploadButton({
     options,
     onUploaded,
     multiple = false,
+    limit,
     className,
 }: {
     options?: UploadOptions;
     onUploaded: (ids: string[]) => void | Promise<void>;
     multiple?: boolean;
+    /** Most files to take at once. Art only: there's room for this many more. */
+    limit?: number;
     className?: string;
 }) {
     const input = useRef<HTMLInputElement>(null);
@@ -33,7 +36,7 @@ export function UploadButton({
         const files = [...(e.target.files ?? [])];
         e.target.value = '';
         if (options?.kind === 'art') {
-            void uploadArt(files[0]);
+            void uploadArt(files);
             return;
         }
         setQueue(files);
@@ -49,20 +52,22 @@ export function UploadButton({
         await onUploaded(done);
     };
 
-    const uploadArt = async (file?: File) => {
-        if (!file) return;
-        if (file.size > MAX_UPLOAD) {
-            toast.error(`that file's too big. ${MAX_UPLOAD / 1024 / 1024} MB max.`);
-            return;
-        }
+    const uploadArt = async (files: File[]) => {
+        const picked = limit === undefined ? files : files.slice(0, limit);
+        if (picked.length < files.length) toast.error(`only room for ${limit} more.`);
+        const fit = picked.filter((f) => f.size <= MAX_UPLOAD);
+        if (fit.length < picked.length) toast.error(`too big, so left out: over ${MAX_UPLOAD / 1024 / 1024} MB.`);
+        if (!fit.length) return;
         setUploading(true);
+        // Whatever made it up still counts
+        const done: string[] = [];
         try {
-            await finish([await uploadImage(file, options)]);
+            for (const file of fit) done.push(await uploadImage(file, options));
         } catch (err) {
             toast.error((err as Error).message);
-        } finally {
-            setUploading(false);
         }
+        setUploading(false);
+        await finish(done);
     };
 
     const upload = async (picture: Blob) => {

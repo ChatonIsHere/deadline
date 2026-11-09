@@ -9,7 +9,7 @@ import { CrewsService } from '../crews/crews.service';
 import { GigsService } from '../gigs/gigs.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
-import { CORE_ROLES, type Me, type RunnerInput } from '../shared/schemas';
+import { CORE_ROLES, type Me, type RunnerInput, runnerInput } from '../shared/schemas';
 import { DowntimeService } from './downtime.service';
 import { RunnersService } from './runners.service';
 
@@ -34,7 +34,7 @@ const input = (patch: Partial<RunnerInput> = {}): RunnerInput => ({
     role: 'Netrunner',
     extraRoles: [],
     imageId: null,
-    artId: null,
+    artIds: [],
     tagline: null,
     living: null,
     lifestyle: null,
@@ -61,6 +61,45 @@ describe('RunnersService', () => {
     });
 
     after(() => prisma.$disconnect());
+
+    describe('gallery', () => {
+        const pictures = () => Promise.all([1, 2, 3].map(async () => (await prisma.image.create({ data: { inLibrary: false, kind: 'art' } })).id));
+
+        it('keeps pictures in the order given', async () => {
+            const [one, two, three] = await pictures();
+            const vex = await runners.create(players[1], input({ artIds: [three, one, two] }));
+            assert.deepEqual((await runners.get(players[1], vex.id)).artIds, [three, one, two]);
+        });
+
+        it('replaces the set on saving', async () => {
+            const [one, two, three] = await pictures();
+            const vex = await runners.create(players[1], input({ artIds: [one, two] }));
+            await runners.update(players[1], vex.id, input({ artIds: [three, one] }));
+            assert.deepEqual((await runners.get(players[1], vex.id)).artIds, [three, one]);
+            await runners.update(players[1], vex.id, input());
+            assert.deepEqual((await runners.get(players[1], vex.id)).artIds, []);
+        });
+
+        it('shows to everyone', async () => {
+            const [one] = await pictures();
+            const vex = await runners.create(players[1], input({ artIds: [one] }));
+            assert.deepEqual((await runners.get(players[2], vex.id)).artIds, [one]);
+        });
+
+        it('checks the pictures exist', async () => {
+            const exists = library.exists;
+            library.exists = async () => false;
+            await assert.rejects(runners.create(players[1], input({ artIds: ['aaaaaaaa-0000-4000-8000-000000000000'] })), /Upload it again/);
+            library.exists = exists;
+        });
+
+        it('takes at most twelve, once each', () => {
+            const ids = Array.from({ length: 13 }, (_, i) => `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, '0')}`);
+            const base = { handle: 'Vex', role: 'Solo', extraRoles: [], imageId: null, fixerAlias: null, officeLocation: null, specialties: null, contact: null, bio: null };
+            assert.equal(runnerInput.safeParse({ ...base, artIds: ids }).success, false);
+            assert.deepEqual(runnerInput.parse({ ...base, artIds: [ids[0], ids[0]] }).artIds, [ids[0]]);
+        });
+    });
 
     describe('downtime', () => {
         it('only shows it to their player and admins', async () => {

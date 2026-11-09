@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CUSTOM_LIMITS, CUSTOM_LIVING, LIFESTYLES, LIVING, type LivingChoice, type Totals } from './downtime';
+import { MAX_ART } from './images';
 import { isTimeZone, WEEK_HOURS } from './time';
 
 // Shared by the server (request validation) and the client (forms).
@@ -140,8 +141,12 @@ export const runnerInput = z.object({
     role: text(30),
     extraRoles: z.array(text(30)).max(9),
     imageId: id.nullable(),
-    /** Full art, any shape. */
-    artId: id.nullable().default(null),
+    /** Their gallery, first shown first. Any shape. */
+    artIds: z
+        .array(id)
+        .max(MAX_ART, `${MAX_ART} pictures max`)
+        .transform((ids) => [...new Set(ids)])
+        .default([]),
     /** One line under their name. */
     tagline: optionalText(120).default(null),
     /** About the character. Markdown. */
@@ -425,7 +430,8 @@ export interface GigLink {
 }
 
 export interface RunnerView extends RunnerSummary {
-    artId: string | null;
+    /** Their gallery, first shown first. */
+    artIds: string[];
     fixerAlias: string | null;
     officeLocation: string | null;
     specialties: string | null;

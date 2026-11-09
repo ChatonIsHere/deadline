@@ -5,7 +5,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import sharp from 'sharp';
 import { config } from '../config';
 import { type Db, PrismaService } from '../prisma/prisma.service';
-import { artPreviewFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
+import { artPreviewFile, artThumbFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
 import { StorageService } from '../storage/storage.service';
 import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
@@ -18,7 +18,7 @@ const IMAGE_FILE = /\.(jpe?g|png|webp)$/i;
 const WEBP = { quality: 85, effort: 5 };
 
 /** Full art keeps its shape. The longest side is capped, and it's squeezed harder if it's still big. */
-const ART = { longest: 2000, preview: 900, quality: 82, fallbackQuality: 65, maxBytes: 1.5 * 1024 * 1024 };
+const ART = { longest: 2000, preview: 900, thumb: 240, quality: 82, fallbackQuality: 65, maxBytes: 1.5 * 1024 * 1024 };
 
 /** Fits art inside the size limit as WebP. Metadata (camera, location) is dropped. */
 export async function compressArt(data: Buffer): Promise<Buffer> {
@@ -28,7 +28,7 @@ export async function compressArt(data: Buffer): Promise<Buffer> {
     return art.length > ART.maxBytes ? encode(ART.fallbackQuality) : art;
 }
 
-const artPreview = (art: Buffer) => sharp(art).resize({ width: ART.preview, height: ART.preview, fit: 'inside', withoutEnlargement: true }).webp(WEBP).toBuffer();
+const smaller = (art: Buffer, longest: number) => sharp(art).resize({ width: longest, height: longest, fit: 'inside', withoutEnlargement: true }).webp(WEBP).toBuffer();
 
 /**
  * The picture library: Night City regions, their pictures and the general pool. Files live in
@@ -63,12 +63,12 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         let built = 0;
         const stale: string[] = [];
         for (const { id, kind, bytes } of rows) {
-            const current = kind === 'art' ? [plainFile(id), artPreviewFile(id)] : [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)];
+            const current = kind === 'art' ? [plainFile(id), artPreviewFile(id), artThumbFile(id)] : [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)];
             if (current.some((key) => !stored.has(key)) && stored.has(plainFile(id))) {
                 const plain = (await this.storage.get(plainFile(id)))!;
                 if (kind === 'art') {
-                    await this.storage.put(artPreviewFile(id), await artPreview(plain), 'image/webp');
-                    built++;
+                    await this.writeArtCopies(id, plain);
+                    built += 2;
                 } else {
                     built += await this.writeCopies(id, kind, plain, (key) => !stored.has(key));
                 }
@@ -105,7 +105,7 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         const row = await this.prisma.image.create({ data: { ...opts, kind, unusedSince: opts.inLibrary ? null : new Date() } });
         try {
             await this.storage.put(plainFile(row.id), plain, 'image/webp');
-            if (kind === 'art') await this.storage.put(artPreviewFile(row.id), await artPreview(plain), 'image/webp');
+            if (kind === 'art') await this.writeArtCopies(row.id, plain);
             else await this.writeCopies(row.id, kind, plain);
             await this.prisma.image.update({ where: { id: row.id }, data: { bytes: await this.storage.size(imagePrefix(row.id)) } });
         } catch (err) {
@@ -114,6 +114,11 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
             throw err;
         }
         return row.id;
+    }
+
+    private async writeArtCopies(id: string, art: Buffer) {
+        await this.storage.put(artPreviewFile(id), await smaller(art, ART.preview), 'image/webp');
+        await this.storage.put(artThumbFile(id), await smaller(art, ART.thumb), 'image/webp');
     }
 
     private async discard(id: string) {

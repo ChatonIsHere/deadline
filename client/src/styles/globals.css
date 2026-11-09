@@ -214,6 +214,101 @@
     }
 }
 
+/*
+ * Every so often the CRT lines fade in stronger for a few seconds, with a scanline rolling down
+ * the screen. Two bursts in a 97 second loop, at uneven gaps so it doesn't feel like a timer.
+ * Its own element rather than on the body: the crop tool waits for animations on anything
+ * around it to finish, and this one never does.
+ */
+@keyframes crt-lines {
+    0%,
+    20%,
+    24.6%,
+    65%,
+    69.6%,
+    100% {
+        opacity: 0;
+    }
+    21%,
+    23.4%,
+    66%,
+    68.4% {
+        opacity: 1;
+    }
+}
+
+@keyframes crt-roll {
+    0%,
+    20% {
+        opacity: 0;
+        transform: translateY(-20vh);
+    }
+    21%,
+    23.4% {
+        opacity: 1;
+    }
+    24.6% {
+        opacity: 0;
+        transform: translateY(105vh);
+    }
+    24.61%,
+    65% {
+        opacity: 0;
+        transform: translateY(-20vh);
+    }
+    66%,
+    68.4% {
+        opacity: 1;
+    }
+    69.6% {
+        opacity: 0;
+        transform: translateY(105vh);
+    }
+    69.61%,
+    100% {
+        opacity: 0;
+        transform: translateY(-20vh);
+    }
+}
+
+.crt-burst {
+    display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .crt-burst {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        overflow: hidden;
+        pointer-events: none;
+
+        &::before,
+        &::after {
+            content: '';
+            position: absolute;
+            opacity: 0;
+            animation: 97s linear infinite;
+        }
+
+        /* The lines, stronger */
+        &::before {
+            inset: 0;
+            background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.3) 0 1px, transparent 1px 2px, rgb(255 255 255 / 0.05) 2px 3px);
+            animation-name: crt-lines;
+        }
+
+        /* The scanline: a soft glow trailing a bright edge */
+        &::after {
+            inset: 0 0 auto;
+            height: 20vh;
+            background: linear-gradient(to bottom, transparent, rgb(0 229 255 / 0.07) 80%, rgb(255 255 255 / 0.2) 99%, rgb(255 255 255 / 0.35));
+            animation-name: crt-roll;
+        }
+    }
+}
+
 @media (prefers-reduced-motion: no-preference) {
     /* The beat between siblings in lists, grids and stacks */
     :is(.grid, [class*='space-y-']) > :nth-child(2) { --d: 35ms; }

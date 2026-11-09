@@ -18,10 +18,14 @@ export const webFile = (id: string) => `images/${id}/web-v${FRAME_VERSION}.webp`
 /** Smaller copies of the web picture: thumb for pickers, grids and avatars, medium for gig cards. Sizes are in library/frame.ts. */
 export const thumbFile = (id: string) => `images/${id}/thumb-v${FRAME_VERSION}.webp`;
 export const mediumFile = (id: string) => `images/${id}/medium-v${FRAME_VERSION}.webp`;
-/** A smaller copy of a runner's full art, for their profile. The full size is plainFile. */
+/** Smaller copies of a runner's gallery pictures: one for their profile, one for the row to pick from. The full size is plainFile. */
 export const artPreviewFile = (id: string) => `images/${id}/art-preview.webp`;
+export const artThumbFile = (id: string) => `images/${id}/art-thumb.webp`;
 /** A gig's Discord card (its picture with the name on it), one per name and picture. */
 export const cardFile = (gigId: string, hash: string) => `images/cards/${gigId}/${hash}.png`;
+
+/** How many pictures a runner's gallery can hold. */
+export const MAX_ART = 12;
 
 /** The biggest picture that can be uploaded. */
 export const MAX_UPLOAD = 15 * 1024 * 1024;

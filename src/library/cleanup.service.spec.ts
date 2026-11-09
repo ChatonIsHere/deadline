@@ -7,7 +7,7 @@ import { after, beforeEach, describe, it } from 'node:test';
 import sharp from 'sharp';
 import { config } from '../config';
 import type { Me } from '../shared/schemas';
-import { artPreviewFile, cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
+import { artPreviewFile, artThumbFile, cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
 import { DiskStorage, StorageService } from '../storage/storage.service';
 import { CleanupService } from './cleanup.service';
 import { compressArt, LibraryService } from './library.service';
@@ -77,7 +77,7 @@ describe('picture cleanup', () => {
     it('keeps art a runner is using', async () => {
         const id = await picture();
         await prisma.image.update({ where: { id }, data: { unusedSince: new Date(Date.now() - 40 * DAY) } });
-        await prisma.runner.create({ data: { ownerId: 'a', handle: 'Vex', slug: 'vex', role: 'Solo', artId: id } });
+        await prisma.runner.create({ data: { ownerId: 'a', handle: 'Vex', slug: 'vex', role: 'Solo', photos: { create: { imageId: id, position: 0 } } } });
         assert.deepEqual(await cleanup.run(), { images: 0, files: 0 });
         await library.refreshUsage([id]);
         assert.equal((await prisma.image.findUniqueOrThrow({ where: { id } })).unusedSince, null);
@@ -86,11 +86,13 @@ describe('picture cleanup', () => {
     it('stores art at its own shape, with a preview and no frames', async () => {
         const tall = await sharp({ create: { width: 1500, height: 3000, channels: 3, background: '#336699' } }).png().toBuffer();
         const id = await library.add(tall, { regionId: null, inLibrary: false, createdBy: 'a', kind: 'art' });
-        assert.deepEqual((await storage.list(imagePrefix(id))).sort(), [artPreviewFile(id), plainFile(id)].sort());
+        assert.deepEqual((await storage.list(imagePrefix(id))).sort(), [artPreviewFile(id), artThumbFile(id), plainFile(id)].sort());
         const stored = await sharp((await storage.get(plainFile(id)))!).metadata();
         assert.deepEqual([stored.format, stored.width, stored.height], ['webp', 1000, 2000]);
         const preview = await sharp((await storage.get(artPreviewFile(id)))!).metadata();
         assert.deepEqual([preview.width, preview.height], [450, 900]);
+        const thumb = await sharp((await storage.get(artThumbFile(id)))!).metadata();
+        assert.deepEqual([thumb.width, thumb.height], [120, 240]);
     });
 
     it('never makes small art bigger', async () => {
@@ -147,8 +149,9 @@ describe('picture cleanup', () => {
             const image = await prisma.image.create({ data: { inLibrary: false, kind: 'art' } });
             await storage.put(plainFile(image.id), Buffer.alloc(300), 'image/webp');
             await storage.put(artPreviewFile(image.id), Buffer.alloc(40), 'image/webp');
+            await storage.put(artThumbFile(image.id), Buffer.alloc(10), 'image/webp');
             await (library as unknown as { fillIn(): Promise<void> }).fillIn();
-            assert.equal((await prisma.image.findUniqueOrThrow({ where: { id: image.id } })).bytes, 340);
+            assert.equal((await prisma.image.findUniqueOrThrow({ where: { id: image.id } })).bytes, 350);
         });
     });
 

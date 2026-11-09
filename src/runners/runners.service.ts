@@ -99,7 +99,7 @@ export class RunnersService {
             specialties: r.specialties,
             contact: r.contact,
             bio: r.bio,
-            artId: r.artId,
+            artIds: await this.photoIds(id),
             obituary: r.status === 'dead' ? r.obituary : null,
             crews: memberOf.map((m) => m.crew),
             gigs: ran.filter(visible).map(link),
@@ -115,15 +115,15 @@ export class RunnersService {
      * them for any player, or NPC fixers with no player.
      */
     async create(user: Me, input: RunnerInput): Promise<RunnerView> {
-        const { ownerId: requested, ...fields } = input;
+        const { ownerId: requested, artIds, ...fields } = input;
         const ownerId = requested === undefined ? user.id : requested;
         await this.checkOwner(user, ownerId, input);
         await this.check(input);
         const slug = await this.handleSlug(input.handle);
         const alias = await this.alias(fields.fixerAlias, slug);
         const living = await this.livingFields(input, ownerId);
-        const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ...living, ownerId, slug } });
-        await this.library.refreshUsage([row.imageId, row.artId]);
+        const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ...living, ownerId, slug, photos: { create: photoRows(artIds) } } });
+        await this.library.refreshUsage([row.imageId, ...artIds]);
         return this.get(user, row.id);
     }
 
@@ -131,7 +131,7 @@ export class RunnersService {
     async update(user: Me, id: string, input: RunnerInput): Promise<RunnerView> {
         const r = await this.row(id);
         if (!this.canManage(user, r)) throw new ForbiddenException();
-        const { ownerId: requested, ...fields } = input;
+        const { ownerId: requested, artIds, ...fields } = input;
         const ownerId = requested === undefined ? r.ownerId : requested;
         if (ownerId !== r.ownerId) {
             await this.checkOwner(user, ownerId, input);
@@ -145,10 +145,11 @@ export class RunnersService {
         const slug = await this.handleSlug(input.handle, id);
         const alias = await this.alias(fields.fixerAlias, slug, id);
         const living = await this.livingFields(input, ownerId, r);
-        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ...living, ownerId, slug } });
+        const hadArt = await this.photoIds(id);
+        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ...living, ownerId, slug, photos: { deleteMany: {}, create: photoRows(artIds) } } });
         // A fixer character's gigs follow it to its new player
         if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
-        await this.library.refreshUsage([input.imageId, r.imageId, input.artId, r.artId]);
+        await this.library.refreshUsage([input.imageId, r.imageId, ...artIds, ...hadArt]);
         this.gigs.refresh(await this.liveGigs(id));
         return this.get(user, id);
     }
@@ -164,6 +165,10 @@ export class RunnersService {
             customLiving: customLiving ?? Prisma.DbNull,
             ...(starts && { downtimeGrantedFor: await this.downtime.startMonth(ownerId) }),
         };
+    }
+
+    private async photoIds(runnerId: string): Promise<string[]> {
+        return (await this.prisma.runnerPhoto.findMany({ where: { runnerId }, orderBy: { position: 'asc' }, select: { imageId: true } })).map((p) => p.imageId);
     }
 
     /** Only admins pick someone else (or nobody) as the player. Players must be on the server with a role. */
@@ -220,9 +225,10 @@ export class RunnersService {
         if (!this.canManage(user, r)) throw new ForbiddenException();
         await this.gigs.dropRunner(id);
         const crewIds = await this.crews.crewsOf(id);
+        const hadArt = await this.photoIds(id);
         await this.prisma.runner.delete({ where: { id } });
         await this.crews.keepFounders(crewIds);
-        await this.library.refreshUsage([r.imageId, r.artId]);
+        await this.library.refreshUsage([r.imageId, ...hadArt]);
     }
 
     canManage(user: Me, runner: { ownerId: string | null }) {
@@ -276,7 +282,7 @@ export class RunnersService {
         for (const role of [input.role, ...input.extraRoles]) {
             if (!allowed.has(role)) throw new BadRequestException(`"${role}" isn't one of the roles.`);
         }
-        for (const imageId of [input.imageId, input.artId]) {
+        for (const imageId of [input.imageId, ...input.artIds]) {
             if (imageId && !(await this.library.exists(imageId))) throw new BadRequestException('That picture is gone. Upload it again.');
         }
     }
@@ -325,5 +331,7 @@ export class RunnersService {
         return r;
     }
 }
+
+const photoRows = (artIds: string[]) => artIds.map((imageId, position) => ({ imageId, position }));
 
 const hasFixerRole = (r: { role: string; extraRoles: string[] }) => r.role === FIXER_ROLE || r.extraRoles.includes(FIXER_ROLE);

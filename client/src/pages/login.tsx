@@ -11,9 +11,9 @@ const ERRORS: Record<string, string> = {
 export function Login() {
     const error = useSearchParams()[0].get('error');
     return (
-        // A fixed distance from the top rather than centred: centring can put the box's top edge on
-        // part of a pixel, and Firefox on phones can drop a 1px line there
-        <div className="flex min-h-dvh justify-center px-4 pt-24 pb-4 md:pt-40">
+        // Centred. On phones it's worked out and rounded rather than left to flexbox: centring can put
+        // the box's top edge on part of a pixel, and Firefox on phones can drop a 1px line there
+        <div className="flex min-h-dvh justify-center px-4 pb-4 max-md:pt-[round(down,calc(50dvh-9rem),1px)] md:items-center md:pt-4">
             <div className="cut-frame h-fit w-full max-w-md space-y-6 p-8 [--frame:var(--color-primary)]">
                 <div className="flex items-center gap-3">
                     <img src="/logo.svg" alt="" className="size-12" />

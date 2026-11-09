@@ -1,6 +1,6 @@
 import type { GigLink } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ArtPanel } from '@/components/art';
+import { ArtGallery } from '@/components/art';
 import { ConfirmButton, Icon, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
 import { DowntimePanel } from '@/components/downtime';
 import { Markdown } from '@/components/markdown';
@@ -27,6 +27,7 @@ export function RunnerPage() {
 
     const canManage = me.isAdmin || runner.ownerId === me.id;
     const gone = runner.status !== 'active';
+    const hasArt = runner.artIds.length > 0;
 
     const details = (
         <>
@@ -76,61 +77,56 @@ export function RunnerPage() {
     );
 
     return (
-        <div className={cn('grid items-start gap-6', runner.artId && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
-            {runner.artId && (
-                <div className="max-lg:hidden lg:col-start-2 lg:row-start-1">
-                    <ArtPanel artId={runner.artId} name={runner.handle} gone={gone} />
-                </div>
-            )}
-            <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
-                {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
-                <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.crews, runner.isFixer, runner.status]}>
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4 sm:gap-5">
-                            <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
-                            <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
-                                <p className="text-xs tracking-widest text-muted-foreground">
-                                    // RUNNER
-                                    {gone && <span className={runner.status === 'dead' ? 'text-destructive' : undefined}>{runner.status === 'dead' ? ' · FLATLINED' : ' · RETIRED'}</span>}
-                                </p>
-                                <h1 className={cn('text-2xl break-words sm:text-3xl', gone ? 'text-muted-foreground' : 'text-primary')}>{runner.handle}</h1>
-                                {runner.tagline && <p className="text-accent italic">{runner.tagline}</p>}
-                                <Roles runner={runner} />
-                                <div className="hidden space-y-3 sm:block">{details}</div>
-                            </div>
+        <div className="space-y-6">
+            {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
+            <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.crews, runner.isFixer, runner.status]}>
+                <div className="space-y-4">
+                    <div className="flex items-start gap-4 sm:gap-5">
+                        <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
+                        <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+                            <p className="text-xs tracking-widest text-muted-foreground">
+                                // RUNNER
+                                {gone && <span className={runner.status === 'dead' ? 'text-destructive' : undefined}>{runner.status === 'dead' ? ' · FLATLINED' : ' · RETIRED'}</span>}
+                            </p>
+                            <h1 className={cn('text-2xl break-words sm:text-3xl', gone ? 'text-muted-foreground' : 'text-primary')}>{runner.handle}</h1>
+                            {runner.tagline && <p className="text-accent italic">{runner.tagline}</p>}
+                            <Roles runner={runner} />
+                            <div className="hidden space-y-3 sm:block">{details}</div>
                         </div>
-                        <div className="space-y-3 sm:hidden">{details}</div>
                     </div>
-                </Live>
-
-                {/* On phones it goes under their name, not above it */}
-                {runner.artId && (
-                    <div className="lg:hidden">
-                        <ArtPanel artId={runner.artId} name={runner.handle} gone={gone} />
+                    <div className="space-y-3 sm:hidden">{details}</div>
+                </div>
+            </Live>
+            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+                {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
+                {hasArt && (
+                    <div className="lg:col-start-2 lg:row-start-1">
+                        <ArtGallery artIds={runner.artIds} name={runner.handle} gone={gone} />
                     </div>
                 )}
+                <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
+                    {runner.obituary && (
+                        <Live value={runner.obituary}>
+                            <Card className="[--frame:var(--color-destructive)]">
+                                <CardTitle>Obituary</CardTitle>
+                                <Markdown text={runner.obituary} />
+                            </Card>
+                        </Live>
+                    )}
 
-                {runner.obituary && (
-                    <Live value={runner.obituary}>
-                        <Card className="[--frame:var(--color-destructive)]">
-                            <CardTitle>Obituary</CardTitle>
-                            <Markdown text={runner.obituary} />
-                        </Card>
-                    </Live>
-                )}
+                    {runner.bio && (
+                        <Live value={runner.bio}>
+                            <Card>
+                                <CardTitle>About</CardTitle>
+                                <Markdown text={runner.bio} />
+                            </Card>
+                        </Live>
+                    )}
 
-                {runner.bio && (
-                    <Live value={runner.bio}>
-                        <Card>
-                            <CardTitle>About</CardTitle>
-                            <Markdown text={runner.bio} />
-                        </Card>
-                    </Live>
-                )}
+                    <DowntimePanel runner={runner} />
 
-                <DowntimePanel runner={runner} />
-
-                <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
+                    <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
+                </div>
             </div>
         </div>
     );

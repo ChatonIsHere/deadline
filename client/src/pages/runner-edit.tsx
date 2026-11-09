@@ -45,7 +45,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         role: runner?.role ?? '',
         extraRoles: runner?.extraRoles ?? [],
         imageId: runner?.imageId ?? null,
-        artId: runner?.artId ?? null,
+        artIds: runner?.artIds ?? [],
         tagline: runner?.tagline ?? null,
         living: runner?.downtime?.living ?? null,
         lifestyle: runner?.downtime?.lifestyle ?? null,
@@ -109,7 +109,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                         <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
                         <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
                     </Card>
-                    <ArtField value={form.artId} onChange={(artId) => set({ artId })} />
+                    <ArtField value={form.artIds} onChange={(artIds) => set({ artIds })} />
                 </div>
 
                 <div className="space-y-5">

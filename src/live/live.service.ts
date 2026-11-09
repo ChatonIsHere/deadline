@@ -11,6 +11,7 @@ const MODEL_TOPICS: Record<string, LiveTopic[]> = {
     FixerRating: ['gigs', 'fixers', 'runners'],
     Runner: ['runners', 'fixers', 'gigs', 'crews'],
     DowntimeEntry: ['runners'],
+    RunnerPhoto: ['runners', 'fixers'],
     Crew: ['crews', 'runners', 'gigs'],
     CrewMember: ['crews', 'runners'],
     CrewAlly: ['crews'],

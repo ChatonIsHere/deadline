@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
-import { artPreviewFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
+import { artPreviewFile, artThumbFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
@@ -90,9 +90,10 @@ export const plainImageUrl = (id: string) => stored(plainFile(id));
 /** Small copies: thumb for pickers, grids and avatars, medium for gig cards. */
 export const thumbUrl = (id: string) => stored(thumbFile(id));
 export const mediumUrl = (id: string) => stored(mediumFile(id));
-/** A runner's full art, and the smaller copy for their profile. */
+/** A gallery picture at full size, on their profile, and in the row to pick from. */
 export const artUrl = plainImageUrl;
 export const artPreviewUrl = (id: string) => stored(artPreviewFile(id));
+export const artThumbUrl = (id: string) => stored(artThumbFile(id));
 
 /**
  * A change sent to the server. Every one says what happened, as a notification from the

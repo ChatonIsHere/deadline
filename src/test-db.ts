@@ -16,6 +16,7 @@ const TABLES = [
     'crew_allies',
     'crew_invites',
     'runners',
+    'runner_photos',
     'downtime_entries',
     'gigs',
     'gig_objectives',
