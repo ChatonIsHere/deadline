@@ -9,7 +9,7 @@ import { FORUM, frameSvg, type Variant } from './frame';
  * bottom), one word per line, as big as fits. PNG: Discord labels WebP pictures as GIFs.
  * Bump when the look changes, so Discord fetches new copies.
  */
-export const CARD_VERSION = 3;
+export const CARD_VERSION = 4;
 
 /** Chakra Petch Bold (SIL Open Font License, see assets/fonts/OFL.txt), the site's heading font. */
 const FONT = join(__dirname, '..', '..', 'assets', 'fonts', 'ChakraPetch-Bold.ttf');
@@ -27,6 +27,8 @@ const LINE = 1.5;
 /** Each word sits on a dark bar so it reads on bright pictures too. Padding in cap heights. */
 const BAR_X = 0.3;
 const BAR_Y = 0.17;
+/** The bar's cut corner, in cap heights. The bar runs on past the text by this much, so the cut starts after the last letter. */
+const BAR_CUT = (1 + 2 * BAR_Y) * 0.35;
 
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const textSvg = (inner: string, w = 4000, h = 400) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${inner}</svg>`;
@@ -61,7 +63,7 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
     // As big as fits: the longest word within the width, all lines within the height
     const cap = measure('H').height;
     const widest = Math.max(...words.map((w) => measure(w).width));
-    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / (widest + 2 * BAR_X * cap);
+    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / (widest + (BAR_X + BAR_CUT) * cap);
     const byHeight = ((H - 2 * margin) * MAX_HEIGHT * 100) / (cap * (1 + 2 * BAR_Y + (words.length - 1) * LINE));
     const size = Math.min(byWidth, byHeight);
     const capPx = (cap * size) / 100;
@@ -77,10 +79,10 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
             const text = escape(word);
             // The bar: dark, a pink edge on the left, the bottom right corner cut like the frame
             const left = x - padX;
-            const right = x + (measure(word).width * size) / 100 + padX;
+            const cut = capPx * BAR_CUT;
+            const right = x + (measure(word).width * size) / 100 + cut;
             const top = y - capPx - padY;
             const bottom = y + padY;
-            const cut = (bottom - top) * 0.35;
             const bar =
                 `<path d="M${left} ${top}H${right}V${bottom - cut}L${right - cut} ${bottom}H${left}Z" fill="${BG}" fill-opacity="0.82"/>` +
                 `<rect x="${left}" y="${top}" width="${capPx * 0.09}" height="${bottom - top}" fill="${P}"/>`;

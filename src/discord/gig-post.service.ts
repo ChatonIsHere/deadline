@@ -12,7 +12,7 @@ import { MembersService } from './members.service';
 import { NotifyService } from './notify.service';
 import { gigCard } from './cards';
 import type { Payout } from '../gigs/debrief.service';
-import { confirmButtons, confirmMessage, gigLineMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
+import { confirmButtons, confirmMessage, embedUploads, gigLineMessage, gigMessage, openSlots, payoutMessage, reminderMessage } from './gig-embed';
 import { lineEmbed, lineMessage } from './colours';
 import { type Said, voice } from './voice';
 
@@ -130,7 +130,7 @@ export class GigPostService {
               })
             : null;
         const starter = thread && (await thread.fetchStarterMessage().catch(() => null));
-        const existing = starter ? [...starter.attachments.values()] : [];
+        const existing = starter ? embedUploads(starter.embeds) : [];
         // A new gig card means uploading everything again, so the card stays first
         const kept = !names.gig || existing.some((a) => a.name === names.gig) ? existing.filter((a) => wanted.includes(a.name)) : [];
         const files = await this.upload(
@@ -158,7 +158,7 @@ export class GigPostService {
 
         if (thread.archived) await thread.setArchived(false);
         // attachments lists the uploads to keep; anything else on the message is dropped
-        await starter?.edit({ ...first, attachments: kept, files });
+        await starter?.edit({ ...first, attachments: kept.map(({ id }) => ({ id })), files });
         const overflowIds = await this.syncOverflow(thread, post.overflowIds, more);
         if (thread.name !== gig.name) await thread.setName(gig.name);
         if (!sameIds(thread.appliedTags, appliedTags)) await thread.setAppliedTags(appliedTags);

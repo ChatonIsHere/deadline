@@ -57,6 +57,17 @@ function debriefFields(gig: GigView, emoji: EmojiLookup): APIEmbedField[] {
  * details as fields, and the buttons. Nothing gets cut: whatever doesn't fit Discord's
  * limits goes in `more`, follow-up messages in the thread.
  */
+/**
+ * The pictures already uploaded to a message. Discord leaves anything an embed shows out of the
+ * message's attachments, so they're read from the embeds' links: .../attachments/<channel>/<id>/<name>.
+ */
+export function embedUploads(embeds: { image: { url: string } | null; thumbnail: { url: string } | null }[]): { id: string; name: string }[] {
+    return embeds.flatMap((e) => [e.image, e.thumbnail]).flatMap((picture) => {
+        const [, id, name] = /\/attachments\/\d+\/(\d+)\/([^/?]+)/.exec(picture?.url ?? '') ?? [];
+        return id ? [{ id, name }] : [];
+    });
+}
+
 export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, images: { gig: string | null; fixer: string | null } = { gig: null, fixer: null }) {
     const icon = (name: string, fallback = '') => emoji(name) || fallback;
     const typeIcon = gig.type ? emoji(`type_${gig.type.toLowerCase().replace(/\W+/g, '_')}`) : '';
