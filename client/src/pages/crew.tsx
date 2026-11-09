@@ -64,7 +64,7 @@ export function Crew() {
                 </div>
             </Live>
 
-            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="space-y-6">
                     {!crew.members.length && <Say>no runners yet.</Say>}
                     {crew.ranks.map((rank) => {
@@ -76,7 +76,7 @@ export function Crew() {
                                     <span>{rank}</span>
                                     <span className="h-0.5 flex-1 bg-border" />
                                 </h2>
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     {members.map((m) => {
                                         const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (
