@@ -5,6 +5,7 @@ import { RatingLine, RunnerTile, Stars } from '@/components/runner';
 import { StaggeredImage } from '@/components/staggered-image';
 import { PageTabs } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners } from '@/lib/api';
+import { usePhone } from '@/lib/media';
 import { cn } from '@/lib/utils';
 
 /** Runners taking gigs, and retired and flatlined ones (latest first). */
@@ -35,14 +36,15 @@ export function FixersPage() {
         <CardPages
             id="fixers"
             items={fixers}
-            className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] xl:[--cols:3] 3xl:[--cols:4]"
+            className="card-rows [--gap:0.75rem] sm:[--gap:1rem] md:[--cols:2] xl:[--cols:3] 3xl:[--cols:4]"
             card={(f) => <FixerCard key={liveKey(f.id, f)} fixer={f} />}
         />
     );
 }
 
 function RunnerGrid({ id, runners }: { id: string; runners: RunnerSummary[] }) {
-    return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
+    const phone = usePhone();
+    return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} poster={phone} />} />;
 }
 
 /** A fixer's stars running down the side of their picture, with the number at the bottom. */
