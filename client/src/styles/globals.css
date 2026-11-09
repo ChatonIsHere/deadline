@@ -280,7 +280,8 @@
         display: block;
         position: fixed;
         inset: 0;
-        z-index: 100;
+        /* Behind everything: it only shows on the page's background */
+        z-index: -1;
         overflow: hidden;
         pointer-events: none;
 
@@ -303,7 +304,7 @@
         &::after {
             inset: 0 0 auto;
             height: 20vh;
-            background: linear-gradient(to bottom, transparent, rgb(0 229 255 / 0.07) 80%, rgb(255 255 255 / 0.2) 99%, rgb(255 255 255 / 0.35));
+            background: linear-gradient(to bottom, transparent, rgb(0 229 255 / 0.025) 80%, rgb(255 255 255 / 0.05) 99%, rgb(255 255 255 / 0.1));
             animation-name: crt-roll;
         }
     }
