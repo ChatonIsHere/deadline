@@ -3,14 +3,15 @@ import { Star } from 'lucide-react';
 import { Link } from 'react-router';
 import { Icon, LinkCard } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
-import { imageUrl, thumbUrl } from '@/lib/api';
+import { imageUrl, mediumUrl, thumbUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 /**
  * A runner's picture. Small sizes use the plain picture with cut corners (the frame
- * would be lost); `framed` shows the full framed picture for profiles.
+ * would be lost); `framed` shows the full framed picture for profiles. `large` is for sizes the
+ * thumbnail would look soft at.
  */
-export function RunnerAvatar({ runner, framed, className }: { runner: Pick<RunnerCard, 'handle' | 'imageId'>; framed?: boolean; className?: string }) {
+export function RunnerAvatar({ runner, framed, large, className }: { runner: Pick<RunnerCard, 'handle' | 'imageId'>; framed?: boolean; large?: boolean; className?: string }) {
     if (!runner.imageId) {
         return (
             <span className={cn('cut grid size-6 shrink-0 place-items-center bg-muted font-display text-xs text-primary [--cut:4px]', className)}>
@@ -21,7 +22,7 @@ export function RunnerAvatar({ runner, framed, className }: { runner: Pick<Runne
     return framed ? (
         <img src={imageUrl(runner.imageId)} alt="" loading="lazy" className={cn('aspect-square shrink-0', className)} />
     ) : (
-        <img src={thumbUrl(runner.imageId)} alt="" loading="lazy" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
+        <img src={large ? mediumUrl(runner.imageId) : thumbUrl(runner.imageId)} alt="" loading="lazy" className={cn('cut size-6 shrink-0 object-cover [--cut:4px]', className)} />
     );
 }
 
@@ -45,17 +46,18 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
 
 /**
  * A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to
- * their profile. Retired and flatlined runners are greyed out and say so.
+ * their profile. Retired and flatlined runners are greyed out and say so. The picture has room
+ * beside it for four lines; `compact` is for narrow spots like a crew's member list.
  */
-export function RunnerTile({ runner }: { runner: RunnerCard }) {
+export function RunnerTile({ runner, compact }: { runner: RunnerCard; compact?: boolean }) {
     const gone = runner.status !== 'active';
     return (
         <LinkCard to={`/runners/${runner.slug}`} className="flex items-center gap-4">
-            <RunnerAvatar runner={runner} className={cn('size-16 text-2xl [--cut:8px]', gone && 'opacity-60 grayscale')} />
+            <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-16 text-2xl [--cut:8px]' : 'size-28 text-4xl [--cut:12px]', gone && 'opacity-60 grayscale')} />
             <div className="min-w-0 space-y-1.5">
                 <h3 className={cn('truncate text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
                 {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
-                {runner.tagline && <p className="truncate text-xs text-muted-foreground">{runner.tagline}</p>}
+                {runner.tagline && <p className={cn('text-xs text-muted-foreground', compact ? 'truncate' : 'line-clamp-2')}>{runner.tagline}</p>}
             </div>
         </LinkCard>
     );

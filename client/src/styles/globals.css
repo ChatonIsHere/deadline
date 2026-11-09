@@ -35,7 +35,7 @@
         /* dvh, not vh: on phones vh counts the space the browser toolbar can take, which made the page taller than the screen */
         @apply min-h-dvh bg-background font-mono text-sm text-foreground antialiased;
         /* faint scanlines */
-        background-image: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(255 255 255 / 0.018) 2px 3px);
+        background-image: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(255 255 255 / 0.03) 2px 3px);
     }
 
     h1,
@@ -296,7 +296,7 @@
         /* The lines, stronger */
         &::before {
             inset: 0;
-            background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.3) 0 1px, transparent 1px 2px, rgb(255 255 255 / 0.05) 2px 3px);
+            background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 2px, rgb(255 255 255 / 0.02) 2px 3px);
             animation-name: crt-lines;
         }
 
@@ -304,7 +304,7 @@
         &::after {
             inset: 0 0 auto;
             height: 20vh;
-            background: linear-gradient(to bottom, transparent, rgb(0 229 255 / 0.025) 80%, rgb(255 255 255 / 0.05) 99%, rgb(255 255 255 / 0.1));
+            background: linear-gradient(to bottom, transparent, rgb(0 229 255 / 0.012) 80%, rgb(255 255 255 / 0.025) 99%, rgb(255 255 255 / 0.05));
             animation-name: crt-roll;
         }
     }

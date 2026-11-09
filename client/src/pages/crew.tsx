@@ -60,7 +60,7 @@ export function Crew() {
                                         const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (
                                             <div key={liveKey(m.id, m)} className="space-y-2">
-                                                <RunnerTile runner={m} />
+                                                <RunnerTile runner={m} compact />
                                                 {(canManage || leave) && (
                                                     <div className="flex items-center justify-end gap-1">
                                                         {canManage && (

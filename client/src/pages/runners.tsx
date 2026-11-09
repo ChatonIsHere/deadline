@@ -42,7 +42,7 @@ export function FixersPage() {
 }
 
 function RunnerGrid({ id, runners }: { id: string; runners: RunnerSummary[] }) {
-    return <CardPages id={id} items={runners} className="card-rows sm:[--cols:2] lg:[--cols:3] 3xl:[--cols:4]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
+    return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
 }
 
 /**
