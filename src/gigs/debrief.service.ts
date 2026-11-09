@@ -51,15 +51,16 @@ export class DebriefService {
         await this.prisma.$transaction(async (tx) => {
             await tx.gig.update({
                 where: { id },
-                data: { status: 'completed', summary: input.summary, rewardEb: input.eb, rewardIp: input.ip, rewardHqIp: input.hqIp, rewardText: input.text },
+                data: { status: 'completed', summary: input.summary, rewardEb: gig.splitPay && !slots.length ? null : input.eb, rewardIp: input.ip, rewardHqIp: input.hqIp, rewardText: input.text },
             });
             await tx.gigReward.deleteMany({ where: { gigId: id } });
             // Nobody is waiting for a slot on a finished gig
             await this.gigs.clearReserves(id, tx);
             const extras = input.runners.filter((r) => r.eb || r.ip || r.hqIp || r.text);
-            const rows = new Map(extras.map((r) => [r.runnerId, { gigId: id, ...r, share: shares.get(r.runnerId) ?? null }]));
+            // A cut of nothing isn't worth a line
+            const rows = new Map(extras.map((r) => [r.runnerId, { gigId: id, ...r, share: shares.get(r.runnerId) || null }]));
             for (const [runnerId, share] of shares) {
-                if (!rows.has(runnerId)) rows.set(runnerId, { gigId: id, runnerId, eb: null, ip: null, hqIp: null, text: null, share });
+                if (share && !rows.has(runnerId)) rows.set(runnerId, { gigId: id, runnerId, eb: null, ip: null, hqIp: null, text: null, share });
             }
             if (rows.size) await tx.gigReward.createMany({ data: [...rows.values()] });
         });

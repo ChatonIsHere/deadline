@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit, PayloadTooLargeException } from '@nestjs/common';
 import sharp from 'sharp';
+import { config } from '../config';
 import { type Db, PrismaService } from '../prisma/prisma.service';
 import { artPreviewFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
@@ -58,10 +59,10 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
      */
     private async fillIn() {
         const stored = new Set(await this.storage.list('images/'));
-        const rows = await this.prisma.image.findMany({ select: { id: true, kind: true } });
+        const rows = await this.prisma.image.findMany({ select: { id: true, kind: true, bytes: true } });
         let built = 0;
         const stale: string[] = [];
-        for (const { id, kind } of rows) {
+        for (const { id, kind, bytes } of rows) {
             const current = kind === 'art' ? [plainFile(id), artPreviewFile(id)] : [plainFile(id), framedFile(id), webFile(id), thumbFile(id), mediumFile(id)];
             if (current.some((key) => !stored.has(key)) && stored.has(plainFile(id))) {
                 const plain = (await this.storage.get(plainFile(id)))!;
@@ -74,6 +75,8 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
             }
             const prefix = imagePrefix(id);
             stale.push(...[...stored].filter((key) => key.startsWith(prefix) && !current.includes(key)));
+            // Pictures from before sizes were recorded
+            if (!bytes) await this.prisma.image.update({ where: { id }, data: { bytes: await this.storage.size(prefix) } });
         }
         if (stale.length) await this.prisma.staleObject.createMany({ data: stale.map((key) => ({ key })), skipDuplicates: true });
         if (built) this.logger.log(`Built ${built} framed or preview file(s)`);
@@ -104,13 +107,23 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
             await this.storage.put(plainFile(row.id), plain, 'image/webp');
             if (kind === 'art') await this.storage.put(artPreviewFile(row.id), await artPreview(plain), 'image/webp');
             else await this.writeCopies(row.id, kind, plain);
+            await this.prisma.image.update({ where: { id: row.id }, data: { bytes: await this.storage.size(imagePrefix(row.id)) } });
         } catch (err) {
             // No row without its files: storage refused, so the picture doesn't exist
-            await this.storage.delete(await this.storage.list(imagePrefix(row.id))).catch(() => undefined);
-            await this.prisma.image.delete({ where: { id: row.id } });
+            await this.discard(row.id);
             throw err;
         }
         return row.id;
+    }
+
+    private async discard(id: string) {
+        await this.storage.delete(await this.storage.list(imagePrefix(id))).catch(() => undefined);
+        await this.prisma.image.delete({ where: { id } });
+    }
+
+    /** What someone's uploads take up until they're cleaned out. Library pictures are the board's, not theirs. */
+    private async usedBytes(userId: string): Promise<number> {
+        return (await this.prisma.image.aggregate({ where: { createdBy: userId, inLibrary: false }, _sum: { bytes: true } }))._sum.bytes ?? 0;
     }
 
     /** The framed copies and previews of a plain picture. `wanted` skips ones already stored. */
@@ -141,7 +154,18 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         const allowed = opts.inLibrary ? user.isAdmin : opts.kind !== 'gig' || user.isAdmin || user.isFixer;
         if (!allowed) throw new ForbiddenException();
         if (opts.regionId && !(await this.prisma.region.findUnique({ where: { id: opts.regionId } }))) throw new NotFoundException('No such region.');
-        return this.add(data, { ...opts, createdBy: user.id });
+        if (opts.inLibrary) return this.add(data, { ...opts, createdBy: user.id });
+
+        const limit = config.MAX_USER_STORAGE_MB * 1024 * 1024;
+        const full = new PayloadTooLargeException(`you've used your ${config.MAX_USER_STORAGE_MB} MB of picture storage. pictures nothing uses any more clear out after 30 days.`);
+        if ((await this.usedBytes(user.id)) >= limit) throw full;
+        // Only its real size counts, so it's checked once stored. Two at once can't both slip under.
+        const id = await this.add(data, { ...opts, createdBy: user.id });
+        if ((await this.usedBytes(user.id)) > limit) {
+            await this.discard(id);
+            throw full;
+        }
+        return id;
     }
 
     /** Takes a picture out of the library. It's deleted 30 days after nothing uses it (see CleanupService). */

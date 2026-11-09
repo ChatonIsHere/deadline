@@ -375,6 +375,8 @@ model Image {
   kind        ImageKind @default(gig)
   createdBy   String?   @map("created_by")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// What all its stored files take up, for the limit per person
+  bytes       Int       @default(0)
   /// When nothing (gig, runner, library) used it any more. Deleted 30 days after.
   unusedSince DateTime? @map("unused_since") @db.Timestamptz(3)
 

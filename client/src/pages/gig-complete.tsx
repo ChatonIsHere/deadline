@@ -122,7 +122,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
                             </div>
                             <Amount id="bonus" label="Bonus" icon value={crew.bonus} onChange={(v) => setCrew({ ...crew, bonus: v })} />
                             <div className="text-right">
-                                <Label>{gig.splitPay ? 'Pot' : 'Pay'}</Label>
+                                <Label>{gig.splitPay ? 'Pot' : 'Pay each'}</Label>
                                 <p className="flex h-9 items-center justify-end text-lg">
                                     <Money amount={pay} />
                                 </p>
@@ -140,7 +140,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
                     </Card>
 
                     <Card className="space-y-4">
-                        <CardTitle>Extra for individual runners</CardTitle>
+                        <CardTitle help={gig.splitPay ? "on top of their cut of the pot. it doesn't come out of it." : 'on top of what everyone gets.'}>Extra for individual runners</CardTitle>
                         {!runners.length && <Say>nobody's on this gig.</Say>}
                         {runners.map((r) => {
                             const a = extra[r.id] ?? blank;

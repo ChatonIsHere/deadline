@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
 import sharp from 'sharp';
+import { config } from '../config';
+import type { Me } from '../shared/schemas';
 import { artPreviewFile, cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
 import { DiskStorage, StorageService } from '../storage/storage.service';
 import { CleanupService } from './cleanup.service';
@@ -95,6 +97,59 @@ describe('picture cleanup', () => {
         const small = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#993366' } }).png().toBuffer();
         const { width, height } = await sharp(await compressArt(small)).metadata();
         assert.deepEqual([width, height], [300, 200]);
+    });
+
+    describe('storage limit per person', () => {
+        const MB = 1024 * 1024;
+        const me = { id: 'a', name: 'a', avatar: null, isOwner: false, isAdmin: true, isFixer: false, isEdgerunner: true, timezone: null, needsSetup: false } as Me;
+        const file = () => sharp({ create: { width: 64, height: 64, channels: 3, background: '#112233' } }).png().toBuffer();
+        const avatar = { regionId: null, inLibrary: false, kind: 'avatar' as const };
+        const limit = config.MAX_USER_STORAGE_MB;
+        beforeEach(() => {
+            config.MAX_USER_STORAGE_MB = 1;
+        });
+        after(() => {
+            config.MAX_USER_STORAGE_MB = limit;
+        });
+
+        it('records what each upload takes up', async () => {
+            const id = await library.upload(me, await file(), avatar);
+            const { bytes } = await prisma.image.findUniqueOrThrow({ where: { id } });
+            assert.ok(bytes > 0);
+            assert.equal(bytes, await storage.size(imagePrefix(id)));
+        });
+
+        it('refuses an upload at the limit', async () => {
+            await prisma.image.create({ data: { inLibrary: false, createdBy: 'a', bytes: MB } });
+            await assert.rejects(library.upload(me, await file(), avatar), /1 MB of picture storage/);
+            assert.equal(await prisma.image.count(), 1);
+        });
+
+        it('leaves nothing behind when an upload takes it over', async () => {
+            await prisma.image.create({ data: { inLibrary: false, createdBy: 'a', bytes: MB - 1 } });
+            await assert.rejects(library.upload(me, await file(), avatar), /picture storage/);
+            assert.equal(await prisma.image.count(), 1);
+            assert.deepEqual(await storage.list('images/'), []);
+        });
+
+        it("doesn't count other people's uploads or the library", async () => {
+            await prisma.image.create({ data: { inLibrary: false, createdBy: 'b', bytes: 5 * MB } });
+            await prisma.image.create({ data: { inLibrary: true, createdBy: 'a', bytes: 5 * MB } });
+            assert.ok(await library.upload(me, await file(), avatar));
+        });
+
+        it('lets admins keep adding to the library', async () => {
+            await prisma.image.create({ data: { inLibrary: false, createdBy: 'a', bytes: 5 * MB } });
+            assert.ok(await library.upload(me, await file(), { regionId: null, inLibrary: true, kind: 'gig' }));
+        });
+
+        it('works out the size of pictures from before sizes were kept', async () => {
+            const image = await prisma.image.create({ data: { inLibrary: false, kind: 'art' } });
+            await storage.put(plainFile(image.id), Buffer.alloc(300), 'image/webp');
+            await storage.put(artPreviewFile(image.id), Buffer.alloc(40), 'image/webp');
+            await (library as unknown as { fillIn(): Promise<void> }).fillIn();
+            assert.equal((await prisma.image.findUniqueOrThrow({ where: { id: image.id } })).bytes, 340);
+        });
     });
 
     it('deletes replaced gig cards 30 days after they were replaced', async () => {

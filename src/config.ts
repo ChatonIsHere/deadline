@@ -22,6 +22,8 @@ const schema = z.object({
     S3_ACCESS_KEY: optional,
     S3_SECRET_KEY: optional,
     S3_BUCKET: optional,
+    // How much picture storage one person's uploads can take up. The library doesn't count.
+    MAX_USER_STORAGE_MB: z.coerce.number().int().min(1).default(100),
     DISCORD_TOKEN: z.string().min(1),
     DISCORD_CLIENT_SECRET: z.string().min(1),
 });

@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Injectable, Logger } from '@nestjs/common';
@@ -10,6 +10,8 @@ export interface Storage {
     get(key: string): Promise<Buffer | null>;
     /** Every key starting with `prefix`. */
     list(prefix: string): Promise<string[]>;
+    /** How many bytes everything starting with `prefix` takes up. */
+    size(prefix: string): Promise<number>;
     delete(keys: string[]): Promise<void>;
     /** Where a key can be fetched from: the base URL, ending in "/", that keys are added to. */
     readonly base: string;
@@ -60,15 +62,23 @@ class S3Storage implements Storage {
         }
     }
 
-    async list(prefix: string) {
-        const keys: string[] = [];
+    private async objects(prefix: string) {
+        const objects: { Key?: string; Size?: number }[] = [];
         let token: string | undefined;
         do {
             const res = await this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }));
-            keys.push(...(res.Contents ?? []).map((o) => o.Key!));
+            objects.push(...(res.Contents ?? []));
             token = res.IsTruncated ? res.NextContinuationToken : undefined;
         } while (token);
-        return keys;
+        return objects;
+    }
+
+    async list(prefix: string) {
+        return (await this.objects(prefix)).map((o) => o.Key!);
+    }
+
+    async size(prefix: string) {
+        return (await this.objects(prefix)).reduce((sum, o) => sum + (o.Size ?? 0), 0);
     }
 
     async delete(keys: string[]) {
@@ -111,6 +121,12 @@ export class DiskStorage implements Storage {
             .filter((f) => f.isFile())
             .map((f) => relative(this.root, join(f.parentPath, f.name)).split(sep).join('/'))
             .filter((key) => key.startsWith(prefix));
+    }
+
+    async size(prefix: string) {
+        let total = 0;
+        for (const key of await this.list(prefix)) total += (await stat(this.path(key))).size;
+        return total;
     }
 
     async delete(keys: string[]) {
@@ -158,6 +174,9 @@ export class StorageService implements Storage {
     }
     list(prefix: string) {
         return this.store.list(prefix);
+    }
+    size(prefix: string) {
+        return this.store.size(prefix);
     }
     delete(keys: string[]) {
         return this.store.delete(keys);

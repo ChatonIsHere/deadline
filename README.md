@@ -48,6 +48,10 @@ Runners can retire (a break, they can come back) or flatline (dead, with an obit
 
 Handles, fixer aliases and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist, as handles or aliases. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
+## Pictures
+
+Uploads are 15 MB at most. Each person's uploads can take up `MAX_USER_STORAGE_MB` of storage (100 if it isn't set). Library pictures don't count. Pictures nothing uses any more count until they're deleted, 30 days on.
+
 ## Drafts and pay
 
 - Fixers and admins can save a gig as a **draft**. Only a name is needed. Its author and admins can see it, and nothing is posted or sent. Sending checks it's complete: a fixer's goes to Pending for approval, an admin's posts.

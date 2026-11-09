@@ -588,6 +588,20 @@ describe('GigsService', () => {
             assert.deepEqual([b.eb, b.extras], [433, ['Found the keys']]);
         });
 
+        it('writes no lines for a pot of nothing', async () => {
+            const gig = await gigs.create(admin, input(three, { splitPay: true }));
+            await joinAll(gig.id);
+            const done = await debrief.complete(admin, gig.id, { ...pot, eb: null });
+            await settle();
+            assert.deepEqual(done.runnerRewards, []);
+            assert.deepEqual(payouts.map((p) => p.eb), [0, 0, 0]);
+        });
+
+        it('has no pot to record with nobody on the gig', async () => {
+            const gig = await gigs.create(admin, input(three, { splitPay: true }));
+            assert.equal((await debrief.complete(admin, gig.id, pot)).crewRewards?.eb, null);
+        });
+
         it('still pays the full amount to everyone per head', async () => {
             const gig = await gigs.create(admin, input(three));
             await joinAll(gig.id);
