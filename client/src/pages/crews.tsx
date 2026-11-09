@@ -64,7 +64,8 @@ export function NewCrewPage() {
  */
 function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
     const leaders = crew.members.filter((m) => m.rank === crew.ranks[0]);
-    const shown = crew.members.slice(0, 6);
+    // Six places in the row: with more runners than that, the last one says how many are left
+    const shown = crew.members.slice(0, crew.members.length > 6 ? 5 : 6);
     return (
         <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
             {/* Tall enough for the name and two lines of tagline */}
@@ -88,11 +89,12 @@ function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
                     </>
                 )}
             </p>
-            <div className="flex h-10 items-center gap-1.5">
+            {/* The places shrink to fit a narrow card */}
+            <div className="grid h-10 grid-cols-[repeat(6,minmax(0,2.5rem))] items-center gap-1.5">
                 {shown.map((m) => (
-                    <RunnerAvatar key={m.id} runner={m} className="size-10 text-base [--cut:6px]" />
+                    <RunnerAvatar key={m.id} runner={m} className="aspect-square h-auto w-full text-base [--cut:6px]" />
                 ))}
-                {crew.members.length > shown.length && <span className="ml-1 text-xs text-muted-foreground">+{crew.members.length - shown.length}</span>}
+                {crew.members.length > shown.length && <span className="text-center text-xs text-muted-foreground">+{crew.members.length - shown.length}</span>}
             </div>
             <dl className="mt-auto grid grid-cols-3 gap-2 border-t-2 border-border pt-3">
                 <Count label="Runners" value={crew.members.length} />
