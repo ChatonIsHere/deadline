@@ -1,7 +1,7 @@
-import type { GigLink } from '@shared/schemas';
+import type { GigLink, RunnerView } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtGallery } from '@/components/art';
-import { ConfirmButton, Icon, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
+import { ConfirmButton, LinkCard, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
 import { DowntimePanel } from '@/components/downtime';
 import { Markdown } from '@/components/markdown';
 import { RetireControls } from '@/components/retire';
@@ -28,27 +28,13 @@ export function RunnerPage() {
     const canManage = me.isAdmin || runner.ownerId === me.id;
     const gone = runner.status !== 'active';
     const hasArt = runner.artIds.length > 0;
+    const hasSide = hasArt || runner.crews.length > 0;
 
     const details = (
         <>
             <p className="text-xs text-muted-foreground">
                 played by <Person member={runner.owner} />
             </p>
-            {runner.crews.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                    {runner.crews.map((c) => (
-                        <Link
-                            key={c.id}
-                            to={`/crews/${c.slug}`}
-                            title="Crew"
-                            className="cut-frame inline-flex items-center gap-2 px-3 py-1.5 font-display text-sm tracking-wider text-accent uppercase [--cut:8px] [--frame:var(--color-accent)] hover:[--fill:var(--color-muted)]"
-                        >
-                            <Icon name="crew" />
-                            {c.name}
-                        </Link>
-                    ))}
-                </div>
-            )}
             {(canManage || runner.isFixer) && (
                 <div className="flex flex-wrap gap-2">
                     {runner.isFixer && (
@@ -79,7 +65,7 @@ export function RunnerPage() {
     return (
         <div className="space-y-6">
             {/* Phones: picture and name side by side, the rest underneath. Wider: all beside the picture. */}
-            <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.crews, runner.isFixer, runner.status]}>
+            <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.isFixer, runner.status]}>
                 <div className="space-y-4">
                     <div className="flex items-start gap-4 sm:gap-5">
                         <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
@@ -97,11 +83,14 @@ export function RunnerPage() {
                     <div className="space-y-3 sm:hidden">{details}</div>
                 </div>
             </Live>
-            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+            <div className={cn('grid items-start gap-6', hasSide && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
                 {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
-                {hasArt && (
-                    <div className="lg:col-start-2 lg:row-start-1">
-                        <ArtGallery artIds={runner.artIds} name={runner.handle} gone={gone} />
+                {hasSide && (
+                    <div className="space-y-4 lg:col-start-2 lg:row-start-1">
+                        {runner.crews.map((c) => (
+                            <CrewBox key={liveKey(c.id, c)} crew={c} />
+                        ))}
+                        {hasArt && <ArtGallery artIds={runner.artIds} name={runner.handle} gone={gone} />}
                     </div>
                 )}
                 <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
@@ -129,6 +118,19 @@ export function RunnerPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+/** A crew the runner is in: its logo and name, and their rank in it. */
+function CrewBox({ crew }: { crew: RunnerView['crews'][number] }) {
+    return (
+        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex items-center gap-3 [--frame:var(--color-accent)]">
+            <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-14 text-2xl [--cut:8px]" />
+            <div className="min-w-0">
+                <h2 className="truncate text-lg leading-tight text-accent">{crew.name}</h2>
+                <p className="truncate font-display text-xs tracking-widest text-muted-foreground uppercase">{crew.rank}</p>
+            </div>
+        </LinkCard>
     );
 }
 

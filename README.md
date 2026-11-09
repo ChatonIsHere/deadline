@@ -29,7 +29,7 @@ People with none of these roles can't log in. Admins are people with the admin r
 
 ## Crews
 
-A crew is a group of runners with ranks. A gig can hold slots for a crew, and only its runners can take them until an admin opens them to anyone. Deleting a crew opens its slots.
+A crew is a group of runners with ranks and an optional square logo. A gig can hold slots for a crew, and only its runners can take them until an admin opens them to anyone. Deleting a crew opens its slots.
 
 - **Ranks** are just names, highest first. New crews get Founder and Member; founders can add more. The top rank (Founder unless renamed) runs the crew: edits it, sets ranks, invites, removes runners and keeps the allies list. Admins can do all of that too.
 - A crew always has at least one Founder. A Founder can't step down or leave on their own: another Founder or an admin has to do it. If the last Founder's runner is deleted, the highest ranked runner left takes over.

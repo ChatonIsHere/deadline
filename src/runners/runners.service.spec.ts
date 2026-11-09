@@ -57,10 +57,18 @@ describe('RunnersService', () => {
         const prefs = new PrefsService(prisma);
         const notify = new NotifyService(prefs, members, prisma);
         gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
-        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs, notify), new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never));
+        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs, notify, library), new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never));
     });
 
     after(() => prisma.$disconnect());
+
+    it('lists their crews with the logo and their rank', async () => {
+        const vex = await runners.create(players[1], input());
+        const logo = await prisma.image.create({ data: { inLibrary: false, kind: 'avatar' } });
+        await prisma.crew.create({ data: { name: 'Moxes', slug: 'moxes', ownerId: 'a', ranks: ['Boss', 'Kid'], imageId: logo.id, members: { create: { runnerId: vex.id, rank: 'Kid' } } } });
+        const [crew] = (await runners.get(players[2], vex.id)).crews;
+        assert.deepEqual([crew.name, crew.imageId, crew.rank], ['Moxes', logo.id, 'Kid']);
+    });
 
     describe('gallery', () => {
         const pictures = () => Promise.all([1, 2, 3].map(async () => (await prisma.image.create({ data: { inLibrary: false, kind: 'art' } })).id));

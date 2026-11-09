@@ -6,6 +6,7 @@ import { MembersService } from '../discord/members.service';
 import { linked, NotifyService } from '../discord/notify.service';
 import { type Said, voice } from '../discord/voice';
 import { GigsService, toCard } from '../gigs/gigs.service';
+import { LibraryService } from '../library/library.service';
 import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
 import { canCreateCrew, canManageCrew, isFounderRank } from '../shared/permissions';
@@ -34,6 +35,7 @@ export class CrewsService {
         private readonly members: MembersService,
         private readonly gigs: GigsService,
         private readonly notify: NotifyService,
+        private readonly library: LibraryService,
     ) {}
 
     /** A crew's ID from a URL part: its link (the name) or its UUID. */
@@ -75,32 +77,35 @@ export class CrewsService {
         return this.get(crew.id);
     }
 
-    /** Name, tagline and ranks. Renamed ranks keep their runners. Runners in a removed rank drop to the lowest. */
+    /** Name, tagline, logo and ranks. Renamed ranks keep their runners. Runners in a removed rank drop to the lowest. */
     async update(user: Me, id: string, input: CrewInput): Promise<CrewView> {
         const crew = await this.manage(user, id);
         // A new name means a new link
         const slug = await this.nameSlug(input.name, id);
         if (input.ranks[0].was !== crew.ranks[0]) throw new BadRequestException(`${crew.ranks[0]} stays the top rank. You can rename it.`);
+        if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Upload it again.');
 
         const ranks = input.ranks.map((r) => r.name);
         const renamed = new Map(input.ranks.filter((r) => r.was).map((r) => [r.was!, r.name]));
         const lowest = ranks[ranks.length - 1];
         await this.prisma.$transaction(async (tx) => {
-            await tx.crew.update({ where: { id }, data: { name: input.name, slug, tagline: input.tagline, ranks } });
+            await tx.crew.update({ where: { id }, data: { name: input.name, slug, tagline: input.tagline, imageId: input.imageId, ranks } });
             for (const m of crew.members) {
                 const rank = renamed.get(m.rank) ?? lowest;
                 if (rank !== m.rank) await tx.crewMember.update({ where: { crewId_runnerId: { crewId: id, runnerId: m.id } }, data: { rank } });
             }
         });
+        await this.library.refreshUsage([input.imageId, crew.imageId]);
         if (input.name !== crew.name) this.gigs.refresh(await this.gigs.gigsForCrew(id));
         return this.get(id);
     }
 
     async delete(user: Me, id: string) {
-        await this.manage(user, id);
+        const crew = await this.manage(user, id);
         const affected = await this.gigs.gigsForCrew(id);
         // Their gig slots become open to anyone (ON DELETE SET NULL)
         await this.prisma.crew.delete({ where: { id } });
+        await this.library.refreshUsage([crew.imageId]);
         await this.gigs.refill(affected);
     }
 
@@ -297,6 +302,7 @@ function toView(crew: CrewRow): CrewView {
         slug: crew.slug,
         name: crew.name,
         tagline: crew.tagline,
+        imageId: crew.imageId,
         ranks,
         members: crew.members.map((m) => ({ ...toCard(m.runner), rank: m.rank })).sort((a, b) => order(a.rank) - order(b.rank) || byHandle(a, b)),
         allies: crew.allies.map((a) => toCard(a.runner)).sort(byHandle),

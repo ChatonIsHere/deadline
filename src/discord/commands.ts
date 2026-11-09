@@ -171,8 +171,9 @@ export class Commands {
         const crew = all.find((c) => c.id === name) ?? all.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
         if (!crew) return this.oops(interaction, 'no crew by that name.');
         // Big crews spill over into more messages
-        const [first, ...more] = crewCard(crew, this.emoji.get, config.PUBLIC_URL);
-        await interaction.reply(first);
+        const logo = crew.imageId ? await this.library.attachment(framedFile(crew.imageId)) : null;
+        const [first, ...more] = crewCard(crew, this.emoji.get, config.PUBLIC_URL, logo && `attachment://${logo.name}`);
+        await interaction.reply({ ...first, files: logo ? [logo] : [] });
         for (const message of more) await interaction.followUp(message);
     }
 

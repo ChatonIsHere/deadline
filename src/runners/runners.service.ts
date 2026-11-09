@@ -87,7 +87,7 @@ export class RunnersService {
         const [ran, fixed, memberOf, ratings] = await Promise.all([
             this.prisma.gig.findMany({ where: { slots: { some: { runnerId: id } } }, orderBy: newest }),
             this.prisma.gig.findMany({ where: { fixerRunnerId: id }, orderBy: newest }),
-            this.prisma.crewMember.findMany({ where: { runnerId: id }, include: { crew: { select: { id: true, slug: true, name: true } } } }),
+            this.prisma.crewMember.findMany({ where: { runnerId: id }, include: { crew: { select: { id: true, slug: true, name: true, imageId: true } } } }),
             this.ratings([id]),
         ]);
         const isFixer = this.isFixer(r);
@@ -101,7 +101,7 @@ export class RunnersService {
             bio: r.bio,
             artIds: await this.photoIds(id),
             obituary: r.status === 'dead' ? r.obituary : null,
-            crews: memberOf.map((m) => m.crew),
+            crews: memberOf.map((m) => ({ ...m.crew, rank: m.rank })),
             gigs: ran.filter(visible).map(link),
             fixerGigs: fixed.filter(visible).map(link),
             rating: ratings.get(id) ?? { average: null, count: 0 },

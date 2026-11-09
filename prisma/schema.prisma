@@ -108,17 +108,21 @@ model Crew {
   /// The crew's link, made from the name: /crews/static-wolves
   slug      String   @unique
   tagline   String   @default("")
+  /// A square picture
+  imageId   String?  @map("image_id") @db.Uuid
   /// The player who made it. Kept for the record; the top rank runs the crew.
   ownerId   String   @map("owner_id")
   /// Rank names (string[]), highest first. The first is the founder rank.
   ranks     Json
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  image   Image?       @relation(fields: [imageId], references: [id], onDelete: SetNull)
   members CrewMember[]
   allies  CrewAlly[]
   invites CrewInvite[]
   slots   GigSlot[]
 
+  @@index([imageId])
   @@map("crews")
 }
 
@@ -439,6 +443,7 @@ model Image {
   gigs    Gig[]
   runners Runner[] @relation("RunnerPicture")
   artOf   RunnerPhoto[]
+  crews   Crew[]
 
   @@index([regionId])
   @@index([unusedSince])

@@ -194,6 +194,8 @@ export type NewCrewInput = z.infer<typeof newCrewInput>;
 export const crewInput = z.object({
     name: text(50),
     tagline: z.string().trim().max(120),
+    /** The crew's logo: a square picture. */
+    imageId: id.nullable().default(null),
     /**
      * Highest first. The first is the founder rank. `was` is a rank's name before this edit
      * (null for a new one), so renaming a rank keeps its runners in it.
@@ -439,7 +441,8 @@ export interface RunnerView extends RunnerSummary {
     bio: string | null;
     /** Dead runners only. Markdown. */
     obituary: string | null;
-    crews: { id: string; slug: string; name: string }[];
+    /** The crews they're in, with their logo and this runner's rank in each. */
+    crews: { id: string; slug: string; name: string; imageId: string | null; rank: string }[];
     /** Gigs this runner went on (or is signed up for). */
     gigs: GigLink[];
     /** Gigs this runner was the fixer for. */
@@ -570,6 +573,7 @@ export interface CrewView {
     slug: string;
     name: string;
     tagline: string;
+    imageId: string | null;
     /** Highest first. The first is the founder rank. */
     ranks: string[];
     /** Highest rank first. */

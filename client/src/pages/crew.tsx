@@ -4,7 +4,8 @@ import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Live, liveKey, Loading, Say } from '@/components/common';
-import { RoleIcon, RunnerChip, RunnerTile } from '@/components/runner';
+import { RoleIcon, RunnerAvatar, RunnerChip, RunnerTile } from '@/components/runner';
+import { UploadButton } from '@/components/upload-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -35,12 +36,15 @@ export function Crew() {
     return (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="space-y-6">
-                <Live value={[crew.name, crew.tagline]}>
-                    <div>
-                        <h1 className="flex items-center gap-3 text-3xl text-primary">
-                            <Icon name="crew" className="size-7" /> {crew.name}
-                        </h1>
-                        {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                <Live value={[crew.name, crew.tagline, crew.imageId]}>
+                    <div className="flex items-center gap-4">
+                        {crew.imageId && <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-24 sm:w-28" />}
+                        <div className="min-w-0">
+                            <h1 className="flex items-center gap-3 text-3xl break-words text-primary">
+                                {!crew.imageId && <Icon name="crew" className="size-7" />} {crew.name}
+                            </h1>
+                            {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                        </div>
                     </div>
                 </Live>
 
@@ -234,12 +238,13 @@ function AddAlly({ crew }: { crew: CrewView }) {
     );
 }
 
-/** Name, tagline and ranks. The top rank can be renamed but stays on top. */
+/** Name, tagline, logo and ranks. The top rank can be renamed but stays on top. */
 function EditCrew({ crew }: { crew: CrewView }) {
     const [name, setName] = useState(crew.name);
     const [tagline, setTagline] = useState(crew.tagline);
+    const [imageId, setImageId] = useState(crew.imageId);
     const [ranks, setRanks] = useState(crew.ranks.map((r) => ({ name: r, was: r as string | null })));
-    const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, ranks }), 'crew saved.');
+    const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, imageId, ranks }), 'crew saved.');
 
     const setRank = (i: number, value: string) => setRanks(ranks.map((r, j) => (j === i ? { ...r, name: value } : r)));
     const move = (i: number, by: number) => {
@@ -257,6 +262,20 @@ function EditCrew({ crew }: { crew: CrewView }) {
         <Card>
             <CardTitle>Edit crew</CardTitle>
             <form onSubmit={submit} className="space-y-4">
+                <div>
+                    <Label help="a square picture, shown on the crew's page, the crew list, runner profiles and /crew in Discord.">Logo</Label>
+                    <div className="flex items-center gap-3">
+                        <RunnerAvatar runner={{ handle: name || '?', imageId }} large className="size-20 text-3xl [--cut:10px]" />
+                        <div className="space-y-1">
+                            <UploadButton options={{ kind: 'avatar' }} onUploaded={([id]) => setImageId(id)} />
+                            {imageId && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setImageId(null)}>
+                                    Remove logo
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
                 <div>
                     <Label htmlFor="name">Name</Label>
                     <Input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} />

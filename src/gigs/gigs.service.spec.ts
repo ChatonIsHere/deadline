@@ -115,7 +115,7 @@ describe('GigsService', () => {
         prefs = new PrefsService(prisma);
         const notify = new NotifyService(prefs, members, prisma);
         gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
-        crews = new CrewsService(prisma, members, gigs, notify);
+        crews = new CrewsService(prisma, members, gigs, notify, library);
         debrief = new DebriefService(prisma, gigs, posts, notify, new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never), { get: () => '' } as never);
         ids = {};
         for (const p of ['a', 'b', 'c']) await addRunner(p, p);

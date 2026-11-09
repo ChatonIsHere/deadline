@@ -29,7 +29,16 @@ const members = {
 } as unknown as MembersService;
 const posts = { sync: async () => ({ threadId: 'thread', overflowIds: [] }) } as unknown as GigPostService;
 const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48 }) } as unknown as SettingsService;
-const library = { exists: async () => true, pick: async () => null, refreshUsage: async () => {} } as unknown as LibraryService;
+/** Pictures the service said had changed use. */
+let refreshed: (string | null | undefined)[] = [];
+let pictureExists = true;
+const library = {
+    exists: async () => pictureExists,
+    pick: async () => null,
+    refreshUsage: async (ids: (string | null | undefined)[]) => {
+        refreshed.push(...ids);
+    },
+} as unknown as LibraryService;
 
 describe('CrewsService', () => {
     let crews: CrewsService;
@@ -45,7 +54,8 @@ describe('CrewsService', () => {
         const prefs = new PrefsService(prisma);
         const notify = new NotifyService(prefs, members, prisma);
         const gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
-        crews = new CrewsService(prisma, members, gigs, notify);
+        crews = new CrewsService(prisma, members, gigs, notify, library);
+        refreshed = [];
         dms = [];
         ids = {};
         for (const owner of ['a', 'b', 'c']) await addRunner(owner, owner);
@@ -55,6 +65,48 @@ describe('CrewsService', () => {
     after(() => prisma.$disconnect());
 
     const make = () => crews.create(a, { name: 'Moxes', tagline: '', runnerId: ids.a });
+
+    describe('logo', () => {
+        const picture = async () => (await prisma.image.create({ data: { inLibrary: false, kind: 'avatar' } })).id;
+        const save = (user: Me, crew: { id: string; name: string; ranks: string[] }, imageId: string | null) =>
+            crews.update(user, crew.id, { name: crew.name, tagline: '', imageId, ranks: crew.ranks.map((name) => ({ name, was: name })) });
+
+        it('starts with none', async () => {
+            assert.equal((await make()).imageId, null);
+        });
+
+        it('can be set, replaced and removed by a founder', async () => {
+            const crew = await make();
+            const [one, two] = [await picture(), await picture()];
+            assert.equal((await save(a, crew, one)).imageId, one);
+            assert.equal((await save(a, crew, two)).imageId, two);
+            assert.ok(refreshed.includes(one) && refreshed.includes(two));
+            assert.equal((await save(a, crew, null)).imageId, null);
+        });
+
+        it('can be set by an admin, but not by anyone else', async () => {
+            const crew = await make();
+            const one = await picture();
+            await assert.rejects(save(b, crew, one), /Forbidden/);
+            assert.equal((await save(admin, crew, one)).imageId, one);
+        });
+
+        it('has to exist', async () => {
+            const crew = await make();
+            pictureExists = false;
+            await assert.rejects(save(a, crew, 'aaaaaaaa-0000-4000-8000-000000000000'), /gone/);
+            pictureExists = true;
+        });
+
+        it('is let go when the crew disbands', async () => {
+            const crew = await make();
+            const one = await picture();
+            await save(a, crew, one);
+            refreshed = [];
+            await crews.delete(a, crew.id);
+            assert.deepEqual(refreshed, [one]);
+        });
+    });
     const ranks = async (crewId: string) => (await crews.get(crewId)).members.map((m) => [m.handle, m.rank]);
 
     it('makes the founding runner a Founder', async () => {
@@ -107,6 +159,7 @@ describe('CrewsService', () => {
         await crews.update(a, crew.id, {
             name: 'Moxes',
             tagline: '',
+            imageId: null,
             ranks: [
                 { name: 'Founder', was: 'Founder' },
                 { name: 'Lieutenant', was: null },
@@ -118,6 +171,7 @@ describe('CrewsService', () => {
         await crews.update(a, crew.id, {
             name: 'Moxes',
             tagline: '',
+            imageId: null,
             ranks: [
                 { name: 'Boss', was: 'Founder' },
                 { name: 'Kid', was: 'Member' },
@@ -126,7 +180,7 @@ describe('CrewsService', () => {
         assert.deepEqual((await crews.get(crew.id)).ranks, ['Boss', 'Kid']);
         assert.deepEqual(await ranks(crew.id), [['a', 'Boss'], ['b', 'Kid'], ['c', 'Kid']]);
         await assert.rejects(
-            crews.update(a, crew.id, { name: 'Moxes', tagline: '', ranks: [{ name: 'Kid', was: 'Kid' }, { name: 'Boss', was: 'Boss' }] }),
+            crews.update(a, crew.id, { name: 'Moxes', tagline: '', imageId: null, ranks: [{ name: 'Kid', was: 'Kid' }, { name: 'Boss', was: 'Boss' }] }),
             /stays the top rank/,
         );
     });
@@ -172,7 +226,7 @@ describe('CrewsService', () => {
 
     it('moves the link when a crew is renamed', async () => {
         const crew = await make();
-        const renamed = await crews.update(a, crew.id, { name: 'The Moxes', tagline: '', ranks: crew.ranks.map((name) => ({ name, was: name })) });
+        const renamed = await crews.update(a, crew.id, { name: 'The Moxes', tagline: '', imageId: null, ranks: crew.ranks.map((name) => ({ name, was: name })) });
         assert.equal(renamed.slug, 'the-moxes');
         assert.equal(await crews.resolve('the-moxes'), crew.id);
     });

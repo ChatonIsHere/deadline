@@ -74,6 +74,15 @@ describe('picture cleanup', () => {
         assert.ok(await prisma.image.findUnique({ where: { id } }));
     });
 
+    it('keeps a logo a crew is using', async () => {
+        const id = await picture();
+        await prisma.image.update({ where: { id }, data: { unusedSince: new Date(Date.now() - 40 * DAY) } });
+        await prisma.crew.create({ data: { name: 'Moxes', slug: 'moxes', ownerId: 'a', ranks: ['Boss', 'Kid'], imageId: id } });
+        assert.deepEqual(await cleanup.run(), { images: 0, files: 0 });
+        await library.refreshUsage([id]);
+        assert.equal((await prisma.image.findUniqueOrThrow({ where: { id } })).unusedSince, null);
+    });
+
     it('keeps art a runner is using', async () => {
         const id = await picture();
         await prisma.image.update({ where: { id }, data: { unusedSince: new Date(Date.now() - 40 * DAY) } });

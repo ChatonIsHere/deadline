@@ -24,7 +24,7 @@ export function inviteMessage(crew: { id: string; slug: string; name: string; ta
 }
 
 /** /crew: one field per rank with its runners, then allies. Big crews spill into more messages. */
-export function crewCard(crew: CrewView, emoji: EmojiLookup, boardUrl: string): { embeds: APIEmbed[] }[] {
+export function crewCard(crew: CrewView, emoji: EmojiLookup, boardUrl: string, logoUrl: string | null = null): { embeds: APIEmbed[] }[] {
     const fields = crew.ranks
         .map((rank) => ({ name: rank, value: crew.members.filter((m) => m.rank === rank).map((m) => runnerLine(emoji, m)).join('\n') }))
         .filter((f) => f.value);
@@ -34,6 +34,7 @@ export function crewCard(crew: CrewView, emoji: EmojiLookup, boardUrl: string): 
         color: COLOURS.closed,
         title: crew.name,
         url: `${boardUrl}/crews/${crew.slug}`,
+        thumbnail: logoUrl ? { url: logoUrl } : undefined,
         description: [crew.tagline, `${emoji('crew')} ${crew.members.length} runner${crew.members.length === 1 ? '' : 's'}`.trim()].filter(Boolean).join('\n'),
     };
     return packEmbeds(head, fields, { color: COLOURS.closed }).map((embeds) => ({ embeds }));

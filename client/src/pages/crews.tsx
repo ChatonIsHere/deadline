@@ -63,11 +63,14 @@ function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
     const shown = crew.members.slice(0, 6);
     return (
         <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
-            <div>
-                <h3 className="flex items-center gap-2 text-xl">
-                    <Icon name="crew" className="size-5" /> <span className="truncate">{crew.name}</span>
-                </h3>
-                {crew.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground italic">"{crew.tagline}"</p>}
+            <div className="flex items-center gap-3">
+                {crew.imageId && <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-14 text-2xl [--cut:8px]" />}
+                <div className="min-w-0">
+                    <h3 className="flex items-center gap-2 text-xl">
+                        {!crew.imageId && <Icon name="crew" className="size-5" />} <span className="truncate">{crew.name}</span>
+                    </h3>
+                    {crew.tagline && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground italic">"{crew.tagline}"</p>}
+                </div>
             </div>
             {leaders.length > 0 && (
                 <p className="truncate text-xs text-muted-foreground">
