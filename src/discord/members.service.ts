@@ -149,6 +149,7 @@ export class MembersService {
 
 const meKey = (id: string) => `me:${id}`;
 
+/** Their Discord account's name and avatar, not their nickname or picture on this server. */
 function toMember(m: GuildMember): Member {
-    return { id: m.id, name: m.displayName, avatar: m.displayAvatarURL({ size: 64 }) };
+    return { id: m.id, name: m.user.displayName, avatar: m.user.displayAvatarURL({ size: 64 }) };
 }

@@ -113,9 +113,17 @@ export function RunnerPage() {
                         </Live>
                     )}
 
-                    <DowntimePanel runner={runner} />
-
-                    <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
+                    {/* Downtime comes first so phones get it on top. Only its player and admins have it; everyone else gets the gigs on their own. */}
+                    <div className={cn('grid items-start gap-6', runner.downtime && 'xl:grid-cols-2')}>
+                        {runner.downtime && (
+                            <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+                                <DowntimePanel runner={runner} />
+                            </div>
+                        )}
+                        <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                            <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
