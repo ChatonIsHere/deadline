@@ -9,7 +9,7 @@ import { FORUM, frameSvg, type Variant } from './frame';
  * bottom), one word per line, as big as fits. PNG: Discord labels WebP pictures as GIFs.
  * Bump when the look changes, so Discord fetches new copies.
  */
-export const CARD_VERSION = 4;
+export const CARD_VERSION = 5;
 
 /** Chakra Petch Bold (SIL Open Font License, see assets/fonts/OFL.txt), the site's heading font. */
 const FONT = join(__dirname, '..', '..', 'assets', 'fonts', 'ChakraPetch-Bold.ttf');
@@ -63,7 +63,7 @@ export async function renderGigCard(plain: Buffer, variant: Variant, name: strin
     // As big as fits: the longest word within the width, all lines within the height
     const cap = measure('H').height;
     const widest = Math.max(...words.map((w) => measure(w).width));
-    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / (widest + (BAR_X + BAR_CUT) * cap);
+    const byWidth = ((W - 2 * margin) * MAX_WIDTH * 100) / (widest + 2 * BAR_X * cap);
     const byHeight = ((H - 2 * margin) * MAX_HEIGHT * 100) / (cap * (1 + 2 * BAR_Y + (words.length - 1) * LINE));
     const size = Math.min(byWidth, byHeight);
     const capPx = (cap * size) / 100;
