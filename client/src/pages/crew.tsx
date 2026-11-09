@@ -71,12 +71,12 @@ export function Crew() {
                         const members = crew.members.filter((m) => m.rank === rank);
                         if (!members.length) return null;
                         return (
-                            <section key={rank} className="space-y-3">
+                            <section key={rank} className="@container space-y-3">
                                 <h2 className="flex items-center gap-3 font-display text-xs tracking-widest text-accent uppercase">
                                     <span>{rank}</span>
                                     <span className="h-0.5 flex-1 bg-border" />
                                 </h2>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-4 @[33rem]:grid-cols-2">
                                     {members.map((m) => {
                                         const leave = !canManage && m.ownerId === me.id && !isFounderRank(crew, m.rank);
                                         return (

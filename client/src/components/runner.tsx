@@ -47,19 +47,23 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
 /**
  * A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to
  * their profile. Retired and flatlined runners are greyed out and say so. The picture has room
- * beside it for four lines. `compact` is for narrow spots like a crew's member list: a smaller
- * picture, and a set height that fits two rows of roles, so a list of them lines up.
+ * beside it for four lines. `compact` is for narrow spots like a crew's member list: just a
+ * smaller picture, the handle and roles, at a set height so a list of them lines up.
  */
 export function RunnerTile({ runner, compact }: { runner: RunnerCard; compact?: boolean }) {
     const gone = runner.status !== 'active';
     return (
-        <LinkCard to={`/runners/${runner.slug}`} className={cn('flex gap-4', compact ? 'min-h-37 items-center' : 'items-start')}>
-            <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-16 text-2xl [--cut:8px]' : 'size-28 text-4xl [--cut:12px]', gone && 'opacity-60 grayscale')} />
-            {/* The name stays put whatever's under it. Normal cards: where it'd be, centred, above one row of roles and two lines of tagline. */}
-            <div className={cn('min-w-0 space-y-1.5', compact ? 'self-start pt-2' : 'pt-2.5')}>
-                <h3 className={cn('truncate text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
+        <LinkCard to={`/runners/${runner.slug}`} className={cn('flex items-start', compact ? 'h-29 gap-3' : 'gap-4')}>
+            <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-20 text-3xl [--cut:10px]' : 'size-28 text-4xl [--cut:12px]', gone && 'opacity-60 grayscale')} />
+            {/*
+              * The name stays put whatever's under it. Normal cards: where it'd be, centred, above one
+              * row of roles and two lines of tagline. Compact: the height is exactly name plus two rows
+              * of roles, so any more roles than that drop off a whole row at a time.
+              */}
+            <div className={cn('min-w-0', compact ? 'h-20 space-y-1 overflow-hidden' : 'space-y-1.5 pt-2.5')}>
+                <h3 className={cn('truncate', compact ? 'text-base leading-7' : 'text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
                 {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
-                {runner.tagline && <p className={cn('text-xs text-muted-foreground', compact ? 'truncate' : 'line-clamp-2')}>{runner.tagline}</p>}
+                {!compact && runner.tagline && <p className="line-clamp-2 text-xs text-muted-foreground">{runner.tagline}</p>}
             </div>
         </LinkCard>
     );
