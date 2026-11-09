@@ -32,6 +32,10 @@ const icons = {
     slot_open: [s('M28 16H100L112 28V100L100 112H28L16 100V28Z', C, 10)],
     slot_filled: [f('M28 14H100L114 28V100L100 114H28L14 100V28Z', Y), f('M46 46H82V82H46Z', D)],
 
+    // Ratings. The empty one has a thin edge so it still shows on a black theme.
+    star_full: [f('M64 10L78 49L119 50L87 75L98 115L64 92L30 115L41 75L9 50L50 49Z', Y)],
+    star_empty: [f('M64 10L78 49L119 50L87 75L98 115L64 92L30 115L41 75L9 50L50 49Z', '#000000'), s('M64 10L78 49L119 50L87 75L98 115L64 92L30 115L41 75L9 50L50 49Z', '#55556a', 5)],
+
     // Gig types
     type_escort: [s('M64 10L110 26V64L64 118L18 64V26Z', Y, 10), s('M40 74L64 50L88 74', C, 11)],
     type_extraction: [s('M58 14H18V114H58', C, 10), s('M40 64H112M86 38L112 64L86 90', Y, 11)],
@@ -57,7 +61,7 @@ const draw = ([kind, d, colour, width], override) => {
 };
 
 for (const [name, parts] of Object.entries(icons)) {
-    const shadow = parts.filter((p) => p[2] !== D).map((p) => draw(p, P)).join('');
+    const shadow = name === 'star_empty' ? '' : parts.filter((p) => p[2] !== D).map((p) => draw(p, P)).join('');
     const main = parts.map((p) => draw(p)).join('');
     const svg =
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" stroke-linecap="square" stroke-linejoin="miter">` +

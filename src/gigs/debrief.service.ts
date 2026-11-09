@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { debriefMessages } from '../discord/gig-embed';
 import { config } from '../config';
+import { EmojiService } from '../discord/emoji.service';
 import { GigPostService } from '../discord/gig-post.service';
 import { linked, NotifyService } from '../discord/notify.service';
 import { gigRef } from '../shared/slug';
@@ -32,6 +33,7 @@ export class DebriefService {
         private readonly posts: GigPostService,
         private readonly notify: NotifyService,
         private readonly downtime: DowntimeService,
+        private readonly emoji: EmojiService,
     ) {}
 
     /** Completes the gig. Everyone in a slot gets the crew rewards, plus their own if given. */
@@ -99,10 +101,10 @@ export class DebriefService {
                 const rating = await this.prisma.fixerRating.findUnique({ where: { gigId_userId: { gigId: id, userId } } });
                 if (!rating) return;
                 const by = (await this.prisma.gigSlot.findFirst({ where: { gigId: id, userId }, include: { runner: true } }))?.runner?.handle ?? 'A runner';
-                await this.notify.send('fixerRatings', [fixerId], linked(voice.ratingIn(gig.name, by, rating.stars, rating.comment), 'Open on board', `${config.PUBLIC_URL}/gigs/${gigRef(gig)}`));
+                await this.notify.send('fixerRatings', [fixerId], linked(voice.ratingIn(gig.name, by, rating.stars, rating.comment, this.emoji.get), 'Open on board', `${config.PUBLIC_URL}/gigs/${gigRef(gig)}`));
             });
         }
-        return voice.rated(stars);
+        return voice.rated(stars, this.emoji.get);
     }
 
     /** The player's rating for a gig, for prefilling the comment box. */

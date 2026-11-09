@@ -1,7 +1,7 @@
-import type { FixerSummary, RunnerSummary } from '@shared/schemas';
+import type { FixerSummary, Rating, RunnerSummary } from '@shared/schemas';
 import { CardPages } from '@/components/card-pages';
 import { LinkCard, liveKey, Loading, Say } from '@/components/common';
-import { RatingLine, RunnerTile } from '@/components/runner';
+import { RatingLine, RunnerTile, Stars } from '@/components/runner';
 import { StaggeredImage } from '@/components/staggered-image';
 import { PageTabs } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners } from '@/lib/api';
@@ -45,25 +45,42 @@ function RunnerGrid({ id, runners }: { id: string; runners: RunnerSummary[] }) {
     return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
 }
 
+/** A fixer's stars running down the side of their picture, with the number at the bottom. */
+function RatingColumn({ rating }: { rating: Rating }) {
+    return (
+        <div className="flex flex-1 flex-col items-center py-3 max-lg:hidden">
+            <Stars value={rating.average ?? 0} className="flex-1 flex-col justify-evenly [&_svg]:size-6" />
+            <span className="pt-1 font-display text-lg leading-none text-primary">{rating.average?.toFixed(1) ?? '-'}</span>
+        </div>
+    );
+}
+
 /**
- * A fixer on the Fixers tab: their picture across the top, like a gig card, then name,
- * specialties, and the rating bottom right. The card's corner is cut to match the picture's frame: 51 + 2 x 3
- * margin at 512 wide, so 11.1% of the card's width (cqw of the wrapper).
+ * A fixer on the Fixers tab: their picture across the top, then name and specialties.
+ *
+ * Wider screens: the picture stays the size it'd be a column narrower, and the room beside it
+ * holds the rating. Narrower: it's the card's full width, the rating is bottom right, and the
+ * card's corner is cut to match the picture's frame: 51 + 2 x 3 margin at 512 wide, so 11.1% of
+ * the card's width (cqw of the wrapper).
  */
 function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
-    const picture = '-mx-4 -mt-4 mb-3 aspect-square w-[calc(100%+2rem)] max-w-none';
+    const picture = 'aspect-square w-full shrink-0 lg:w-2/3 xl:w-3/4 3xl:w-4/5';
     return (
         <div className="@container">
-            <LinkCard to={`/fixers/${f.fixerSlug}`} className={f.imageId ? 'flex h-full flex-col [--cut:11.1cqw]' : 'flex h-full flex-col'}>
-                {f.imageId ? (
-                    <StaggeredImage src={imageUrl(f.imageId)} className={picture} />
-                ) : (
-                    <span className={cn(picture, 'grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{f.fixerName[0]?.toUpperCase()}</span>
-                )}
+            <LinkCard to={`/fixers/${f.fixerSlug}`} className={f.imageId ? 'flex h-full flex-col max-lg:[--cut:11.1cqw]' : 'flex h-full flex-col'}>
+                <div className="-mx-4 -mt-4 mb-3 flex">
+                    {f.imageId ? (
+                        <StaggeredImage src={imageUrl(f.imageId)} className={picture} />
+                    ) : (
+                        // Cut like the card, or its corner covers the card's diagonal border
+                        <span className={cn(picture, 'cut grid place-items-center bg-muted font-display text-[40cqw] text-primary lg:text-[30cqw]')}>{f.fixerName[0]?.toUpperCase()}</span>
+                    )}
+                    <RatingColumn rating={f.rating} />
+                </div>
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.fixerName}</h3>
                 {f.tagline && <p className="mb-1 truncate text-xs text-accent">{f.tagline}</p>}
                 {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
-                <div className="mt-auto flex justify-end text-right">
+                <div className="mt-auto flex justify-end text-right lg:hidden">
                     <RatingLine rating={f.rating} count={false} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />
                 </div>
             </LinkCard>

@@ -6,7 +6,7 @@ import { type GigView, payRange, type RunnerCard } from '../shared/schemas';
 import { layoutEmbeds, packEmbeds, toMessages } from './embed-pack';
 import type { EmojiLookup } from './emoji.service';
 import { COLOURS, lineEmbed, SITE } from './colours';
-import { type Said, voice } from './voice';
+import { plainStars, type Said, voice } from './voice';
 
 /** "2,000eb", or the eb emoji followed by the number when it's uploaded. */
 export function money(amount: number, emoji: EmojiLookup): string {
@@ -190,7 +190,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
         const menu = new StringSelectMenuBuilder()
             .setCustomId(`rate/${gig.id}`)
             .setPlaceholder(voice.rateFixer(gig.fixerName))
-            .addOptions([5, 4, 3, 2, 1].map((n) => ({ label: `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`, value: String(n) })));
+            .addOptions([5, 4, 3, 2, 1].map((n) => ({ label: plainStars(n), value: String(n) })));
         rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu));
     }
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(gigLinks(gig, threadUrl, boardUrl)));

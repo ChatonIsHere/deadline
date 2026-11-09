@@ -228,7 +228,7 @@ export class Commands {
         const view = await this.runners.get(viewer, id); // throws if the runner was deleted since it was suggested
         // Uploaded with the reply, so Discord serves it (see LibraryService.attachment)
         const image = view.imageId ? await this.library.attachment(framedFile(view.imageId)) : null;
-        return { ...runnerCard(view, side, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] };
+        return { ...runnerCard(view, side, this.emoji.get, config.PUBLIC_URL, image && `attachment://${image.name}`), files: image ? [image] : [] };
     }
 
     /** Who's asking, so pending gigs stay hidden from people who can't see them. */

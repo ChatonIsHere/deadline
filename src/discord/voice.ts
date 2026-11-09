@@ -1,6 +1,8 @@
 // Most of what the board's AI says, in one place so the tone is easy to change. Command errors are in commands.ts.
 // Discord shows these as embeds coloured by tone (see lineEmbed in colours.ts); the web shows the plain text.
 
+import type { EmojiLookup } from './emoji.service';
+
 /**
  * What a line is about, which sets its colour in Discord, as on the site. act: needs you to do
  * something. info: news. good: it worked. bad: it didn't, or bad news. quiet: nothing to do.
@@ -18,8 +20,22 @@ const say = (tone: Tone, text: string, details?: Said['details']): Said => ({ to
 
 const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 
+/** A rating as five stars, for messages and embeds. */
+export const starRow = (filled: number, emoji: EmojiLookup) => (emoji('star_full') || '⭐').repeat(filled) + (emoji('star_empty') || '⬛').repeat(5 - filled);
+
+/** Menus and pop-up titles can't draw the bot's own emoji, so they count in standard stars. */
+export const plainStars = (filled: number) => '⭐'.repeat(filled);
+
 /** A line as plain text, for the web. */
-export const plainVoice = (said: Said) => said.text.replace(LINK_RE, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
+export const plainVoice = (said: Said) =>
+    said.text
+        .replace(LINK_RE, '$1')
+        .replace(/<a?:star_full_\w+:\d+>/g, '★')
+        .replace(/<a?:star_empty_\w+:\d+>/g, '☆')
+        .replace(/<a?:\w+:\d+>/g, '')
+        .replace(/[*`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
 /** A name in bold. Asterisks in it would break the bold, so they go. */
 const n = (name: string) => `**${name.replace(/\*/g, '')}**`;
@@ -42,7 +58,7 @@ export const voice = {
     pickRunnerPrompt: () => say('act', 'which runner is taking this one?'),
     dtSkipped: (handle: string) => say('quiet', `${n(handle)} sat this month out. no DT, nothing due.`),
     monthStart: () => say('act', "new month. DT has reset and this month's is in."),
-    rated: (stars: number) => say('good', `rating logged: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}. change it any time.`),
+    rated: (stars: number, emoji: EmojiLookup) => say('good', `rating logged: ${starRow(stars, emoji)}. change it any time.`),
     error: (message: string) => say('bad', message),
 
     // Asking runners to confirm, by DM (or in the thread if their DMs are closed)
@@ -69,7 +85,7 @@ export const voice = {
 
     // After the job
     rateFixer: (fixer: string) => `Rate ${fixer} (fixer)`,
-    rateComment: (stars: number) => `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)} saved. Add a note?`,
+    rateComment: (stars: number) => `${plainStars(stars)} saved. Add a note?`,
 
     // Crews
     crewInvite: (crewName: string, handle: string, from: string) => say('act', `${n(crewName)} wants ${n(handle)} in the crew. ${from} sent the invite.`),
@@ -99,8 +115,8 @@ export const voice = {
     signedUp: (gigName: string, handle: string, reserve: boolean) =>
         say('info', reserve ? `${n(handle)} is on the reserves for ${n(gigName)}.` : `${n(handle)} signed up for ${n(gigName)}.`),
     pulledOut: (gigName: string, handle: string) => say('quiet', `${n(handle)} pulled out of ${n(gigName)}.`),
-    ratingIn: (gigName: string, by: string, stars: number, comment: string | null) =>
-        say('info', `${n(by)} rated you for ${n(gigName)}: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, comment ? [{ name: 'Note', value: comment }] : undefined),
+    ratingIn: (gigName: string, by: string, stars: number, comment: string | null, emoji: EmojiLookup) =>
+        say('info', `${n(by)} rated you for ${n(gigName)}: ${starRow(stars, emoji)}`, comment ? [{ name: 'Note', value: comment }] : undefined),
     needsApproval: (gigName: string, fixer: string) => say('act', `${n(fixer)} wants ${n(gigName)} on the board. it needs an admin's sign-off.`),
     newGig: () => say('act', 'new contract on the board.'),
     crewMemberJoined: (crewName: string, handle: string) => say('info', `${n(handle)} joined ${n(crewName)}.`),

@@ -4,13 +4,12 @@ import type { EmojiLookup } from './emoji.service';
 import { COLOURS, SITE } from './colours';
 import { payText } from './gig-embed';
 import { slotCount } from '../shared/slots';
-import { voice } from './voice';
+import { starRow, voice } from './voice';
 
 // Compact cards for slash command replies. The full gig card is the forum post (gig-embed.ts).
 
 const link = (label: string, url: string) => new ButtonBuilder().setLabel(label).setStyle(ButtonStyle.Link).setURL(url);
 const cut = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
-const stars = (avg: number) => '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg));
 
 /** /gig: the essentials and links to the post and board. */
 export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imageUrl: string | null) {
@@ -40,7 +39,7 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
  * /runner and /fixer. The runner side has roles and crews; the fixer side (for fixers) goes by
  * their alias, with their office, rating and the gigs they put out.
  */
-export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', boardUrl: string, imageUrl: string | null) {
+export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', emoji: EmojiLookup, boardUrl: string, imageUrl: string | null) {
     const fixer = side === 'fixer' && runner.isFixer;
     const roles = [runner.role, ...runner.extraRoles].join(', ');
     const recent = (fixer ? runner.fixerGigs : runner.gigs).slice(0, 5);
@@ -52,15 +51,18 @@ export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', boardUr
     ];
     if (fixer) {
         fields.push(
-            { name: 'Rating', value: runner.rating.average ? `${stars(runner.rating.average)} (${runner.rating.count})` : 'Not rated yet', inline: true },
+            { name: 'Rating', value: runner.rating.average ? `${starRow(Math.round(runner.rating.average), emoji)} (${runner.rating.count})` : 'Not rated yet', inline: true },
             ...(runner.officeLocation ? [{ name: 'Office', value: runner.officeLocation, inline: true }] : []),
             ...(runner.contact ? [{ name: 'Reach them', value: runner.contact, inline: true }] : []),
             ...(runner.specialties ? [{ name: 'Specialties', value: runner.specialties, inline: false }] : []),
         );
         if (runner.reviews.length) {
             const review = (r: Review) =>
-                `${stars(r.stars)} [${r.gig.name}](${boardUrl}/gigs/${r.gig.ref})${r.by ? ` · ${r.by.handle}` : ''}${r.comment ? `\n> ${cut(r.comment, 150)}` : ''}`;
-            fields.push({ name: 'Latest ratings', value: cut(runner.reviews.slice(0, 3).map(review).join('\n'), 1024), inline: false });
+                `${starRow(r.stars, emoji)} [${r.gig.name}](${boardUrl}/gigs/${r.gig.ref})${r.by ? ` · ${r.by.handle}` : ''}${r.comment ? `\n> ${cut(r.comment, 150)}` : ''}`;
+            // Whole ratings only: cutting one short could leave half an emoji code showing
+            const lines = runner.reviews.slice(0, 3).map(review);
+            while (lines.join('\n').length > 1024) lines.pop();
+            if (lines.length) fields.push({ name: 'Latest ratings', value: lines.join('\n'), inline: false });
         }
     }
     if (recent.length) {

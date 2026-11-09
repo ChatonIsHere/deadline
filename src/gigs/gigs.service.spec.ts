@@ -116,7 +116,7 @@ describe('GigsService', () => {
         const notify = new NotifyService(prefs, members, prisma);
         gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
         crews = new CrewsService(prisma, members, gigs, notify);
-        debrief = new DebriefService(prisma, gigs, posts, notify, new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never));
+        debrief = new DebriefService(prisma, gigs, posts, notify, new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never), { get: () => '' } as never);
         ids = {};
         for (const p of ['a', 'b', 'c']) await addRunner(p, p);
         await addRunner('fixer', 'Rogue Amendiares', 'Fixer');
