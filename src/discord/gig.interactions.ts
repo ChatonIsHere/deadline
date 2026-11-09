@@ -18,6 +18,7 @@ import { PrefsService } from '../auth/prefs.service';
 import { config } from '../config';
 import { DebriefService } from '../gigs/debrief.service';
 import { GigsService } from '../gigs/gigs.service';
+import { DowntimeService } from '../runners/downtime.service';
 import { pickRunnerMessage } from './gig-embed';
 import { lineMessage, lineReplacing } from './colours';
 import { GigPostService } from './gig-post.service';
@@ -31,6 +32,7 @@ export class GigInteractions {
         private readonly posts: GigPostService,
         private readonly prefs: PrefsService,
         private readonly debrief: DebriefService,
+        private readonly downtime: DowntimeService,
     ) {}
 
     /** Live gig posts stay open. Discord archives quiet threads after a week, and people can close them by hand. */
@@ -102,6 +104,17 @@ export class GigInteractions {
             await this.gigs.leave(interaction.user.id, id);
             return voice.left();
         });
+    }
+
+    /** From the month start DM. The summary stays, with other characters on it, so this answers underneath. */
+    @Button('downtime/skip/:runner/:month')
+    async skipMonth(@Context() [interaction]: ButtonContext, @ComponentParam('runner') runner: string, @ComponentParam('month') month: string) {
+        try {
+            const { handle } = await this.downtime.skip({ id: interaction.user.id, isAdmin: false }, runner, month);
+            await interaction.reply(lineMessage(voice.dtSkipped(handle)));
+        } catch (err) {
+            await interaction.reply(lineMessage(explain(err)));
+        }
     }
 
     /** From a reminder DM. Turned back on from the web. */

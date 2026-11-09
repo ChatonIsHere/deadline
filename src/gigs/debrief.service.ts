@@ -6,6 +6,7 @@ import { linked, NotifyService } from '../discord/notify.service';
 import { gigRef } from '../shared/slug';
 import { type Said, voice } from '../discord/voice';
 import { PrismaService } from '../prisma/prisma.service';
+import { DowntimeService } from '../runners/downtime.service';
 import { splitPot } from '../shared/pay';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
 import { ACTIVE, GigsService } from './gigs.service';
@@ -18,6 +19,8 @@ export interface Payout {
     ip: number;
     hqIp: number;
     extras: string[];
+    /** Downtime from finishing the gig. */
+    dt?: number;
 }
 
 /** Wrapping up a gig: the GM's summary and rewards, payout DMs, and runners rating the fixer. */
@@ -28,6 +31,7 @@ export class DebriefService {
         private readonly gigs: GigsService,
         private readonly posts: GigPostService,
         private readonly notify: NotifyService,
+        private readonly downtime: DowntimeService,
     ) {}
 
     /** Completes the gig. Everyone in a slot gets the crew rewards, plus their own if given. */
@@ -36,7 +40,7 @@ export class DebriefService {
         const gig = await this.gigs.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException('Only live gigs can be completed.');
 
-        const slots = (await this.prisma.gigSlot.findMany({ where: { gigId: id }, include: { runner: { select: { createdAt: true } } } })).filter((s) => s.userId && s.runnerId);
+        const slots = (await this.prisma.gigSlot.findMany({ where: { gigId: id }, include: { runner: true } })).filter((s) => s.userId && s.runnerId);
         const onGig = new Set(slots.map((s) => s.runnerId!));
         if (input.runners.some((r) => !onGig.has(r.runnerId))) throw new BadRequestException('Runner rewards can only go to runners on the gig.');
 
@@ -48,7 +52,7 @@ export class DebriefService {
             oldestFirst.forEach((s, i) => shares.set(s.runnerId!, cuts[i]));
         }
 
-        await this.prisma.$transaction(async (tx) => {
+        const dt = await this.prisma.$transaction(async (tx) => {
             await tx.gig.update({
                 where: { id },
                 data: { status: 'completed', summary: input.summary, rewardEb: gig.splitPay && !slots.length ? null : input.eb, rewardIp: input.ip, rewardHqIp: input.hqIp, rewardText: input.text },
@@ -63,10 +67,11 @@ export class DebriefService {
                 if (share && !rows.has(runnerId)) rows.set(runnerId, { gigId: id, runnerId, eb: null, ip: null, hqIp: null, text: null, share });
             }
             if (rows.size) await tx.gigReward.createMany({ data: [...rows.values()] });
+            return this.downtime.forGig(tx, slots.map((s) => s.runner!), gig.name);
         });
 
         const view = await this.gigs.view(id);
-        const payouts = slots.map((s) => payoutFor(view, s.userId!, s.runnerId!));
+        const payouts = slots.map((s) => ({ ...payoutFor(view, s.userId!, s.runnerId!), dt: dt.get(s.runnerId!) ?? 0 }));
         this.gigs.post(id, {
             note: debriefMessages,
             after: (latest) => this.posts.sendPayouts(latest, payouts),

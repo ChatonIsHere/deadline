@@ -10,6 +10,7 @@ import { GigsService } from '../gigs/gigs.service';
 import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
 import { CORE_ROLES, type Me, type RunnerInput } from '../shared/schemas';
+import { DowntimeService } from './downtime.service';
 import { RunnersService } from './runners.service';
 
 const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, timezone: null, needsSetup: false, ...roles });
@@ -35,6 +36,9 @@ const input = (patch: Partial<RunnerInput> = {}): RunnerInput => ({
     imageId: null,
     artId: null,
     tagline: null,
+    living: null,
+    lifestyle: null,
+    customLiving: null,
     fixerAlias: null,
     officeLocation: null,
     specialties: null,
@@ -53,10 +57,43 @@ describe('RunnersService', () => {
         const prefs = new PrefsService(prisma);
         const notify = new NotifyService(prefs, members, prisma);
         gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
-        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs, notify));
+        runners = new RunnersService(prisma, members, settings, library, gigs, new CrewsService(prisma, members, gigs, notify), new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never));
     });
 
     after(() => prisma.$disconnect());
+
+    describe('downtime', () => {
+        it('only shows it to their player and admins', async () => {
+            const vex = await runners.create(players[1], input({ living: 'low-1', lifestyle: 'low' }));
+            assert.equal((await runners.get(players[1], vex.id)).downtime?.totals.dtMonth, 17);
+            assert.equal((await runners.get(admin, vex.id)).downtime?.living, 'low-1');
+            assert.equal((await runners.get(players[2], vex.id)).downtime, null);
+        });
+
+        it('has none for NPCs', async () => {
+            const npc = await runners.create(admin, input({ ownerId: null, role: 'Fixer', handle: 'Mr Blue' }));
+            assert.equal((await runners.get(admin, npc.id)).downtime, null);
+        });
+
+        it('starts paying the month after it is set up', async () => {
+            const vex = await runners.create(players[1], input());
+            assert.equal((await prisma.runner.findUniqueOrThrow({ where: { id: vex.id } })).downtimeGrantedFor, null);
+            await runners.update(players[1], vex.id, input({ lifestyle: 'squalid' }));
+            const month = (await prisma.runner.findUniqueOrThrow({ where: { id: vex.id } })).downtimeGrantedFor;
+            assert.match(month!, /^\d{4}-\d{2}$/);
+            await prisma.runner.update({ where: { id: vex.id }, data: { downtimeGrantedFor: '2020-01' } });
+            await runners.update(players[1], vex.id, input({ lifestyle: 'low' }));
+            assert.equal((await prisma.runner.findUniqueOrThrow({ where: { id: vex.id } })).downtimeGrantedFor, '2020-01');
+        });
+
+        it('only keeps custom numbers while living is custom', async () => {
+            const customLiving = { name: 'Flat', dtMonth: 14, dtGig: 5, rent: 500, humanity: 0 };
+            const vex = await runners.create(players[1], input({ living: 'custom', customLiving }));
+            assert.deepEqual((await runners.get(players[1], vex.id)).downtime?.customLiving, customLiving);
+            await runners.update(players[1], vex.id, input({ living: 'coffin', customLiving }));
+            assert.equal((await runners.get(players[1], vex.id)).downtime?.customLiving, null);
+        });
+    });
 
     it("makes a player's runner their own", async () => {
         assert.equal((await runners.create(players[1], input())).ownerId, 'a');

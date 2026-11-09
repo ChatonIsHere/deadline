@@ -1,5 +1,6 @@
 import { type APIEmbed, type APIEmbedField, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import type { Payout } from '../gigs/debrief.service';
+import { periodName, signed } from '../shared/downtime';
 import { groupSlots, slotCount } from '../shared/slots';
 import { type GigView, payRange, type RunnerCard } from '../shared/schemas';
 import { layoutEmbeds, packEmbeds, toMessages } from './embed-pack';
@@ -179,6 +180,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
             { name: 'Runner', value: payout.handle, inline: true },
             { name: 'Pay', value: payout.eb ? money(payout.eb, emoji) : '-', inline: true },
             { name: 'IP', value: String(payout.ip || '-'), inline: true },
+            ...(payout.dt ? [{ name: 'DT', value: `+${payout.dt}`, inline: true }] : []),
             ...(payout.hqIp ? [{ name: 'HQ IP (crew)', value: String(payout.hqIp), inline: true }] : []),
             ...(payout.extras.length ? [{ name: 'Extras', value: cut(payout.extras.map((e) => `- ${e}`).join('\n')) }] : []),
         );
@@ -192,6 +194,32 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
         rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu));
     }
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(gigLinks(gig, threadUrl, boardUrl)));
+    return { embeds: [embed], components: rows };
+}
+
+/** One character's start of the month. */
+export interface MonthlyLine {
+    runnerId: string;
+    handle: string;
+    dt: number;
+    due: number;
+    humanity: number;
+    skippable: boolean;
+    period: string;
+}
+
+/** A player's DT and what's due for the new month, a part per character. */
+export function monthlyMessage(period: string, lines: MonthlyLine[], emoji: EmojiLookup, boardUrl: string) {
+    const said = voice.monthStart();
+    const fields = lines.slice(0, 25).map((l) => ({ name: l.handle, value: `+${l.dt} DT · ${money(l.due, emoji)} due · humanity ${signed(l.humanity)}${l.skippable ? '\n*No game last month, so you can skip this one.*' : ''}` }));
+    const embed: APIEmbed = { color: SITE.yellow, title: `Month start // ${periodName(period)}`, description: said.text.replace(/^./, (c) => c.toUpperCase()), fields };
+
+    const skips = lines.filter((l) => l.skippable).slice(0, 19);
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    for (let i = 0; i < skips.length; i += 5) {
+        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(skips.slice(i, i + 5).map((l) => new ButtonBuilder().setCustomId(`downtime/skip/${l.runnerId}/${l.period}`).setLabel(`Skip: ${l.handle}`.slice(0, 80)).setStyle(ButtonStyle.Secondary))));
+    }
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setLabel('Open on board').setStyle(ButtonStyle.Link).setURL(`${boardUrl}/runners`)));
     return { embeds: [embed], components: rows };
 }
 

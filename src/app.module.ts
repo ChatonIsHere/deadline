@@ -32,6 +32,7 @@ import { GigsService } from './gigs/gigs.service';
 import { LibraryController } from './library/library.controller';
 import { LibraryService } from './library/library.service';
 import { RunnersController } from './runners/runners.controller';
+import { DowntimeService } from './runners/downtime.service';
 import { RunnersService } from './runners/runners.service';
 import { DebriefService } from './gigs/debrief.service';
 
@@ -68,6 +69,7 @@ import { DebriefService } from './gigs/debrief.service';
         BotProfileService,
         GigsService,
         DebriefService,
+        DowntimeService,
         RunnersService,
         CrewsService,
     ],

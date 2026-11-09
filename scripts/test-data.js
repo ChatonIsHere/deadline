@@ -14,6 +14,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { completeInput, gigDraftInput, gigInput, runnerInput } = require('./dist/shared/schemas.js');
 const { toSlug } = require('./dist/shared/slug.js');
+const { periodAt, previousPeriod, DEFAULT_TZ } = require('./dist/shared/downtime.js');
 
 const prisma = new PrismaClient();
 const MODE = process.env.TEST_DATA ?? 'check';
@@ -22,6 +23,20 @@ const DAY = 86_400_000;
 
 const uid = (prefix, n) => `${prefix}${String(n).padStart(4, '0')}-0000-4000-8000-000000000000`;
 const fakePlayer = (n) => `90000000000000${String(n).padStart(4, '0')}`;
+
+// Where they live and how. Anyone not listed has nothing set.
+const FLAT = { name: 'Shared flat above the noodle bar', dtMonth: 21, dtGig: 8, rent: 2000, humanity: 3 };
+const HOMES = {
+    cass: { living: 'high-3', lifestyle: 'high' },
+    dmitri: { living: 'homeless-vehicle', lifestyle: 'low' },
+    pixel: { living: 'custom', customLiving: { name: 'Owned studio, Pirate Radio Row', dtMonth: 21, dtGig: 8, rent: 0, humanity: 3 }, lifestyle: 'middle' },
+    brick: { living: 'low-1', lifestyle: 'low', played: true },
+    hexa: { living: 'custom', customLiving: FLAT, lifestyle: 'middle' },
+    wrench: { living: 'custom', customLiving: FLAT, lifestyle: 'low' },
+    sorrel: { living: 'coffin', lifestyle: 'squalid' },
+    riot: { living: 'middle-2', lifestyle: 'high' },
+    kestrel: { living: 'low-2', lifestyle: 'middle' },
+};
 
 // Runners: three player fixers, three NPC fixers, and thirteen on made-up players
 const RUNNERS = [
@@ -44,7 +59,7 @@ const RUNNERS = [
     { key: 'glitch', handle: 'Glitch Nakamura', role: 'Netrunner', extra: ['Media'], owner: fakePlayer(11) },
     { key: 'harlan', handle: 'Old Harlan', role: 'Solo', extra: [], owner: fakePlayer(12), status: 'retired', goneDays: 12 },
     { key: 'sable', handle: 'Sable Quinn', role: 'Netrunner', extra: [], owner: fakePlayer(13), status: 'dead', goneDays: 4, obituary: 'Jacked in one last time to hold the door open for her crew. **The door held.**\n\n- Owed Lucky 500eb\n- Never paid it' },
-].map((r, i) => ({ ...r, id: uid('d0d1', i + 1), extra: r.extra ?? [], slug: toSlug(r.handle), fixerSlug: r.alias ? toSlug(r.alias) : null }));
+].map((r, i) => ({ ...r, ...HOMES[r.key], id: uid('d0d1', i + 1), extra: r.extra ?? [], slug: toSlug(r.handle), fixerSlug: r.alias ? toSlug(r.alias) : null }));
 const runner = (key) => RUNNERS.find((r) => r.key === key) ?? fail(`No runner ${key}`);
 
 const CREWS = [
@@ -105,7 +120,7 @@ function fail(message) {
 /** Runs everything past the rules the web forms use. */
 function validate() {
     for (const r of RUNNERS) {
-        runnerInput.parse({ handle: r.handle, tagline: r.tagline ?? null, role: r.role, extraRoles: r.extra, imageId: null, fixerAlias: r.alias ?? null, officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null });
+        runnerInput.parse({ handle: r.handle, tagline: r.tagline ?? null, living: r.living ?? null, lifestyle: r.lifestyle ?? null, customLiving: r.customLiving ?? null, role: r.role, extraRoles: r.extra, imageId: null, fixerAlias: r.alias ?? null, officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null });
     }
     for (const g of GIGS) {
         const counts = new Map();
@@ -158,6 +173,7 @@ async function picture(location, n) {
 }
 
 async function seed() {
+    const previous = previousPeriod(periodAt(Date.now(), DEFAULT_TZ));
     const pictures = new Map();
     for (const [i, g] of GIGS.entries()) pictures.set(g.id, g.location ? await picture(g.location, i) : null);
     const now = Date.now();
@@ -166,13 +182,21 @@ async function seed() {
         async (tx) => {
             await tx.runner.createMany({
                 data: RUNNERS.map((r) => ({
-                    id: r.id, ownerId: r.owner, handle: r.handle, slug: r.slug, role: r.role, extraRoles: r.extra, tagline: r.tagline ?? null, fixerAlias: r.alias ?? null, fixerSlug: r.fixerSlug,
+                    id: r.id, ownerId: r.owner, handle: r.handle, slug: r.slug, role: r.role, extraRoles: r.extra, tagline: r.tagline ?? null,
+                    living: r.living ?? null, lifestyle: r.lifestyle ?? null, customLiving: r.customLiving ?? undefined,
+                    // Paid up to last month, so the next month start pays them
+                    downtimeGrantedFor: r.living || r.lifestyle ? previous : null, lastGigMonth: r.played ? previous : null,
+                    fixerAlias: r.alias ?? null, fixerSlug: r.fixerSlug,
                     // Earlier in the list is older, for who gets the odd eddies from a split pot
                     createdAt: new Date(now - (RUNNERS.length - RUNNERS.indexOf(r)) * DAY),
                     officeLocation: r.office ?? null, specialties: r.specialties ?? null, contact: r.contact ?? null, bio: r.bio ?? null,
                     status: r.status ?? 'active', retiredAt: r.goneDays ? new Date(now - r.goneDays * DAY) : null, obituary: r.obituary ?? null,
                 })),
             });
+            // Some spending this month, so a profile has a log to show
+            const month = periodAt(now, DEFAULT_TZ);
+            await tx.downtimeEntry.create({ data: { runnerId: runner('hexa').id, month, amount: 3, kind: 'gig', note: 'An earlier job' } });
+            await tx.downtimeEntry.create({ data: { runnerId: runner('hexa').id, month, amount: -2, kind: 'spend', note: 'Patched the deck', createdBy: runner('hexa').owner } });
             await tx.crew.createMany({ data: CREWS.map((c) => ({ id: c.id, name: c.name, slug: c.slug, tagline: c.tagline, ownerId: runner(Object.keys(c.members)[0]).owner, ranks: c.ranks })) });
             await tx.crewMember.createMany({ data: CREWS.flatMap((c) => Object.entries(c.members).map(([r, rank]) => ({ crewId: c.id, runnerId: runner(r).id, rank }))) });
             await tx.crewAlly.createMany({ data: CREWS.flatMap((c) => c.allies.map((r) => ({ crewId: c.id, runnerId: runner(r).id }))) });

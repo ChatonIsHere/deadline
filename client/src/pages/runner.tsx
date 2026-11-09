@@ -2,6 +2,7 @@ import type { GigLink } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtPanel } from '@/components/art';
 import { ConfirmButton, Icon, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
+import { DowntimePanel } from '@/components/downtime';
 import { Markdown } from '@/components/markdown';
 import { RetireControls } from '@/components/retire';
 import { Roles, RunnerAvatar } from '@/components/runner';
@@ -126,6 +127,8 @@ export function RunnerPage() {
                         </Card>
                     </Live>
                 )}
+
+                <DowntimePanel runner={runner} />
 
                 <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
             </div>

@@ -52,6 +52,16 @@ enum ImageKind {
   @@map("image_kind")
 }
 
+/// monthly: from where and how they live. gig: for finishing a gig. spend: a player recording what they spent. admin: added by hand.
+enum DowntimeKind {
+  monthly
+  gig
+  spend
+  admin
+
+  @@map("downtime_kind")
+}
+
 /// One row (id 1), set from the web Settings page.
 model Settings {
   id               Int     @id @default(1)
@@ -174,6 +184,15 @@ model Runner {
   tagline        String?
   /// About the character. Markdown. Shown on the runner and fixer profiles.
   bio            String?
+  /// Where they live and how (see shared/downtime.ts). Private to their player and admins.
+  living             String?
+  lifestyle          String?
+  /// The numbers when living is "custom": a shared or owned place
+  customLiving       Json?   @map("custom_living")
+  /// The last DT month ("2026-11") they were paid for
+  downtimeGrantedFor String? @map("downtime_granted_for")
+  /// The DT month they last finished a gig in, which decides whether they can skip a month
+  lastGigMonth       String? @map("last_gig_month")
   // Fixer profile
   /// The name they go by as a fixer, if not their handle. Shown on the fixer side only.
   fixerAlias     String?      @map("fixer_alias")
@@ -198,6 +217,7 @@ model Runner {
   slots       GigSlot[]
   reserves    GigReserve[]
   rewards     GigReward[]
+  downtime    DowntimeEntry[]
 
   @@index([ownerId])
   @@index([imageId])
@@ -337,6 +357,30 @@ model GigReward {
   @@unique([gigId, runnerId])
   @@index([runnerId])
   @@map("gig_rewards")
+}
+
+/// A change to a runner's downtime. A month's balance is that month's entries added up.
+model DowntimeEntry {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runnerId  String       @map("runner_id") @db.Uuid
+  /// The DT month it belongs to, "2026-11". Turns over at noon on the 1st, the player's time.
+  month     String
+  /// Negative for spending
+  amount    Int
+  kind      DowntimeKind
+  note      String?
+  /// Month start only: what's due and the humanity change, as they were that month
+  rent      Int?
+  humanity  Int?
+  /// Month start only: no game the month before, so it can be skipped
+  skippable Boolean      @default(false)
+  createdBy String?      @map("created_by")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@index([runnerId, month])
+  @@map("downtime_entries")
 }
 
 /// A player's star rating (1 to 5) for a gig's fixer, given after the gig.

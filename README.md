@@ -57,6 +57,15 @@ Uploads are 15 MB at most. Each person's uploads can take up `MAX_USER_STORAGE_M
 - Fixers and admins can save a gig as a **draft**. Only a name is needed. Its author and admins can see it, and nothing is posted or sent. Sending checks it's complete: a fixer's goes to Pending for approval, an admin's posts.
 - Pay is **per head** (everyone gets that much) or **overall** (one pot). A pot is the primary pay plus any bonuses earned, divided between the runners on the gig when it's completed. Odd eddies go 1 each to the oldest characters.
 
+## Downtime
+
+Each character picks a living situation and a lifestyle on their edit form, or Custom for a shared or owned place. The two add together, from the tables in `src/shared/downtime.ts`.
+
+- Finishing a gig pays DT per gig, shown on the payout DM.
+- At noon on the 1st, on the player's own clock (Night City time if they haven't set one), DT resets and that month's comes in. A DM lists each character's DT, what's due and their humanity change. The board reports eddies and humanity; it doesn't keep those totals.
+- A character with no finished gig last month can skip the month, for no DT and nothing due, until they've spent any of it.
+- Players record spending on the runner's profile. Admins can also spend for them and add DT. Only the player and admins can see any of it.
+
 ## Sessions
 
 Each gig is one session.

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CUSTOM_LIMITS, CUSTOM_LIVING, LIFESTYLES, LIVING, type LivingChoice, type Totals } from './downtime';
 import { isTimeZone, WEEK_HOURS } from './time';
 
 // Shared by the server (request validation) and the client (forms).
@@ -125,6 +126,14 @@ export type RatingInput = z.infer<typeof ratingInput>;
 export const joinInput = z.object({ runnerId: id.optional() });
 export const runnerRefInput = z.object({ runnerId: id });
 
+const customLiving = z.object({
+    name: text(60),
+    dtMonth: z.number().int().min(0).max(CUSTOM_LIMITS.dtMonth),
+    dtGig: z.number().int().min(0).max(CUSTOM_LIMITS.dtGig),
+    rent: z.number().int().min(0).max(CUSTOM_LIMITS.rent),
+    humanity: z.number().int().min(CUSTOM_LIMITS.minHumanity).max(CUSTOM_LIMITS.maxHumanity),
+});
+
 export const runnerInput = z.object({
     /** One of a kind: it's the runner's link (/runners/vex). */
     handle: text(40),
@@ -143,14 +152,22 @@ export const runnerInput = z.object({
     officeLocation: optionalText(100),
     specialties: optionalText(150),
     contact: optionalText(150),
+    /** Where and how they live, which sets their downtime. See shared/downtime.ts. */
+    living: z.enum([...LIVING.map((l) => l.key), CUSTOM_LIVING]).nullable().default(null),
+    lifestyle: z.enum(LIFESTYLES.map((l) => l.key)).nullable().default(null),
+    customLiving: customLiving.nullable().default(null),
     /** Admins only: who plays this runner. null makes an NPC fixer. Left out means the person saving it (new) or no change (edit). */
     ownerId: z
         .string()
         .regex(/^\d+$/)
         .nullable()
         .optional(),
-});
+}).refine((r) => r.living !== CUSTOM_LIVING || r.customLiving, { path: ['customLiving'], message: 'Fill in the custom place' });
 export type RunnerInput = z.infer<typeof runnerInput>;
+
+/** Recording downtime spent, or an admin adding some. */
+export const downtimeInput = z.object({ amount: z.number().int().min(1).max(999), note: text(200) });
+export type DowntimeInput = z.infer<typeof downtimeInput>;
 
 /** Retiring a runner, killing them off (with an obituary), or bringing a retired one back. */
 export const retireInput = z.discriminatedUnion('status', [
@@ -198,10 +215,10 @@ const timezone = z.string().max(64).refine(isTimeZone, 'Unknown timezone');
  *
  * gigUpdates: your place on a gig (moved up from the reserves, put on or taken off by an
  * admin, dropped for not confirming, the gig cancelled or its time cleared). payouts: your cut
- * after a gig. crewInvites, crewChanges: your crews. fixerApprovals, fixerSignups,
+ * after a gig. downtime: DT and what's due each month. crewInvites, crewChanges: your crews. fixerApprovals, fixerSignups,
  * fixerRatings: gigs you put out. approvals: admins, gigs waiting for sign-off.
  */
-export const NOTIFY_KINDS = ['gigUpdates', 'payouts', 'crewInvites', 'crewChanges', 'fixerApprovals', 'fixerSignups', 'fixerRatings', 'approvals'] as const;
+export const NOTIFY_KINDS = ['gigUpdates', 'payouts', 'downtime', 'crewInvites', 'crewChanges', 'fixerApprovals', 'fixerSignups', 'fixerRatings', 'approvals'] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 
 /** New gig heads-ups: none, every gig, gigs with slots for your crews, or gigs from fixers you pick. */
@@ -217,6 +234,7 @@ export type NotifySettings = Record<NotifyKind, boolean> & {
 export const NOTIFY_DEFAULTS: NotifySettings = {
     gigUpdates: true,
     payouts: true,
+    downtime: true,
     crewInvites: true,
     crewChanges: true,
     fixerApprovals: true,
@@ -423,6 +441,21 @@ export interface RunnerView extends RunnerSummary {
     rating: Rating;
     /** Fixers only: the latest ratings, newest first. */
     reviews: Review[];
+    /** Only for their player and admins. Null for anyone else, and for NPCs. */
+    downtime: DowntimeView | null;
+}
+
+export interface DowntimeView extends LivingChoice {
+    /** The DT month it is for their player, "2026-11". */
+    month: string;
+    /** What their current living situation and lifestyle add up to. */
+    totals: Totals;
+    balance: number;
+    /** What this month's start paid and asked for, once it has. */
+    thisMonth: { dt: number; due: number; humanity: number; skipped: boolean } | null;
+    canSkip: boolean;
+    /** This month's, newest first. */
+    entries: { id: string; amount: number; kind: 'monthly' | 'gig' | 'spend' | 'admin'; note: string | null; at: number }[];
 }
 
 export interface Review {

@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { MembersService } from '../discord/members.service';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { type Me, retireInput, type RetireInput, runnerInput, type RunnerInput } from '../shared/schemas';
+import { downtimeInput, type DowntimeInput, type Me, retireInput, type RetireInput, runnerInput, type RunnerInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
+import { DowntimeService } from './downtime.service';
 import { RunnersService } from './runners.service';
 
 @Controller('api')
@@ -11,6 +12,7 @@ export class RunnersController {
     constructor(
         private readonly runners: RunnersService,
         private readonly members: MembersService,
+        private readonly downtime: DowntimeService,
     ) {}
 
     @Get('runners')
@@ -45,6 +47,27 @@ export class RunnersController {
     @Post('runners/:id/status')
     retire(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(retireInput)) body: RetireInput) {
         return this.runners.retire(user, id, body);
+    }
+
+    /** Recording DT spent. Their player or an admin. */
+    @Post('runners/:id/downtime/spend')
+    @HttpCode(204)
+    spend(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(downtimeInput)) body: DowntimeInput) {
+        return this.downtime.spend(user, id, body);
+    }
+
+    /** Admins adding DT by hand. */
+    @Post('runners/:id/downtime/add')
+    @HttpCode(204)
+    addDowntime(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(downtimeInput)) body: DowntimeInput) {
+        return this.downtime.add(user, id, body);
+    }
+
+    /** Skipping this month after not playing last month. */
+    @Post('runners/:id/downtime/skip')
+    @HttpCode(204)
+    async skip(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        await this.downtime.skip(user, id);
     }
 
     @Delete('runners/:id')

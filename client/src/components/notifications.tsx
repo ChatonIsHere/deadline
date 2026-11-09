@@ -57,6 +57,7 @@ export function NotificationsCard({ prefs }: { prefs: Prefs | undefined }) {
                 />
                 {kind('gigUpdates', 'Your place on a gig', 'moved up from the reserves, put on or taken off by an admin, dropped for not confirming, the gig pulled or its time cleared.')}
                 {kind('payouts', 'Payouts', 'your cut after a gig, with stars to rate the fixer. you can also rate on the gig page.')}
+                {kind('downtime', 'Monthly DT and rent', "at noon on the 1st: each character's downtime and what's due.")}
             </Group>
 
             <Group title="New gigs">

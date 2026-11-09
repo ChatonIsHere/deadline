@@ -10,6 +10,7 @@ import type { LibraryService } from '../library/library.service';
 import type { SettingsService } from '../settings/settings.service';
 import type { GigDraftInput, GigInput, Me } from '../shared/schemas';
 import { toSlug } from '../shared/slug';
+import { DowntimeService } from '../runners/downtime.service';
 import { DebriefService, type Payout } from './debrief.service';
 import { GigsService } from './gigs.service';
 
@@ -56,9 +57,9 @@ let dropped: string[] = [];
 let reminders: string[][] = [];
 let payouts: Payout[] = [];
 const posts = {
-    sync: async (gig: { status: string }) => {
+    sync: async (gig: { id: string; status: string }) => {
         synced.push(gig.status);
-        return { threadId: 'thread', overflowIds: [] };
+        return { threadId: `thread-${gig.id}`, overflowIds: [] };
     },
     newGigMessage: async () => ({}),
     askToConfirm: async (_gig: unknown, _thread: string, ids: string[], _by: number, nudge = false) => (nudge ? nudged : asked).push(...ids),
@@ -115,7 +116,7 @@ describe('GigsService', () => {
         const notify = new NotifyService(prefs, members, prisma);
         gigs = new GigsService(prisma, members, posts, settings, library, prefs, notify);
         crews = new CrewsService(prisma, members, gigs, notify);
-        debrief = new DebriefService(prisma, gigs, posts, notify);
+        debrief = new DebriefService(prisma, gigs, posts, notify, new DowntimeService(prisma, notify, { get: () => '' } as never, {} as never));
         ids = {};
         for (const p of ['a', 'b', 'c']) await addRunner(p, p);
         await addRunner('fixer', 'Rogue Amendiares', 'Fixer');
@@ -553,6 +554,20 @@ describe('GigsService', () => {
             await debrief.rate('a', gig.id, 5);
             assert.deepEqual((await gigs.view(gig.id, people[2])).myRating, { stars: 5, comment: null });
             await assert.rejects(debrief.rate('b', gig.id, 1), /only runners on the gig/);
+        });
+    });
+
+    describe('downtime on completion', () => {
+        it('adds DT per gig to the payout and counts as having played', async () => {
+            await prisma.runner.update({ where: { id: ids.a }, data: { living: 'low-1', lifestyle: 'low' } });
+            const gig = await gigs.create(admin, input(two));
+            await gigs.join('a', gig.id);
+            await gigs.join('b', gig.id);
+            await debrief.complete(admin, gig.id, noRewards);
+            await settle();
+            assert.deepEqual(payouts.map((p) => [p.handle, p.dt]).sort(), [['a', 7], ['b', 0]]);
+            assert.equal(await prisma.downtimeEntry.count({ where: { runnerId: ids.a, kind: 'gig', amount: 7 } }), 1);
+            assert.ok((await prisma.runner.findUniqueOrThrow({ where: { id: ids.b } })).lastGigMonth);
         });
     });
 

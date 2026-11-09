@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Gig, Runner } from '@prisma/client';
+import { type Gig, Prisma, type Runner } from '@prisma/client';
 import { CrewsService } from '../crews/crews.service';
 import { MembersService } from '../discord/members.service';
 import { GigsService, toCard } from '../gigs/gigs.service';
@@ -8,8 +8,10 @@ import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn, canSeeGig } from '../shared/permissions';
+import { CUSTOM_LIVING, hasLiving } from '../shared/downtime';
 import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RetireInput, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
 import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
+import { DowntimeService } from './downtime.service';
 
 const UNFINISHED = ['pending', 'open', 'closed'] as const;
 const LIVE = ['open', 'closed'] as const;
@@ -24,6 +26,7 @@ export class RunnersService {
         private readonly library: LibraryService,
         private readonly gigs: GigsService,
         private readonly crews: CrewsService,
+        private readonly downtime: DowntimeService,
     ) {}
 
     /** A runner's ID from a URL part: its link (the handle, or a fixer's alias) or its UUID. */
@@ -103,6 +106,7 @@ export class RunnersService {
             fixerGigs: fixed.filter(visible).map(link),
             rating: ratings.get(id) ?? { average: null, count: 0 },
             reviews: isFixer ? await this.reviews(id) : [],
+            downtime: r.ownerId && this.canManage(user, r) ? await this.downtime.view(r) : null,
         };
     }
 
@@ -117,7 +121,8 @@ export class RunnersService {
         await this.check(input);
         const slug = await this.handleSlug(input.handle);
         const alias = await this.alias(fields.fixerAlias, slug);
-        const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ownerId, slug } });
+        const living = await this.livingFields(input, ownerId);
+        const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ...living, ownerId, slug } });
         await this.library.refreshUsage([row.imageId, row.artId]);
         return this.get(user, row.id);
     }
@@ -139,12 +144,26 @@ export class RunnersService {
         // A new handle means a new link
         const slug = await this.handleSlug(input.handle, id);
         const alias = await this.alias(fields.fixerAlias, slug, id);
-        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ownerId, slug } });
+        const living = await this.livingFields(input, ownerId, r);
+        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ...living, ownerId, slug } });
         // A fixer character's gigs follow it to its new player
         if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
         await this.library.refreshUsage([input.imageId, r.imageId, input.artId, r.artId]);
         this.gigs.refresh(await this.liveGigs(id));
         return this.get(user, id);
+    }
+
+    /**
+     * Custom numbers only stay while living is custom. The first time a character has a living
+     * situation or lifestyle, their monthly DT starts from next month.
+     */
+    private async livingFields(input: RunnerInput, ownerId: string | null, existing?: Runner) {
+        const customLiving = input.living === CUSTOM_LIVING ? input.customLiving : null;
+        const starts = !!ownerId && !existing?.downtimeGrantedFor && hasLiving({ ...input, customLiving });
+        return {
+            customLiving: customLiving ?? Prisma.DbNull,
+            ...(starts && { downtimeGrantedFor: await this.downtime.startMonth(ownerId) }),
+        };
     }
 
     /** Only admins pick someone else (or nobody) as the player. Players must be on the server with a role. */

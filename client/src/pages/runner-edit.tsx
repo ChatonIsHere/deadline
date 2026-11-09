@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArtField } from '@/components/art';
 import { Loading, Say } from '@/components/common';
+import { LivingCard } from '@/components/living-card';
 import { MarkdownEditor } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,9 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         imageId: runner?.imageId ?? null,
         artId: runner?.artId ?? null,
         tagline: runner?.tagline ?? null,
+        living: runner?.downtime?.living ?? null,
+        lifestyle: runner?.downtime?.lifestyle ?? null,
+        customLiving: runner?.downtime?.customLiving ?? null,
         fixerAlias: runner?.fixerAlias ?? null,
         officeLocation: runner?.officeLocation ?? null,
         specialties: runner?.specialties ?? null,
@@ -157,6 +161,8 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                     </Card>
                 </div>
             </div>
+
+            <LivingCard value={form} onChange={set} />
 
             {isFixer && (
                 <Card className="space-y-4">
