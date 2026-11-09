@@ -2,7 +2,6 @@ import { CORE_ROLES, type Rating, type RunnerCard } from '@shared/schemas';
 import { Star } from 'lucide-react';
 import { Link } from 'react-router';
 import { Icon, LinkCard } from '@/components/common';
-import { StaggeredImage } from '@/components/staggered-image';
 import { Badge } from '@/components/ui/badge';
 import { imageUrl, mediumUrl, thumbUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -49,42 +48,20 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
  * A runner's card in a grid (Runners tab, crew pages): picture, handle and roles, linking to
  * their profile. Retired and flatlined runners are greyed out and say so. The picture has room
  * beside it for four lines. `compact` is for narrow spots like a crew's member list: just a
- * smaller picture, the handle and roles, at a set height so a list of them lines up. `poster` is
- * for phones: the framed picture across the top of the card, like a fixer's.
+ * smaller picture, the handle and roles, at a set height so a list of them lines up. On phones
+ * the normal card shrinks to a mini card, matching a fixer's.
  */
-export function RunnerTile({ runner, compact, poster }: { runner: RunnerCard; compact?: boolean; poster?: boolean }) {
+export function RunnerTile({ runner, compact }: { runner: RunnerCard; compact?: boolean }) {
     const gone = runner.status !== 'active';
-    if (poster) {
-        const picture = cn('aspect-square w-full shrink-0', gone && 'opacity-60 grayscale');
-        return (
-            <div className="@container">
-                {/* The card's corner matches the picture's frame, as on a fixer's card */}
-                <LinkCard to={`/runners/${runner.slug}`} className={runner.imageId ? '[--cut:11.1cqw]' : undefined}>
-                    <div className="-mx-4 -mt-4 mb-3 flex">
-                        {runner.imageId ? (
-                            <StaggeredImage src={imageUrl(runner.imageId)} className={picture} />
-                        ) : (
-                            <span className={cn(picture, 'cut grid place-items-center bg-muted font-display text-[40cqw] text-primary')}>{runner.handle[0]?.toUpperCase()}</span>
-                        )}
-                    </div>
-                    <div className="space-y-1.5">
-                        <h3 className={cn('truncate text-lg leading-tight', gone && 'text-muted-foreground')}>{runner.handle}</h3>
-                        {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
-                        {runner.tagline && <p className="line-clamp-2 text-xs text-muted-foreground">{runner.tagline}</p>}
-                    </div>
-                </LinkCard>
-            </div>
-        );
-    }
     return (
-        <LinkCard to={`/runners/${runner.slug}`} className={cn('flex items-start', compact ? 'h-29 gap-3' : 'gap-4')}>
-            <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-20 text-3xl [--cut:10px]' : 'size-28 text-4xl [--cut:12px]', gone && 'opacity-60 grayscale')} />
+        <LinkCard to={`/runners/${runner.slug}`} className={cn('flex items-start', compact ? 'h-29 gap-3' : 'gap-3 p-3 md:gap-4 md:p-4')}>
+            <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-20 text-3xl [--cut:10px]' : 'size-24 text-4xl [--cut:12px] md:size-28', gone && 'opacity-60 grayscale')} />
             {/*
               * The name stays put whatever's under it. Normal cards: where it'd be, centred, above one
               * row of roles and two lines of tagline. Compact: the height is exactly name plus two rows
               * of roles, so any more roles than that drop off a whole row at a time.
               */}
-            <div className={cn('min-w-0', compact ? 'h-20 space-y-1 overflow-hidden' : 'space-y-1.5 pt-2.5')}>
+            <div className={cn('min-w-0', compact ? 'h-20 space-y-1 overflow-hidden' : 'space-y-1 md:space-y-1.5 md:pt-2.5')}>
                 <h3 className={cn('truncate', compact ? 'text-base leading-7' : 'text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
                 {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
                 {!compact && runner.tagline && <p className="line-clamp-2 text-xs text-muted-foreground">{runner.tagline}</p>}

@@ -1,7 +1,7 @@
 import type { FixerSummary, Rating, RunnerSummary } from '@shared/schemas';
 import { CardPages } from '@/components/card-pages';
 import { LinkCard, liveKey, Loading, Say } from '@/components/common';
-import { RatingLine, RunnerTile, Stars } from '@/components/runner';
+import { RatingLine, RunnerAvatar, RunnerTile, Stars } from '@/components/runner';
 import { StaggeredImage } from '@/components/staggered-image';
 import { PageTabs } from '@/components/ui/tabs';
 import { imageUrl, useFixers, useRunners } from '@/lib/api';
@@ -29,6 +29,7 @@ export function RunnersPage() {
 /** Fixers: player fixers (with the Discord fixer role) and NPC ones. */
 export function FixersPage() {
     const { data: fixers, isPending } = useFixers();
+    const phone = usePhone();
     if (isPending) return <Loading>pinging contacts...</Loading>;
     if (!fixers?.length) return <Say>no fixers yet. a runner with the Fixer role shows here once their player has the Discord fixer role.</Say>;
 
@@ -37,14 +38,13 @@ export function FixersPage() {
             id="fixers"
             items={fixers}
             className="card-rows [--gap:0.75rem] sm:[--gap:1rem] md:[--cols:2] xl:[--cols:3] 3xl:[--cols:4]"
-            card={(f) => <FixerCard key={liveKey(f.id, f)} fixer={f} />}
+            card={(f) => (phone ? <FixerMiniCard key={liveKey(f.id, f)} fixer={f} /> : <FixerCard key={liveKey(f.id, f)} fixer={f} />)}
         />
     );
 }
 
 function RunnerGrid({ id, runners }: { id: string; runners: RunnerSummary[] }) {
-    const phone = usePhone();
-    return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} poster={phone} />} />;
+    return <CardPages id={id} items={runners} className="card-rows md:[--cols:2] 3xl:[--cols:3]" card={(r) => <RunnerTile key={liveKey(r.id, r)} runner={r} />} />;
 }
 
 /** A fixer's stars running down the side of their picture, with the number at the bottom. */
@@ -54,6 +54,21 @@ function RatingColumn({ rating }: { rating: Rating }) {
             <Stars value={rating.average ?? 0} className="flex-1 flex-col justify-evenly [&_svg]:size-6" />
             <span className="pt-1 font-display text-lg leading-none text-primary">{rating.average?.toFixed(1) ?? '-'}</span>
         </div>
+    );
+}
+
+/** A fixer on a phone: a small picture with everything else beside it, matching a runner's card. */
+function FixerMiniCard({ fixer: f }: { fixer: FixerSummary }) {
+    return (
+        <LinkCard to={`/fixers/${f.fixerSlug}`} className="flex items-start gap-3 p-3">
+            <RunnerAvatar runner={{ handle: f.fixerName, imageId: f.imageId }} large className="size-24 text-4xl [--cut:12px]" />
+            <div className="min-w-0 flex-1 space-y-0.5">
+                <h3 className="truncate text-lg leading-tight">{f.fixerName}</h3>
+                {f.tagline && <p className="truncate text-xs text-accent">{f.tagline}</p>}
+                {f.specialties && <p className="line-clamp-2 text-xs text-muted-foreground">{f.specialties}</p>}
+                <RatingLine rating={f.rating} count={false} />
+            </div>
+        </LinkCard>
     );
 }
 
