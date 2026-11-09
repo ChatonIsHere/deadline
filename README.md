@@ -48,6 +48,8 @@ Runners can retire (a break, they can come back) or flatline (dead, with an obit
 
 Handles, fixer aliases and crew names are one of a kind, compared as they appear in links: "Mr. B" and "Mr B" can't both exist, as handles or aliases. They need a letter, and can't be `new`, `edit`, `mine` or `invites`.
 
+**Link previews:** pasted into Discord, a link shows an embed made when the page is served (`src/link-preview/`). The site and its other pages show the logo and a description. Gigs show their card, status, fixer, location and the start of the brief; runners, fixers and crews their picture, roles or size, and tagline. Previewers aren't signed in, so that much is readable without an account. Hidden objectives, downtime and players never are, and draft, pending and turned-down gigs get the site's own preview. Discord keeps a preview for a while, so an edit may take time to show on a link already posted.
+
 ## Pictures
 
 Uploads are 15 MB at most. Each person's uploads can take up `MAX_USER_STORAGE_MB` of storage (100 if it isn't set). Library pictures don't count. Pictures nothing uses any more count until they're deleted, 30 days on.

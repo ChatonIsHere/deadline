@@ -35,6 +35,7 @@ import { RunnersController } from './runners/runners.controller';
 import { DowntimeService } from './runners/downtime.service';
 import { RunnersService } from './runners/runners.service';
 import { DebriefService } from './gigs/debrief.service';
+import { LinkPreviewService } from './link-preview/link-preview.service';
 
 // One module. The app is small enough that splitting it up would only add files.
 @Module({
@@ -72,6 +73,7 @@ import { DebriefService } from './gigs/debrief.service';
         DowntimeService,
         RunnersService,
         CrewsService,
+        LinkPreviewService,
     ],
 })
 export class AppModule {}

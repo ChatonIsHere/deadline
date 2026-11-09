@@ -36,6 +36,9 @@ interface FormState {
     slots: { crewId: string; count: string }[];
 }
 
+/** How many open slots a gig starts with. */
+const DEFAULT_SLOTS = '6';
+
 function toForm(gig?: GigView): FormState {
     if (!gig) {
         return {
@@ -51,7 +54,7 @@ function toForm(gig?: GigView): FormState {
             imageId: null,
             imageAuto: true,
             objectives: [],
-            slots: [{ crewId: '', count: '4' }],
+            slots: [{ crewId: '', count: DEFAULT_SLOTS }],
         };
     }
     const counts = new Map<string, number>();
@@ -75,7 +78,7 @@ function toForm(gig?: GigView): FormState {
         imageId: gig.imageId,
         imageAuto: !gig.imageId,
         objectives: gig.objectives.map((o) => ({ text: o.text, bonus: o.bonus ? String(o.bonus) : '', each: o.each, hidden: o.hidden })),
-        slots: counts.size ? [...counts].map(([crewId, count]) => ({ crewId, count: unlimited.has(crewId) ? '0' : String(count) })) : [{ crewId: '', count: '4' }],
+        slots: counts.size ? [...counts].map(([crewId, count]) => ({ crewId, count: unlimited.has(crewId) ? '0' : String(count) })) : [{ crewId: '', count: DEFAULT_SLOTS }],
     };
 }
 

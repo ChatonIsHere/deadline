@@ -1,7 +1,7 @@
 import { type GigStatus, isLive, type Me } from './schemas';
 
 /** Not on the board for players: still being written, waiting for sign-off, or turned down. */
-const isUnposted = (status: GigStatus) => status === 'draft' || status === 'pending' || status === 'rejected';
+export const isUnposted = (status: GigStatus) => status === 'draft' || status === 'pending' || status === 'rejected';
 /** Still being worked on before anyone approves it. */
 const isUnapproved = (status: GigStatus) => status === 'draft' || status === 'pending';
 

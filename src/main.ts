@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -6,6 +7,8 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { config, isProd } from './config';
+import { LinkPreviewService } from './link-preview/link-preview.service';
+import { previewTags } from './link-preview/tags';
 
 const ROOT = join(__dirname, '..');
 
@@ -33,10 +36,14 @@ async function bootstrap() {
     if (isProd) {
         const clientDir = join(ROOT, 'dist', 'client');
         app.useStaticAssets(clientDir, { index: false });
-        app.use((req: Request, res: Response, next: NextFunction) => {
+        const page = readFileSync(join(clientDir, 'index.html'), 'utf8');
+        const previews = app.get(LinkPreviewService);
+        app.use(async (req: Request, res: Response, next: NextFunction) => {
             if (req.method !== 'GET' || isServerRoute(req.path) || req.path.includes('.')) return next();
+            const tags = previewTags(await previews.forPath(req.path));
             res.setHeader('Cache-Control', 'no-cache');
-            res.sendFile(join(clientDir, 'index.html'));
+            // A function, so a "$&" in someone's gig name stays as text
+            res.type('html').send(page.replace('</head>', () => `    ${tags}\n    </head>`));
         });
     } else {
         // Vite runs inside Nest in dev, so there's one port and hot reload works.
