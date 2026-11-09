@@ -18,6 +18,8 @@ export function Crew() {
     const me = useUser();
     const navigate = useNavigate();
     const { data: crew, isError } = useCrew(id);
+    // Off until asked for, like the Edit button on runners and fixers
+    const [editing, setEditing] = useState(false);
 
     // The URL may hold the typed ID; the API calls below use the numeric one
     const url = `/api/crews/${crew?.id}`;
@@ -32,21 +34,29 @@ export function Crew() {
     if (!crew) return <Loading>scanning...</Loading>;
 
     const canManage = canManageCrew(me, crew);
+    const editable = canManage && editing;
 
     return (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="space-y-6">
-                <Live value={[crew.name, crew.tagline, crew.imageId]}>
-                    <div className="flex items-center gap-4">
-                        {crew.imageId && <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-24 sm:w-28" />}
-                        <div className="min-w-0">
-                            <h1 className="flex items-center gap-3 text-3xl break-words text-primary">
-                                {!crew.imageId && <Icon name="crew" className="size-7" />} {crew.name}
-                            </h1>
-                            {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                <div className="flex items-start justify-between gap-3">
+                    <Live value={[crew.name, crew.tagline, crew.imageId]}>
+                        <div className="flex min-w-0 items-center gap-4">
+                            {crew.imageId && <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-24 sm:w-28" />}
+                            <div className="min-w-0">
+                                <h1 className="flex items-center gap-3 text-3xl break-words text-primary">
+                                    {!crew.imageId && <Icon name="crew" className="size-7" />} {crew.name}
+                                </h1>
+                                {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                            </div>
                         </div>
-                    </div>
-                </Live>
+                    </Live>
+                    {canManage && (
+                        <Button variant={editing ? 'default' : 'outline'} size="sm" className="shrink-0" onClick={() => setEditing(!editing)}>
+                            {editing ? 'Done' : 'Edit'}
+                        </Button>
+                    )}
+                </div>
 
                 <section className="space-y-4">
                     <h2 className="text-center text-xs text-accent">
@@ -65,9 +75,9 @@ export function Crew() {
                                         return (
                                             <div key={liveKey(m.id, m)} className="space-y-2">
                                                 <RunnerTile runner={m} compact />
-                                                {(canManage || leave) && (
+                                                {(editable || leave) && (
                                                     <div className="flex items-center justify-end gap-1">
-                                                        {canManage && (
+                                                        {editable && (
                                                             <>
                                                                 <Select
                                                                     className="w-36"
@@ -94,12 +104,12 @@ export function Crew() {
                             </div>
                         );
                     })}
-                    {canManage && (
-                        <Card>
-                            <InviteRunner crew={crew} isAdmin={me.isAdmin} onInvite={(runnerId) => invite.mutate(runnerId)} />
-                        </Card>
-                    )}
                 </section>
+
+            </div>
+
+            <div className="space-y-5">
+                <GigList title="Crew gigs" gigs={crew.gigs} empty="no gigs with crew slots yet." />
 
                 <Card className="space-y-3">
                     <CardTitle help="runners and fixers the crew knows and trusts, without them being in it. founders can invite an ally to join.">Allies</CardTitle>
@@ -109,12 +119,12 @@ export function Crew() {
                             const invited = crew.invites.some((i) => i.id === a.id);
                             return (
                                 <RunnerRow key={liveKey(a.id, a)} runner={a}>
-                                    {canManage && a.ownerId && (
+                                    {editable && a.ownerId && (
                                         <Button variant="outline" size="sm" disabled={invited || invite.isPending} onClick={() => invite.mutate(a.id)}>
                                             {invited ? 'Invited' : 'Invite to crew'}
                                         </Button>
                                     )}
-                                    {(canManage || a.ownerId === me.id) && (
+                                    {(editable || a.ownerId === me.id) && (
                                         <Button variant="ghost" size="icon" title="Remove" onClick={() => removeAlly.mutate(a.id)}>
                                             <X className="size-4" />
                                         </Button>
@@ -123,29 +133,29 @@ export function Crew() {
                             );
                         })}
                     </ul>
-                    {canManage && <AddAlly crew={crew} />}
+                    {editable && <AddAlly crew={crew} />}
                 </Card>
 
-                {canManage && crew.invites.length > 0 && (
-                    <Card className="space-y-3">
-                        <CardTitle>Waiting on an answer</CardTitle>
-                        <ul className="space-y-1">
-                            {crew.invites.map((r) => (
-                                <RunnerRow key={liveKey(r.id, r)} runner={r}>
-                                    <Button variant="ghost" size="icon" title="Cancel invite" onClick={() => cancelInvite.mutate(r.id)}>
-                                        <X className="size-4" />
-                                    </Button>
-                                </RunnerRow>
-                            ))}
-                        </ul>
-                    </Card>
-                )}
-            </div>
-
-            <div className="space-y-5">
-                <GigList title="Crew gigs" gigs={crew.gigs} empty="no gigs with crew slots yet." />
-                {canManage && (
+                {editable && (
                     <>
+                        <Card className="space-y-3">
+                            <CardTitle>Invite a runner</CardTitle>
+                            <InviteRunner crew={crew} isAdmin={me.isAdmin} onInvite={(runnerId) => invite.mutate(runnerId)} />
+                        </Card>
+                        {crew.invites.length > 0 && (
+                            <Card className="space-y-3">
+                                <CardTitle>Waiting on an answer</CardTitle>
+                                <ul className="space-y-1">
+                                    {crew.invites.map((r) => (
+                                        <RunnerRow key={liveKey(r.id, r)} runner={r}>
+                                            <Button variant="ghost" size="icon" title="Cancel invite" onClick={() => cancelInvite.mutate(r.id)}>
+                                                <X className="size-4" />
+                                            </Button>
+                                        </RunnerRow>
+                                    ))}
+                                </ul>
+                            </Card>
+                        )}
                         <EditCrew key={crew.ranks.join()} crew={crew} />
                         <ConfirmButton
                             label="Disband crew"
