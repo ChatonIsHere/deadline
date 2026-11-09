@@ -35,7 +35,7 @@ export function FixersPage() {
         <CardPages
             id="fixers"
             items={fixers}
-            className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] lg:[--cols:3] xl:[--cols:4] 3xl:[--cols:5]"
+            className="card-rows [--cols:2] [--gap:0.75rem] sm:[--gap:1rem] xl:[--cols:3] 3xl:[--cols:4]"
             card={(f) => <FixerCard key={liveKey(f.id, f)} fixer={f} />}
         />
     );

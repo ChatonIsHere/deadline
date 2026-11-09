@@ -52,9 +52,10 @@ export function RunnerChip({ runner }: { runner: RunnerCard }) {
 export function RunnerTile({ runner, compact }: { runner: RunnerCard; compact?: boolean }) {
     const gone = runner.status !== 'active';
     return (
-        <LinkCard to={`/runners/${runner.slug}`} className="flex items-center gap-4">
+        <LinkCard to={`/runners/${runner.slug}`} className={cn('flex gap-4', compact ? 'items-center' : 'items-start')}>
             <RunnerAvatar runner={runner} large={!compact} className={cn(compact ? 'size-16 text-2xl [--cut:8px]' : 'size-28 text-4xl [--cut:12px]', gone && 'opacity-60 grayscale')} />
-            <div className="min-w-0 space-y-1.5">
+            {/* The name stays put whatever's under it: where it'd be, centred, above one row of roles and two lines of tagline */}
+            <div className={cn('min-w-0 space-y-1.5', !compact && 'pt-2.5')}>
                 <h3 className={cn('truncate text-lg', gone && 'text-muted-foreground')}>{runner.handle}</h3>
                 {gone ? <RunnerStatusTag status={runner.status} /> : <Roles runner={runner} />}
                 {runner.tagline && <p className={cn('text-xs text-muted-foreground', compact ? 'truncate' : 'line-clamp-2')}>{runner.tagline}</p>}
