@@ -123,7 +123,8 @@ function Row({ hour, onLabel, children }: { hour: number; onLabel?: () => void; 
                     {pad(hour)}
                 </button>
             ) : (
-                <span className="pr-1 text-right text-xs leading-5 text-muted-foreground tabular-nums">{pad(hour)}</span>
+                // The heatmap's label: centred on its row, whatever height that is
+                <span className="self-center pr-1.5 text-right text-xs text-muted-foreground tabular-nums lg:text-sm">{pad(hour)}</span>
             )}
             {children}
         </>
@@ -151,10 +152,15 @@ export function Heatmap({
     onPin: (index: number) => void;
 }) {
     return (
-        <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] gap-px select-none" onPointerLeave={() => onHover(null)}>
+        // Rows grow with the window on wide screens: from today's 20px up to 28px, sized so the
+        // whole week fits on screen with the page around it (about 26px on a 1080p display).
+        <div
+            className="grid grid-cols-[2.25rem_repeat(7,1fr)] gap-px select-none [--cell:1.5rem] lg:grid-cols-[2.75rem_repeat(7,1fr)] lg:[--cell:clamp(1.25rem,calc((100dvh_-_19rem)/24_-_1px),1.75rem)]"
+            onPointerLeave={() => onHover(null)}
+        >
             <span />
             {DAYS.map((day) => (
-                <span key={day} className="pb-1 text-center font-display text-xs tracking-wider text-muted-foreground uppercase">
+                <span key={day} className="pb-1 text-center font-display text-xs tracking-wider text-muted-foreground uppercase lg:pb-1.5 lg:text-sm">
                     {day}
                 </span>
             ))}
@@ -177,7 +183,7 @@ export function Heatmap({
                                 // Striped: the clocks jump over this hour this week
                                 style={cell.skipped ? undefined : { background: `color-mix(in oklab, var(--color-primary) ${Math.round(share * 100)}%, var(--color-muted))` }}
                                 className={cn(
-                                    'h-5 cursor-pointer text-center text-[10px] leading-5 tabular-nums outline-none',
+                                    'h-(--cell) cursor-pointer text-center text-[10px] leading-(--cell) tabular-nums outline-none lg:text-xs',
                                     cell.skipped && 'bg-[repeating-linear-gradient(45deg,var(--color-muted)_0_3px,transparent_3px_6px)]',
                                     share > 0.5 ? 'text-primary-foreground' : 'text-muted-foreground',
                                     everyone && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',
