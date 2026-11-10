@@ -15,6 +15,7 @@ import {
     ratingInput,
     type RatingInput,
     runnerRefInput,
+    scheduleInput,
     sessionInput,
     statusInput,
     type StatusInput,
@@ -75,6 +76,12 @@ export class GigsController {
     @Post(':id/send')
     send(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
         return this.gigs.send(user, id);
+    }
+
+    /** Schedules a draft to post by itself (or stops that, with null). Admins only. */
+    @Post(':id/schedule')
+    schedule(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(scheduleInput)) body: { postAt: number | null }) {
+        return this.gigs.schedule(user, id, body.postAt);
     }
 
     @Patch(':id')

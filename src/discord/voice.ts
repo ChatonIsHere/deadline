@@ -112,6 +112,7 @@ export const voice = {
     sessionClearedFor: (gigName: string) => say('quiet', `${n(gigName)}'s session time was cleared. you're still on it.`),
     gigApproved: (gigName: string) => say('good', `${n(gigName)} is approved and on the board.`),
     gigRejected: (gigName: string) => say('bad', `${n(gigName)} was turned down.`),
+    scheduleFailed: (gigName: string, reason: string) => say('bad', `${n(gigName)} didn't post at its scheduled time, so it's back to a plain draft. ${reason}`),
     signedUp: (gigName: string, handle: string, reserve: boolean) =>
         say('info', reserve ? `${n(handle)} is on the reserves for ${n(gigName)}.` : `${n(handle)} signed up for ${n(gigName)}.`),
     pulledOut: (gigName: string, handle: string) => say('quiet', `${n(handle)} pulled out of ${n(gigName)}.`),

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmButton, DiscordIcon, Icon, Live, Loading, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
+import { DraftBar } from '@/components/draft-bar';
 import { Markdown } from '@/components/markdown';
 import { RunnerAvatar } from '@/components/runner';
 import { AssignRunner, SessionCard, SignUp } from '@/components/session';
@@ -32,7 +33,6 @@ export function Gig() {
     const url = `/api/gigs/${gig?.id}`;
     const approve = useAction(() => api(`${url}/approve`, 'POST'), 'approved. posting to discord.');
     const reject = useAction(() => api(`${url}/reject`, 'POST'), 'contract rejected.');
-    const send = useAction(() => api<GigView>(`${url}/send`, 'POST'), (sent) => (sent.status === 'open' ? 'posted. going up on discord.' : 'sent to the admins for approval.'));
     const setStatus = useAction((status: GigStatus) => api(`${url}/status`, 'POST', { status }), 'status updated.');
     const kick = useAction((slotId: string) => api(`${url}/slots/${slotId}/runner`, 'DELETE'), 'runner removed.');
     const unreserve = useAction((userId: string) => api(`${url}/reserves/${userId}`, 'DELETE'), 'removed from the reserves.');
@@ -78,20 +78,7 @@ export function Gig() {
                 </div>
             </div>
 
-            {gig.status === 'draft' && (
-                <div className="cut-frame flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
-                    <Say className="flex-1">
-                        {!me.isAdmin
-                            ? 'draft. only you and the admins can see it.'
-                            : gig.createdBy.id === me.id
-                              ? 'your draft. nothing is posted until you post it.'
-                              : `${gig.createdBy.name}'s draft. posting it counts as approving it.`}
-                    </Say>
-                    <Button onClick={() => send.mutate()} disabled={send.isPending}>
-                        {me.isAdmin ? 'Post it' : 'Send for approval'}
-                    </Button>
-                </div>
-            )}
+            {gig.status === 'draft' && <DraftBar gig={gig} />}
             {gig.status === 'pending' && (
                 <div className="cut-frame flex flex-wrap items-center gap-3 p-4 [--frame:var(--color-primary)]">
                     <Say className="flex-1">

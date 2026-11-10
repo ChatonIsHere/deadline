@@ -213,6 +213,9 @@ export const rankInput = z.object({ rank: text(30) });
 /** Unix ms, or null to clear the session time. */
 export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
 
+/** When a draft posts by itself (Unix ms), or null to stop that. Admins only. */
+export const scheduleInput = z.object({ postAt: z.number().int().positive().nullable() });
+
 /** A timezone name the runtime knows, e.g. "Europe/London". */
 const timezone = z.string().max(64).refine(isTimeZone, 'Unknown timezone');
 
@@ -526,6 +529,8 @@ export interface GigView {
     reserves: RunnerCard[];
     /** Unix ms. */
     sessionAt: number | null;
+    /** A draft scheduled to post by itself: when (Unix ms) and the admin it posts as. */
+    scheduled: { at: number; by: Member } | null;
     status: GigStatus;
     createdBy: Member;
     threadUrl: string | null;

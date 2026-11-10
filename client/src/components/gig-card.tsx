@@ -34,6 +34,7 @@ export function GigCard({ gig }: { gig: GigView }) {
                         </span>
                     )}
                     {gig.sessionAt && <span className="text-accent">{formatSession(gig.sessionAt)}</span>}
+                    {gig.scheduled && <span className="text-accent">posts {formatSession(gig.scheduled.at)}</span>}
                 </p>
                 <div className="flex items-center justify-between gap-4">
                     <Pay gig={gig} compact />

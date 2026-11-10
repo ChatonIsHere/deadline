@@ -162,11 +162,72 @@ export class GigsService {
      * sending one is the approval, so it posts, and a fixer whose draft it was gets told.
      */
     async send(user: Me, id: string): Promise<GigView> {
-        const gig = await this.prisma.gig.findUnique({ where: { id }, include: { objectives: { orderBy: { position: 'asc' } }, slots: true } });
-        if (!gig) throw new NotFoundException('No such gig.');
+        const gig = await this.draftRow(id);
         if (!canEditGig(user, gig)) throw new ForbiddenException();
         if (gig.status !== 'draft') throw new BadRequestException('That gig is not a draft any more.');
 
+        const { objectives: _, slots: __, ...fields } = await this.prepare(user, this.readyToSend(gig));
+        const status: GigStatus = user.isAdmin ? 'open' : 'pending';
+        // Only one send can win, so a double click (or the schedule firing at the same moment) can't post it twice
+        const { count } = await this.prisma.gig.updateMany({ where: { id, status: 'draft' }, data: { ...fields, status, postAt: null, postBy: null } });
+        if (!count) throw new BadRequestException('That gig is not a draft any more.');
+
+        await this.library.refreshUsage([fields.imageId, gig.imageId]);
+        this.announceSent(user, id, status, fields);
+        if (status === 'open' && gig.createdBy !== user.id) {
+            this.notify.fire('fixerApprovals', [gig.createdBy], linked(voice.gigApproved(fields.name), 'Open on board', boardLink({ id, name: fields.name })));
+        }
+        return this.view(id, user);
+    }
+
+    /**
+     * Schedules a draft to post by itself, as the admin scheduling it, or stops that with null.
+     * It has to be ready to post now, so it doesn't fail when the time comes. It can still be
+     * edited meanwhile; if that leaves it unpostable, the admin hears why when it's due.
+     */
+    async schedule(user: Me, id: string, postAt: number | null): Promise<GigView> {
+        if (!user.isAdmin) throw new ForbiddenException();
+        const gig = await this.draftRow(id);
+        if (gig.status !== 'draft') throw new BadRequestException('Only drafts can be scheduled.');
+        if (postAt !== null) {
+            if (postAt <= Date.now()) throw new BadRequestException('Pick a time in the future. To post it now, post it.');
+            if (postAt > Date.now() + 366 * 24 * 60 * 60 * 1000) throw new BadRequestException('Pick a time within the next year.');
+            this.readyToSend(gig);
+        }
+        const { count } = await this.prisma.gig.updateMany({
+            where: { id, status: 'draft' },
+            data: postAt === null ? { postAt: null, postBy: null } : { postAt: new Date(postAt), postBy: user.id },
+        });
+        if (!count) throw new BadRequestException('That gig is not a draft any more.');
+        return this.view(id, user);
+    }
+
+    /** Posts the scheduled drafts that are due. One that can't post goes back to a plain draft, and its admin is told why. */
+    async postScheduled(now = Date.now()) {
+        const due = await this.prisma.gig.findMany({ where: { status: 'draft', postAt: { lte: new Date(now) } }, select: { id: true, name: true, postBy: true } });
+        for (const gig of due) {
+            const by = gig.postBy ? await this.members.me(gig.postBy) : null;
+            try {
+                if (!by?.isAdmin) throw new ForbiddenException("Whoever scheduled it isn't an admin any more.");
+                await this.send(by, gig.id);
+                this.logger.log(`Posted scheduled gig ${gig.id}`);
+            } catch (err) {
+                await this.prisma.gig.updateMany({ where: { id: gig.id, status: 'draft' }, data: { postAt: null, postBy: null } });
+                const reason = err instanceof Error ? err.message : String(err);
+                this.logger.warn(`Scheduled gig ${gig.id} didn't post: ${reason}`);
+                if (gig.postBy) await this.members.dm([gig.postBy], linked(voice.scheduleFailed(gig.name, reason), 'Open on board', boardLink(gig)));
+            }
+        }
+    }
+
+    private draftRow(id: string) {
+        return this.prisma.gig
+            .findUnique({ where: { id }, include: { objectives: { orderBy: { position: 'asc' } }, slots: true } })
+            .then((gig) => gig ?? Promise.reject(new NotFoundException('No such gig.')));
+    }
+
+    /** A draft as a complete gig, or why it can't be posted yet. */
+    private readyToSend(gig: NonNullable<Awaited<ReturnType<GigsService['draftRow']>>>): GigInput {
         const checked = gigInput.safeParse({
             name: gig.name,
             fixerName: gig.fixerName,
@@ -185,19 +246,7 @@ export class GigsService {
             const issue = checked.error.issues[0];
             throw new BadRequestException(`Not ready to send. ${String(issue.path[0] ?? 'form')}: ${issue.message}`);
         }
-
-        const { objectives: _, slots: __, ...fields } = await this.prepare(user, checked.data);
-        const status: GigStatus = user.isAdmin ? 'open' : 'pending';
-        // Only one send can win, so a double click can't post it twice
-        const { count } = await this.prisma.gig.updateMany({ where: { id, status: 'draft' }, data: { ...fields, status } });
-        if (!count) throw new BadRequestException('That gig is not a draft any more.');
-
-        await this.library.refreshUsage([fields.imageId, gig.imageId]);
-        this.announceSent(user, id, status, fields);
-        if (status === 'open' && gig.createdBy !== user.id) {
-            this.notify.fire('fixerApprovals', [gig.createdBy], linked(voice.gigApproved(fields.name), 'Open on board', boardLink({ id, name: fields.name })));
-        }
-        return this.view(id, user);
+        return checked.data;
     }
 
     /** Heads-ups for people watching for new gigs, once the post is up so they can open it. */
@@ -648,8 +697,9 @@ export class GigsService {
         }
     }
 
-    /** Sends whatever reminders, nudges and no-response drops are due. Runs every minute. */
+    /** Posts scheduled drafts and sends whatever reminders, nudges and no-response drops are due. Runs every minute. */
     async tick(now = Date.now()) {
+        await this.postScheduled(now);
         const { reminderHours, confirmHours } = this.settings.get();
         const upcoming = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE }, sessionAt: { gt: new Date(now) } }, include: { slots: true } });
 
@@ -828,6 +878,7 @@ export class GigsService {
             })),
             reserves: gig.reserves.map((r) => toCard(r.runner)),
             sessionAt: gig.sessionAt?.getTime() ?? null,
+            scheduled: gig.status === 'draft' && gig.postAt && gig.postBy ? { at: gig.postAt.getTime(), by: this.members.member(gig.postBy) } : null,
             status: gig.status,
             createdBy: this.members.member(gig.createdBy),
             threadUrl: gig.threadId ? `https://discord.com/channels/${this.settings.get().guildId}/${gig.threadId}` : null,

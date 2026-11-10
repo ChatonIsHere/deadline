@@ -694,6 +694,71 @@ describe('GigsService', () => {
         });
     });
 
+    describe('scheduled drafts', () => {
+        const soon = () => Date.now() + H;
+
+        it('only lets admins schedule a finished draft for a future time', async () => {
+            const gig = await gigs.createDraft(fixer, input(one));
+            await assert.rejects(gigs.schedule(fixer, gig.id, soon()), /Forbidden/);
+            await assert.rejects(gigs.schedule(admin, gig.id, Date.now() - 1000), /in the future/);
+            const unfinished = await gigs.createDraft(fixer, blank);
+            await assert.rejects(gigs.schedule(admin, unfinished.id, soon()), /Not ready to send/);
+        });
+
+        it('posts at its time as the admin who scheduled it, and not before', async () => {
+            const gig = await gigs.createDraft(fixer, input(one));
+            const at = soon();
+            const scheduled = await gigs.schedule(admin, gig.id, at);
+            assert.deepEqual(scheduled.scheduled, { at, by: { id: 'admin', name: 'admin', avatar: null } });
+
+            await gigs.tick(at - 60_000);
+            assert.equal((await gigs.view(gig.id)).status, 'draft');
+
+            await gigs.tick(at);
+            await settle();
+            const posted = await gigs.view(gig.id);
+            assert.deepEqual([posted.status, posted.scheduled], ['open', null]);
+            assert.ok(synced.includes('open'));
+            // Posting a fixer's draft is approving it, so they're told
+            assert.deepEqual(dmed, ['fixer']);
+        });
+
+        it('can be unscheduled, and posting it by hand clears the schedule', async () => {
+            const a = await gigs.createDraft(admin, input(one));
+            await gigs.schedule(admin, a.id, soon());
+            assert.equal((await gigs.schedule(admin, a.id, null)).scheduled, null);
+
+            const b = await gigs.createDraft(admin, input(one));
+            await gigs.schedule(admin, b.id, soon());
+            assert.equal((await gigs.send(admin, b.id)).scheduled, null);
+            await gigs.tick(soon() + H);
+            assert.equal((await gigs.view(b.id)).status, 'open');
+        });
+
+        it("goes back to a plain draft, and tells the admin, if it can't post when it's due", async () => {
+            const gig = await gigs.createDraft(fixer, input(one));
+            const at = soon();
+            await gigs.schedule(admin, gig.id, at);
+            // Edited after scheduling into something that can't post
+            await gigs.updateDraft(fixer, gig.id, { ...blank, name: 'Half done again' });
+
+            await gigs.tick(at);
+            const view = await gigs.view(gig.id);
+            assert.deepEqual([view.status, view.scheduled], ['draft', null]);
+            assert.deepEqual(dmed, ['admin']);
+        });
+
+        it("doesn't post for someone who isn't an admin any more", async () => {
+            const gig = await gigs.createDraft(admin, input(one));
+            const at = soon();
+            await gigs.schedule(person('former-admin', { isAdmin: true }), gig.id, at);
+
+            await gigs.tick(at);
+            assert.equal((await gigs.view(gig.id)).status, 'draft');
+            assert.deepEqual(dmed, ['former-admin']);
+        });
+    });
+
     describe('sign-up limit', () => {
         it('stops a player at the limit, however many runners they have', async () => {
             maxSignups = 2;

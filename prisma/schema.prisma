@@ -258,6 +258,9 @@ model Gig {
   /// Reminders already sent for the current session time
   remindedDay        Boolean   @default(false) @map("reminded_day")
   remindedSoon       Boolean   @default(false) @map("reminded_soon")
+  /// A draft an admin has scheduled: it posts at this time, as them
+  postAt             DateTime? @map("post_at") @db.Timestamptz(3)
+  postBy             String?   @map("post_by")
   // Filled in when an admin completes the gig. These rewards go to everyone on it.
   summary            String?
   rewardEb           Int?      @map("reward_eb")
