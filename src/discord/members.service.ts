@@ -43,8 +43,14 @@ export class MembersService {
     async load() {
         const guild = this.guild;
         if (!guild) return;
-        const members = await guild.members.fetch();
-        this.logger.log(`Cached ${members.size} members of ${guild.name}`);
+        // Discord allows one full member fetch per server every 30 seconds. Missing it isn't fatal:
+        // anyone not cached yet is fetched on their own when they're looked up.
+        try {
+            const members = await guild.members.fetch();
+            this.logger.log(`Cached ${members.size} members of ${guild.name}`);
+        } catch (err) {
+            this.logger.warn(`Couldn't cache the members of ${guild.name}: ${err}`);
+        }
     }
 
     private get guild(): Guild | undefined {

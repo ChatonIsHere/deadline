@@ -51,8 +51,10 @@ export class SettingsController {
 
     @Put()
     async save(@CurrentUser() user: Me, @Body(new ZodPipe(settingsInput)) body: Settings): Promise<SettingsView> {
+        const before = this.settings.get().guildId;
         await this.settings.save(user, body);
-        await this.members.load();
+        // Only a new server needs its members fetched again
+        if (body.guildId !== before) await this.members.load();
         try {
             await this.posts.setupForum();
         } catch (err) {
