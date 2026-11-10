@@ -132,11 +132,26 @@ function Row({ hour, onLabel, children }: { hour: number; onLabel?: () => void; 
 
 /**
  * A usual week of hours on the viewer's clock, shaded by how many people are free. Hours
- * everyone can make get an outline. Pointing at (or tapping) an hour picks it, to show who's free.
+ * everyone can make get an outline. Pointing at an hour previews who's free; clicking (or tapping)
+ * pins it, and clicking it again lets go.
  */
-export function Heatmap({ cells, total, picked, onPick }: { cells: HeatCell[]; total: number; picked: number | null; onPick: (index: number) => void }) {
+export function Heatmap({
+    cells,
+    total,
+    hovered,
+    pinned,
+    onHover,
+    onPin,
+}: {
+    cells: HeatCell[];
+    total: number;
+    hovered: number | null;
+    pinned: number | null;
+    onHover: (index: number | null) => void;
+    onPin: (index: number) => void;
+}) {
     return (
-        <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] gap-px select-none">
+        <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] gap-px select-none" onPointerLeave={() => onHover(null)}>
             <span />
             {DAYS.map((day) => (
                 <span key={day} className="pb-1 text-center font-display text-xs tracking-wider text-muted-foreground uppercase">
@@ -156,8 +171,9 @@ export function Heatmap({ cells, total, picked, onPick }: { cells: HeatCell[]; t
                                 key={day}
                                 type="button"
                                 aria-label={`${day} ${pad(h)}:00, ${cell.skipped ? 'skipped by the clocks changing' : `${n} of ${total} free`}`}
-                                onPointerEnter={(e) => e.pointerType === 'mouse' && onPick(i)}
-                                onClick={() => onPick(i)}
+                                aria-pressed={pinned === i}
+                                onPointerEnter={(e) => e.pointerType === 'mouse' && onHover(i)}
+                                onClick={() => onPin(i)}
                                 // Striped: the clocks jump over this hour this week
                                 style={cell.skipped ? undefined : { background: `color-mix(in oklab, var(--color-primary) ${Math.round(share * 100)}%, var(--color-muted))` }}
                                 className={cn(
@@ -165,7 +181,9 @@ export function Heatmap({ cells, total, picked, onPick }: { cells: HeatCell[]; t
                                     cell.skipped && 'bg-[repeating-linear-gradient(45deg,var(--color-muted)_0_3px,transparent_3px_6px)]',
                                     share > 0.5 ? 'text-primary-foreground' : 'text-muted-foreground',
                                     everyone && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',
-                                    picked === i && 'shadow-[inset_0_0_0_2px_var(--color-accent)]',
+                                    // Pointing: a thin line. Pinned: a thick one, in a colour the all-free outline doesn't use
+                                    hovered === i && 'shadow-[inset_0_0_0_1px_var(--color-foreground)]',
+                                    pinned === i && 'shadow-[inset_0_0_0_2px_var(--color-foreground)]',
                                 )}
                             >
                                 {n > 0 && total > 1 ? n : ''}

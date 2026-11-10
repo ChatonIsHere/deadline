@@ -1,13 +1,15 @@
 import { isLive, type PlayerAvailability } from '@shared/schemas';
 import { DAYS, heatmap, wallTime } from '@shared/time';
-import { useMemo, useState } from 'react';
+import { PinOff } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { Heatmap } from '@/components/availability';
 import { Avatar, Loading, Say } from '@/components/common';
+import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { type Tag, TagInput } from '@/components/ui/tag-input';
 import { useAvailability, useCrews, useGigs, useUser } from '@/lib/api';
-import { useTimeZone, zoneOffset } from '@/lib/time';
+import { daysAway, formatSession, useTimeZone, zoneOffset } from '@/lib/time';
 
 type Placed = PlayerAvailability & { timezone: string };
 
@@ -28,7 +30,18 @@ export function AvailabilityPage() {
     const crews = useCrews().data;
     const allGigs = useGigs().data;
     const [params, setParams] = useSearchParams();
-    const [picked, setPicked] = useState<number | null>(null);
+    // The hour pointed at, and the one clicked to keep. A pinned hour stays on the right until it's let go.
+    const [hovered, setHovered] = useState<number | null>(null);
+    const [pinned, setPinned] = useState<number | null>(null);
+    const picked = pinned ?? hovered;
+    const pin = (i: number) => setPinned((p) => (p === i ? null : i));
+
+    useEffect(() => {
+        if (pinned === null) return;
+        const unpin = (e: KeyboardEvent) => e.key === 'Escape' && setPinned(null);
+        window.addEventListener('keydown', unpin);
+        return () => window.removeEventListener('keydown', unpin);
+    }, [pinned]);
 
     const gigs = useMemo(() => (allGigs ?? []).filter((g) => isLive(g.status)), [allGigs]);
     const tags = useMemo(
@@ -97,17 +110,35 @@ export function AvailabilityPage() {
                     <p className="text-xs text-muted-foreground">
                         Your time ({tz}, {zoneOffset(tz)}). Numbers are how many are free; outlined hours suit everyone shown.
                     </p>
-                    {!everyone ? <Loading>pulling schedules...</Loading> : <Heatmap cells={cells} total={placed.length} picked={picked} onPick={setPicked} />}
+                    {!everyone ? <Loading>pulling schedules...</Loading> : <Heatmap cells={cells} total={placed.length} hovered={hovered} pinned={pinned} onHover={setHovered} onPin={pin} />}
                 </Card>
 
                 {/* Wider screens: exactly as tall as the table, so pointing at hours never moves anything. Long lists scroll inside. */}
                 <div className="lg:relative">
                     <div className="flex flex-col gap-5 lg:absolute lg:inset-0">
                         <Card className="flex flex-col space-y-3 lg:min-h-0 lg:flex-1">
-                            <CardTitle>{picked !== null ? `${DAYS[Math.floor(picked / 24)]} ${pad(picked % 24)}:00` : 'Pick an hour'}</CardTitle>
+                            <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                    {/* The real date it next falls on. A skipped hour has no time that day, so it keeps the plain label. */}
+                                    <CardTitle className="mb-0">
+                                        {picked === null || !cell ? 'Pick an hour' : cell.skipped ? `${DAYS[Math.floor(picked / 24)]} ${pad(picked % 24)}:00` : formatSession(cell.start, tz)}
+                                    </CardTitle>
+                                    {cell && !cell.skipped && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Next one, {daysAway(cell.start, tz)}
+                                            {pinned !== null && ' · pinned'}
+                                        </p>
+                                    )}
+                                </div>
+                                {pinned !== null && (
+                                    <Button variant="ghost" size="icon" className="size-7 shrink-0" title="Let go (Esc)" aria-label="Unpin this hour" onClick={() => setPinned(null)}>
+                                        <PinOff className="size-4" />
+                                    </Button>
+                                )}
+                            </div>
                             <div className="space-y-3 [scrollbar-width:thin] lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                                 {!cell ? (
-                                    <Say>point at an hour to see who's free.</Say>
+                                    <Say>point at an hour to see who's free. click one to keep it here.</Say>
                                 ) : cell.skipped ? (
                                     <Say>your clocks skip this hour this week.</Say>
                                 ) : (

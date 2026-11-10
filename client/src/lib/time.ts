@@ -23,6 +23,14 @@ export const clock = (ms: number, tz: string) => new Date(ms).toLocaleTimeString
 export const formatSession = (ms: number, tz: string) =>
     new Date(ms).toLocaleString('en-GB', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
+/** "now", "today", "tomorrow" or "in 5 days", by calendar days on a clock in `tz`. */
+export function daysAway(ms: number, tz: string, now = Date.now()): string {
+    if (ms <= now) return 'now';
+    const [a, b] = [wallTime(now, tz), wallTime(ms, tz)];
+    const days = Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000);
+    return days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+}
+
 /** formatSession in the signed in player's timezone. */
 export function useFormatSession() {
     const tz = useTimeZone();
