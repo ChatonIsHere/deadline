@@ -12,6 +12,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
+import { useUnsavedForm } from '@/lib/unsaved';
 import { cn, firstIssue } from '@/lib/utils';
 
 /**
@@ -59,6 +60,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         ownerId: me.isAdmin ? (runner?.ownerId ?? me.id) : undefined,
     }));
     const set = (patch: Partial<RunnerInput>) => setForm((f) => ({ ...f, ...patch }));
+    useUnsavedForm(form);
 
     const save = useAction(
         (input: RunnerInput) => (runner ? api<RunnerView>(`/api/runners/${runner.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),

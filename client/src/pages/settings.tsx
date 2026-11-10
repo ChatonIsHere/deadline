@@ -8,6 +8,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select, type SelectOption } from '@/components/ui/select';
 import { api, imageUrl, thumbUrl, useAction, useLibrary, useSettings, useUser } from '@/lib/api';
+import { useUnsavedChanges } from '@/lib/unsaved';
 import { cn } from '@/lib/utils';
 
 // Settings on one page: the config in one form with one save, and the bot's profile beside it,
@@ -47,6 +48,7 @@ function useConfig(view: SettingsView) {
     const [form, setForm] = useState(view.settings);
     const set = (patch: Partial<Settings>) => setForm((f) => ({ ...f, ...patch }));
     const changed = JSON.stringify(form) !== JSON.stringify(view.settings);
+    useUnsavedChanges(changed);
     const check = settingsInput.safeParse(form);
     const invalid = new Set(check.success ? [] : check.error.issues.map((i) => String(i.path[0])));
     const save = useAction(() => api('/api/settings', 'PUT', form), 'config saved.');
@@ -259,6 +261,7 @@ function BotProfileCard() {
 
     // About me can't be over the limit: the field stops at 400.
     const changed = !!profile && (bannerImageId !== null || (about !== null && about !== profile.about));
+    useUnsavedChanges(changed);
     const pictures = library ? [...library.pool, ...library.regions.flatMap((r) => r.images)] : [];
 
     return (

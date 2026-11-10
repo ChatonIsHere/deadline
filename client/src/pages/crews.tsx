@@ -9,6 +9,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
+import { useUnsavedChanges } from '@/lib/unsaved';
 import { cn } from '@/lib/utils';
 
 /** The crew list: crews you have a runner in, then everyone else's. New crews are registered at /crews/new, from the corner +. */
@@ -127,6 +128,7 @@ function NewCrew() {
     const [name, setName] = useState('');
     const [tagline, setTagline] = useState('');
     const [picked, setPicked] = useState('');
+    useUnsavedChanges(!!name.trim() || !!tagline.trim());
     // One runner of your own needs no picking
     const runnerId = picked || (mine.length === 1 ? String(mine[0].id) : '');
     const create = useAction(() => api<CrewView>('/api/crews', 'POST', { name, tagline, runnerId }), 'crew registered.', (crew) => navigate(`/crews/${crew.slug}`));

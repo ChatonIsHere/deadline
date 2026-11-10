@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { artPreviewFile, artThumbFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
+import { useAllowNextNavigation } from '@/lib/unsaved';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -103,11 +104,14 @@ export const artThumbUrl = (id: string) => stored(artThumbFile(id));
  */
 export function useAction<A = void, R = unknown>(fn: (arg: A) => Promise<R>, message: string | ((result: R) => string), then?: (result: R) => void) {
     const queryClient = useQueryClient();
+    const allowNavigation = useAllowNextNavigation();
     return useMutation({
         mutationFn: fn,
         onSuccess: (result) => {
             void queryClient.invalidateQueries();
             toast.success(typeof message === 'function' ? message(result) : message);
+            // What it saved is saved, so the page it moves on to isn't blocked
+            allowNavigation?.();
             then?.(result);
         },
         onError: (err) => toast.error(err.message),

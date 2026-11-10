@@ -9,12 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useMyRunners, useMySignups, useRunners } from '@/lib/api';
 import { formatSession, fromInput, toInput, useTimeZone, zoneOffset } from '@/lib/time';
+import { useUnsavedChanges } from '@/lib/unsaved';
 
 /** The session time, in the viewer's timezone. Admins set it here, which asks everyone on the gig to confirm. */
 export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) {
     const tz = useTimeZone();
     const [value, setValue] = useState(gig.sessionAt ? toInput(gig.sessionAt, tz) : '');
     const save = useAction((sessionAt: number | null) => api(`/api/gigs/${gig.id}/session`, 'POST', { sessionAt }), 'session time updated.');
+    // Against the saved time, so it's not unsaved once it's set
+    useUnsavedChanges(value !== (gig.sessionAt ? toInput(gig.sessionAt, tz) : ''));
 
     const filled = gig.slots.filter((s) => s.runner);
     const confirmed = filled.filter((s) => s.state === 'confirmed').length;

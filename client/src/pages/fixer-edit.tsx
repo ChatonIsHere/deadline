@@ -10,6 +10,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
+import { useUnsavedForm } from '@/lib/unsaved';
 import { firstIssue } from '@/lib/utils';
 
 /**
@@ -50,6 +51,7 @@ function FixerForm({ fixer }: { fixer?: RunnerView }) {
         ownerId: null,
     }));
     const set = (patch: Partial<RunnerInput>) => setForm((f) => ({ ...f, ...patch }));
+    useUnsavedForm(form);
 
     const save = useAction(
         (input: RunnerInput) => (fixer ? api<RunnerView>(`/api/runners/${fixer.id}`, 'PATCH', input) : api<RunnerView>('/api/runners', 'POST', input)),

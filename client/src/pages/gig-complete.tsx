@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { api, useAction, useGig, useUser } from '@/lib/api';
+import { useUnsavedForm } from '@/lib/unsaved';
 import { useFormatSession } from '@/lib/time';
 import { firstIssue } from '@/lib/utils';
 
@@ -62,6 +63,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
     const [crew, setCrew] = useState({ bonus: '', ip: '', hqIp: '', text: '' });
     const [extra, setExtra] = useState<Record<string, Amounts>>({});
     const [error, setError] = useState('');
+    useUnsavedForm({ summary, done, crew, extra });
 
     const fromObjectives = objectivesPay(gig, done);
     const bonus = num(crew.bonus);

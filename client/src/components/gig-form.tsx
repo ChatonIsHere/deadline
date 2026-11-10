@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select';
 import { UploadButton } from '@/components/upload-button';
 import { cn, firstIssue } from '@/lib/utils';
 import { imageUrl, useCrews, useFixers, useGigTypes, useLibrary, useUser } from '@/lib/api';
+import { useUnsavedForm } from '@/lib/unsaved';
 
 // Numbers are kept as strings while typing so fields can be empty.
 interface FormState {
@@ -130,6 +131,8 @@ export function GigForm({ gig, saving, onSave, onDraft }: { gig?: GigView; savin
     const unsent = !gig || gig.status === 'draft';
     const [form, setForm] = useState(() => toForm(gig));
     const [error, setError] = useState('');
+    // A picture the library picks by itself isn't a change of theirs
+    useUnsavedForm({ ...form, imageId: form.imageAuto ? null : form.imageId });
 
     const crews = useCrews().data ?? [];
     const types = useGigTypes().data ?? [];

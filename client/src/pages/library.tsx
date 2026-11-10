@@ -10,6 +10,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { UploadButton } from '@/components/upload-button';
 import { api, thumbUrl, useAction, useLibrary, useUser } from '@/lib/api';
+import { useUnsavedChanges } from '@/lib/unsaved';
 
 export function LibraryPage() {
     const me = useUser();
@@ -100,6 +101,7 @@ function NewRegion({ districts }: { districts: string[] }) {
     const [name, setName] = useState('');
     const [district, setDistrict] = useState('');
     const add = useAction(() => api('/api/library/regions', 'POST', { name, district: district || null }), 'region added.', () => setName(''));
+    useUnsavedChanges(!!name.trim());
 
     const submit = (e: FormEvent) => {
         e.preventDefault();

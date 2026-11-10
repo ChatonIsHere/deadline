@@ -11,6 +11,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { api, useAction, useCrewInvites, useMyAvailability, usePrefs, useUser } from '@/lib/api';
 import { usePhone } from '@/lib/media';
 import { browserTimeZone } from '@/lib/time';
+import { useUnsavedChanges } from '@/lib/unsaved';
 import { RunnerChip } from '@/components/runner';
 import { Link } from 'react-router';
 
@@ -105,6 +106,7 @@ function CrewInvites() {
 function TimezoneCard({ current }: { current: string | null }) {
     const [tz, setTz] = useState(current ?? browserTimeZone());
     const save = useAction(() => api('/api/prefs', 'PUT', { timezone: tz }), 'timezone saved.');
+    useUnsavedChanges(tz !== (current ?? browserTimeZone()));
     return (
         <Card className="space-y-3">
             <CardTitle help="session times on the board show in this zone, and so does your availability.">Timezone</CardTitle>
@@ -131,6 +133,7 @@ function AvailabilityCard() {
     }, [data]);
     const save = useAction((next: number[]) => api('/api/availability/mine', 'PUT', { hours: next }), 'availability saved.');
     const changed = !!data && !!hours && hours.join() !== data.hours.join();
+    useUnsavedChanges(changed);
     const title = 'click or drag across the hours you can usually play. admins see everyone\'s when picking a session time.';
 
     if (!data || !hours) {
