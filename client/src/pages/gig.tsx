@@ -94,7 +94,7 @@ export function Gig() {
             )}
             {gig.status === 'rejected' && <Say className="text-destructive">contract rejected by admin.</Say>}
 
-            <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_22rem] 3xl:grid-cols-[1fr_28rem]">
                 <div className="space-y-5">
                     {gig.imageId && (
                         <Live value={gig.imageId}>

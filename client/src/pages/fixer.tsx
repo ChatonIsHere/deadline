@@ -88,7 +88,7 @@ export function FixerPage() {
                     </div>
                 </div>
             </Live>
-            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem]')}>
+            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]')}>
                 {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
                 {hasArt && (
                     <div className="lg:col-start-2 lg:row-start-1">

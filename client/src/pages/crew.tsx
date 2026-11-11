@@ -64,7 +64,7 @@ export function Crew() {
                 </div>
             </Live>
 
-            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]">
                 <div className="space-y-6">
                     {!crew.members.length && <Say>no runners yet.</Say>}
                     {crew.ranks.map((rank) => {

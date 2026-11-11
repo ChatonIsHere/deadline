@@ -109,9 +109,9 @@ export function Layout() {
             <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:min-h-screen">
                 <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-visible">
                     {/* Bottom padding keeps content clear of the corner + on phones. Desktop pads evenly, so the page centres on the same line as the channel tab. */}
-                    {/* Desktop: centred on the whole window, and narrow enough to clear the channel tab on the left (13rem tab, then the 2rem padding as a gap) */}
+                    {/* Desktop: centred on the whole window, and narrow enough to clear the channel tab on the left (13rem tab, then the 2rem padding as a gap). Very wide screens give every page more room. */}
                     {/* Desktop: pages sit in the middle of the space above the prompt bar, and taller ones start at the top. A page with tabs fills it instead (xl:flex-1), keeping its tab bar up top and centring what's under it. */}
-                    <main className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))] xl:pb-6', CARD_LISTS.includes(pathname) && '3xl:w-[min(96rem,calc(100%-26rem))] 3xl:max-w-[96rem]')}>
+                    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-24 md:px-8 xl:w-[min(72rem,calc(100%-26rem))] xl:pb-6 3xl:w-[min(96rem,calc(100%-26rem))] 3xl:max-w-[96rem]">
                         {me.isAdmin && <SetupReminder />}
                         {/* A page that's only a line from the board (nothing here yet, no such gig) centres it */}
                         <div className="flex flex-1 flex-col [&>p]:text-center xl:*:my-auto xl:*:w-full">
@@ -158,9 +158,6 @@ const channelNo = (n: number) => String(n).padStart(2, '0');
  * channels. It floats beside the page rather than taking a column, so the page centres on
  * the whole window and the prompt bar runs the full width under it. You are in the prompt bar.
  */
-/** Pages of cards. On very wide screens they get more room and another column, so the cards keep their size. */
-const CARD_LISTS = ['/gigs', '/runners', '/fixers'];
-
 function Rail({ channels }: { channels: Channel[] }) {
     const { data: me } = useMe();
     if (!me) return null;

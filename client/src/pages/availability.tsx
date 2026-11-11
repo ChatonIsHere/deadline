@@ -102,7 +102,7 @@ export function AvailabilityPage() {
         <div className="space-y-5">
             <TagInput id="availability-filter" options={tags} value={selected} onChange={setSelected} placeholder="Everyone. Type a crew, gig or player to narrow it..." />
 
-            <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_18rem] 3xl:grid-cols-[1fr_24rem]">
                 <Card className="space-y-3">
                     <CardTitle help="everyone's usual week on your clock. each hour is the next time it comes round, so clock changes coming up this week, in any country, are placed right.">
                         Usual week
