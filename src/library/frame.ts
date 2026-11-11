@@ -60,11 +60,13 @@ export const variantFor = (imageId: string): Variant => VARIANTS[parseInt(imageI
  * `mask` is the shape the picture is cut to: outside it is transparent, so the frame sits
  * on whatever background it's shown on.
  *
+ * `inner` is that shape's outline as path data, for clipping anything drawn on top later.
+ *
  * `padded` leaves a transparent margin wide enough to survive the crop in Discord's gallery
  * preview. The web doesn't need it (the page spaces things out), so its copies run the frame
  * to the edge. `solid` fills the margin instead (for the bot banner).
  */
-export function frameSvg(W: number, H: number, { variant: v = VARIANTS[0], padded = true, solid = false }: { variant?: Variant; padded?: boolean; solid?: boolean } = {}): { overlay: string; mask: string } {
+export function frameSvg(W: number, H: number, { variant: v = VARIANTS[0], padded = true, solid = false }: { variant?: Variant; padded?: boolean; solid?: boolean } = {}): { overlay: string; mask: string; inner: string } {
     const s = Math.min(W, H) / 720;
     const n = (x: number) => Math.round(x * s);
     // Unpadded still keeps half a bracket's width, so the thick strokes aren't cut off
@@ -104,5 +106,5 @@ ${bars}
 
     // The picture is cut exactly at the edge line; nothing shows outside it
     const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><path fill="#fff" d="${inner}"/></svg>`;
-    return { overlay, mask };
+    return { overlay, mask, inner };
 }

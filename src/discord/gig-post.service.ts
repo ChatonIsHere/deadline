@@ -114,7 +114,7 @@ export class GigPostService {
         // Pictures are uploaded with the post (gig card first, so it's the forum preview). Their
         // names change with the picture, so an edit only uploads the ones that changed.
         const keys = {
-            gig: gig.imageId ? await this.library.gigCardKey({ id: gig.id, imageId: gig.imageId, name: gig.name, cardKey: post.cardKey }) : null,
+            gig: gig.imageId ? await this.library.gigCardKey({ id: gig.id, imageId: gig.imageId, name: gig.name, completed: gig.status === 'completed', cardKey: post.cardKey }) : null,
             fixer: gig.fixerImageId ? framedFile(gig.fixerImageId) : null,
         };
         const names = { gig: keys.gig && attachmentName(keys.gig), fixer: keys.fixer && attachmentName(keys.fixer) };

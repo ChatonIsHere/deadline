@@ -213,16 +213,16 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
 
     /**
      * A gig's picture for Discord, with its name on it (see gig-card.ts), as a storage key. Made
-     * when the name or picture changes; the key changes with them. The card it replaces is
+     * when the name or picture changes, or the gig is completed; the key changes with them. The card it replaces is
      * listed as stale and deleted later. A picture whose file is gone gets its plain framed copy.
      */
-    async gigCardKey(gig: { id: string; imageId: string; name: string; cardKey: string | null }): Promise<string> {
-        const hash = createHash('sha1').update(`${gig.imageId}|${gig.name}|${FRAME_VERSION}|${CARD_VERSION}`).digest('hex').slice(0, 12);
+    async gigCardKey(gig: { id: string; imageId: string; name: string; completed: boolean; cardKey: string | null }): Promise<string> {
+        const hash = createHash('sha1').update(`${gig.imageId}|${gig.name}|${gig.completed ? 'completed' : ''}|${FRAME_VERSION}|${CARD_VERSION}`).digest('hex').slice(0, 12);
         const key = cardFile(gig.id, hash);
         if (gig.cardKey !== key) {
             const plain = await this.storage.get(plainFile(gig.imageId));
             if (!plain) return framedFile(gig.imageId);
-            await this.storage.put(key, await renderGigCard(plain, variantFor(gig.imageId), gig.name), 'image/png');
+            await this.storage.put(key, await renderGigCard(plain, variantFor(gig.imageId), gig.name, gig.completed), 'image/png');
             await this.prisma.gig.update({ where: { id: gig.id }, data: { cardKey: key } });
             if (gig.cardKey) await this.prisma.staleObject.upsert({ where: { key: gig.cardKey }, create: { key: gig.cardKey }, update: {} });
         }
