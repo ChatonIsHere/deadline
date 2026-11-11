@@ -68,8 +68,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
         (saved) => navigate(next ?? `/runners/${saved.slug}`),
     );
 
-    const toggleExtra = (role: string) =>
-        set({ extraRoles: form.extraRoles.includes(role) ? form.extraRoles.filter((r) => r !== role) : [...form.extraRoles, role] });
+    const toggleExtra = (role: string) => set({ extraRoles: form.extraRoles.includes(role) ? form.extraRoles.filter((r) => r !== role) : [...form.extraRoles, role] });
     const isFixer = form.role === FIXER_ROLE || form.extraRoles.includes(FIXER_ROLE);
     // Keep roles the runner already has, even if they've been taken off the list since
     const roleList = [...new Set([...roles, ...(runner ? [runner.role, ...runner.extraRoles] : [])])];
@@ -86,13 +85,12 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
     };
 
     return (
-        <form onSubmit={submit} className="mx-auto max-w-3xl space-y-5">
-
+        <form onSubmit={submit} className='mx-auto max-w-3xl space-y-5'>
             {me.isAdmin && (
-                <Card className="space-y-2">
+                <Card className='space-y-2'>
                     <CardTitle help="the runner shows on that player's Runners tab, and they can sign it up for gigs.">Player</CardTitle>
                     <Select
-                        id="player"
+                        id='player'
                         value={form.ownerId ?? ''}
                         onChange={(ownerId) => set({ ownerId })}
                         options={[
@@ -104,52 +102,40 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                 </Card>
             )}
 
-            <div className="grid items-start gap-5 sm:grid-cols-[12rem_1fr]">
-                <div className="space-y-5">
-                    <Card className="space-y-3">
+            <div className='grid items-start gap-5 sm:grid-cols-[12rem_1fr]'>
+                <div className='space-y-5'>
+                    <Card className='space-y-3'>
                         <CardTitle help="a square picture, shown on gigs, crews and the runner's profile.">Picture</CardTitle>
-                        <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className="aspect-square h-auto w-full text-5xl" />
-                        <UploadButton className="w-full" options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
+                        <RunnerAvatar runner={{ handle: form.handle || '?', imageId: form.imageId }} framed className='aspect-square h-auto w-full text-5xl' />
+                        <UploadButton className='w-full' options={{ kind: 'avatar' }} onUploaded={([imageId]) => set({ imageId })} />
                     </Card>
                     <ArtField value={form.artIds} onChange={(artIds) => set({ artIds })} />
                 </div>
 
-                <div className="space-y-5">
-                    <Card className="space-y-4">
+                <div className='space-y-5'>
+                    <Card className='space-y-4'>
                         <CardTitle>Runner</CardTitle>
                         <div>
-                            <Label htmlFor="handle">Handle</Label>
-                            <Input id="handle" value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
+                            <Label htmlFor='handle'>Handle</Label>
+                            <Input id='handle' value={form.handle} onChange={(e) => set({ handle: e.target.value })} maxLength={40} />
                         </div>
                         <div>
-                            <Label htmlFor="tagline" help="one line, shown under their name.">Tagline</Label>
-                            <Input id="tagline" value={form.tagline ?? ''} onChange={(e) => set({ tagline: e.target.value })} maxLength={120} />
+                            <Label htmlFor='tagline' help='one line, shown under their name.'>
+                                Tagline
+                            </Label>
+                            <Input id='tagline' value={form.tagline ?? ''} onChange={(e) => set({ tagline: e.target.value })} maxLength={120} />
                         </div>
                         <div>
-                            <Label htmlFor="role">Role</Label>
-                            <Select
-                                id="role"
-                                value={form.role}
-                                placeholder="Pick a role"
-                                onChange={(role) => set({ role, extraRoles: form.extraRoles.filter((r) => r !== role) })}
-                                options={roleList.map((r) => ({ value: r, label: r }))}
-                            />
+                            <Label htmlFor='role'>Role</Label>
+                            <Select id='role' value={form.role} placeholder='Pick a role' onChange={(role) => set({ role, extraRoles: form.extraRoles.filter((r) => r !== role) })} options={roleList.map((r) => ({ value: r, label: r }))} />
                         </div>
                         <div>
-                            <Label help="other roles this runner has. Fixer gives them a fixer profile.">Extra roles</Label>
-                            <div className="flex flex-wrap gap-1.5">
+                            <Label help='other roles this runner has. Fixer gives them a fixer profile.'>Extra roles</Label>
+                            <div className='flex flex-wrap gap-1.5'>
                                 {roleList
                                     .filter((r) => r !== form.role)
                                     .map((r) => (
-                                        <button
-                                            key={r}
-                                            type="button"
-                                            onClick={() => toggleExtra(r)}
-                                            className={cn(
-                                                'cut cursor-pointer px-2 py-1 font-display text-xs tracking-wider uppercase [--cut:5px]',
-                                                form.extraRoles.includes(r) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
-                                            )}
-                                        >
+                                        <button key={r} type='button' onClick={() => toggleExtra(r)} className={cn('cut cursor-pointer px-2 py-1 font-display text-xs tracking-wider uppercase [--cut:5px]', form.extraRoles.includes(r) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
                                             {r}
                                         </button>
                                     ))}
@@ -157,8 +143,8 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
                         </div>
                     </Card>
 
-                    <Card className="space-y-2">
-                        <CardTitle help="who they are. shown on their profile.">Bio</CardTitle>
+                    <Card className='space-y-2'>
+                        <CardTitle help='who they are. shown on their profile.'>Bio</CardTitle>
                         <MarkdownEditor value={form.bio ?? ''} onChange={(bio) => set({ bio })} max={2000} />
                     </Card>
                 </div>
@@ -167,38 +153,32 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
             <LivingCard value={form} onChange={set} />
 
             {isFixer && (
-                <Card className="space-y-4">
+                <Card className='space-y-4'>
                     <CardTitle help="shown on the Fixers tab. a player's fixer only counts once an admin gives them the fixer role in Discord.">Fixer profile</CardTitle>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className='grid gap-4 sm:grid-cols-2'>
                         <div>
-                            <Label htmlFor="alias">Fixer alias</Label>
-                            <Input
-                                id="alias"
-                                value={form.fixerAlias ?? ''}
-                                onChange={(e) => set({ fixerAlias: e.target.value })}
-                                maxLength={40}
-                                placeholder={form.handle || 'Their handle'}
-                            />
-                            <p className="mt-1 text-xs text-muted-foreground">the name they go by as a fixer. empty uses their handle.</p>
+                            <Label htmlFor='alias'>Fixer alias</Label>
+                            <Input id='alias' value={form.fixerAlias ?? ''} onChange={(e) => set({ fixerAlias: e.target.value })} maxLength={40} placeholder={form.handle || 'Their handle'} />
+                            <p className='mt-1 text-xs text-muted-foreground'>Shows instead of their handle on the Fixers tab.</p>
                         </div>
                         <div>
-                            <Label htmlFor="office">Office location</Label>
-                            <Input id="office" value={form.officeLocation ?? ''} onChange={(e) => set({ officeLocation: e.target.value })} maxLength={100} />
+                            <Label htmlFor='office'>Office location</Label>
+                            <Input id='office' value={form.officeLocation ?? ''} onChange={(e) => set({ officeLocation: e.target.value })} maxLength={100} />
                         </div>
                         <div>
-                            <Label htmlFor="contact">How to reach them</Label>
-                            <Input id="contact" value={form.contact ?? ''} onChange={(e) => set({ contact: e.target.value })} maxLength={150} />
+                            <Label htmlFor='contact'>How to reach them</Label>
+                            <Input id='contact' value={form.contact ?? ''} onChange={(e) => set({ contact: e.target.value })} maxLength={150} />
                         </div>
                         <div>
-                            <Label htmlFor="specialties">Specialties</Label>
-                            <Input id="specialties" value={form.specialties ?? ''} onChange={(e) => set({ specialties: e.target.value })} maxLength={150} />
+                            <Label htmlFor='specialties'>Specialties</Label>
+                            <Input id='specialties' value={form.specialties ?? ''} onChange={(e) => set({ specialties: e.target.value })} maxLength={150} />
                         </div>
                     </div>
                 </Card>
             )}
 
-            {error && <p className="text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={save.isPending}>
+            {error && <p className='text-destructive'>{error}</p>}
+            <Button type='submit' className='w-full' disabled={save.isPending}>
                 {runner ? 'Save changes' : 'Create'}
             </Button>
         </form>
