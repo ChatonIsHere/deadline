@@ -2,7 +2,7 @@ import type { GigView, RunnerCard } from '@shared/schemas';
 import { groupSlots } from '@shared/slots';
 import { X } from 'lucide-react';
 import { Icon, liveKey } from '@/components/common';
-import { RunnerChip } from '@/components/runner';
+import { RoleTag, RunnerChip } from '@/components/runner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFormatSession } from '@/lib/time';
@@ -21,8 +21,8 @@ export function SlotList({
     onOpenCrew?: (crewId: string) => void;
 }) {
     const formatSession = useFormatSession();
-    // Pushed right, ahead of any remove button. Cut short before the name is.
-    const role = (r: RunnerCard) => <span className="ml-auto min-w-0 truncate pl-2 text-xs text-muted-foreground">{r.role}</span>;
+    // Pushed right, ahead of any remove button. Unknown runners have no role.
+    const role = (r: RunnerCard) => (r.role ? <RoleTag role={r.role} small className="ml-auto" /> : <span className="ml-auto" />);
     const remove = (onClick: () => void) => (
         <Button variant="ghost" size="icon" className="shrink-0" title="Remove" onClick={onClick}>
             <X className="size-4" />

@@ -85,14 +85,24 @@ export function RoleIcon({ role, className }: { role: string; className?: string
     return CORE_ROLES.includes(role) ? <Icon name={`role_${role.toLowerCase()}`} className={className} /> : null;
 }
 
+/**
+ * A runner's main role as a pink tag with its icon. `small` fits it in a list row beside their
+ * name; there the name cuts short last.
+ */
+export function RoleTag({ role, small, className }: { role: string; small?: boolean; className?: string }) {
+    return (
+        <Badge variant="role" className={cn('gap-1', small && 'min-w-0 px-1.5 py-0 text-[10px] leading-4 [--cut:4px]', className)}>
+            <RoleIcon role={role} className={small ? 'size-3 shrink-0' : 'size-3.5 align-[-2px]'} />
+            {small ? <span className="truncate">{role}</span> : role}
+        </Badge>
+    );
+}
+
 /** Main role first, then any extras, fainter, each with its icon. Pink tints, since filled colours mean a gig's status. */
 export function Roles({ runner, className }: { runner: Pick<RunnerCard, 'role' | 'extraRoles'>; className?: string }) {
     return (
         <span className={cn('inline-flex flex-wrap gap-1', className)}>
-            <Badge variant="role" className="gap-1">
-                <RoleIcon role={runner.role} className="size-3.5 align-[-2px]" />
-                {runner.role}
-            </Badge>
+            <RoleTag role={runner.role} />
             {runner.extraRoles.map((r) => (
                 <Badge key={r} variant="role" className="gap-1 bg-role/15 text-foreground/80">
                     <RoleIcon role={r} className="size-3.5 align-[-2px] opacity-80" />
