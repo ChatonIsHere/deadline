@@ -1,4 +1,4 @@
-import type { GigView } from '@shared/schemas';
+import type { GigView, RunnerCard } from '@shared/schemas';
 import { groupSlots } from '@shared/slots';
 import { X } from 'lucide-react';
 import { Icon, liveKey } from '@/components/common';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFormatSession } from '@/lib/time';
 
-/** Who's on the gig, grouped by crew, then the reserves. Pass the remove handlers to show admin buttons. */
+/** Who's on the gig, grouped by crew, then the reserves, each with their role on the right. Pass the remove handlers to show admin buttons. */
 export function SlotList({
     gig,
     onKick,
@@ -21,8 +21,10 @@ export function SlotList({
     onOpenCrew?: (crewId: string) => void;
 }) {
     const formatSession = useFormatSession();
+    // Pushed right, ahead of any remove button. Cut short before the name is.
+    const role = (r: RunnerCard) => <span className="ml-auto min-w-0 truncate pl-2 text-xs text-muted-foreground">{r.role}</span>;
     const remove = (onClick: () => void) => (
-        <Button variant="ghost" size="icon" className="ml-auto" title="Remove" onClick={onClick}>
+        <Button variant="ghost" size="icon" className="shrink-0" title="Remove" onClick={onClick}>
             <X className="size-4" />
         </Button>
     );
@@ -55,6 +57,7 @@ export function SlotList({
                                         {slot.confirmBy && ` · by ${formatSession(slot.confirmBy)}`}
                                     </Badge>
                                 )}
+                                {slot.runner && role(slot.runner)}
                                 {slot.runner && onKick && remove(() => onKick(slot.id))}
                             </li>
                         ))}
@@ -70,6 +73,7 @@ export function SlotList({
                             <li key={liveKey(r.ownerId ?? r.id, r)} className="live-in flex min-h-8 items-center gap-2">
                                 <span className="w-4 text-xs text-muted-foreground">{i + 1}.</span>
                                 <RunnerChip runner={r} />
+                                {role(r)}
                                 {onUnreserve && r.ownerId && remove(() => onUnreserve(r.ownerId!))}
                             </li>
                         ))}
