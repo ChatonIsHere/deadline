@@ -4,11 +4,13 @@ import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Icon, LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RunnerAvatar } from '@/components/runner';
+import { StaggeredImage } from '@/components/staggered-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { api, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
+import { api, imageUrl, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
+import { usePhone } from '@/lib/media';
 import { useUnsavedChanges } from '@/lib/unsaved';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +34,7 @@ export function Crews() {
 
 /** `title` only when the page splits crews into groups. */
 function CrewGrid({ title, crews, mine }: { title: string | null; crews: CrewView[]; mine?: boolean }) {
+    const phone = usePhone();
     return (
         <section className="space-y-3">
             {title && (
@@ -39,10 +42,9 @@ function CrewGrid({ title, crews, mine }: { title: string | null; crews: CrewVie
                     // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
                 </h2>
             )}
-            <div className="card-rows sm:[--cols:2] lg:[--cols:3]">
-                {crews.map((c) => (
-                    <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />
-                ))}
+            {/* Sized like the fixers' cards: there are only ever a few crews */}
+            <div className="card-rows [--gap:0.75rem] sm:[--cols:2] sm:[--gap:1rem] xl:[--cols:3] 3xl:[--cols:4]">
+                {crews.map((c) => (phone ? <CrewMiniCard key={liveKey(c.id, c)} crew={c} mine={mine} /> : <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />))}
             </div>
         </section>
     );
@@ -59,11 +61,60 @@ export function NewCrewPage() {
 }
 
 /**
- * Logo, name and tagline, who's at the top, the runners' faces, and counts along the bottom. Your
- * own crews get a yellow frame. Each part has a set height, kept even when it's empty, so every
- * card is the same size and their lines match up.
+ * A crew on the list: its logo across the top, then name, tagline, who's at the top and the
+ * runners' faces. Your own crews get a yellow frame. Each part has a set height, kept even
+ * when it's empty, so every card is the same size and their lines match up.
+ *
+ * Wider screens: the logo stays the size it'd be a column narrower, and the room beside it
+ * holds the counts. Narrower: it's the card's full width, the counts run along the bottom, and
+ * the card's corner is cut to match the logo's frame (as a fixer's card does).
  */
 function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
+    const leaders = crew.members.filter((m) => m.rank === crew.ranks[0]);
+    // Eight places in the row: with more runners than that, the last one says how many are left
+    const shown = crew.members.slice(0, crew.members.length > 8 ? 7 : 8);
+    const picture = 'aspect-square w-full shrink-0 lg:w-2/3 xl:w-3/4 3xl:w-4/5';
+    return (
+        <div className="@container">
+            <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col', crew.imageId && 'max-lg:[--cut:11.1cqw]', mine && '[--frame:var(--color-primary)]')}>
+                <div className="-mx-4 -mt-4 mb-3 flex">
+                    {crew.imageId ? (
+                        <StaggeredImage src={imageUrl(crew.imageId)} className={picture} />
+                    ) : (
+                        // Cut like the card, or its corner covers the card's diagonal border
+                        <span className={cn(picture, 'cut grid place-items-center bg-muted')}>
+                            <Icon name="crew" className="size-2/5" />
+                        </span>
+                    )}
+                    <dl className="flex flex-1 flex-col items-center justify-evenly py-3 text-center max-lg:hidden">
+                        <Count label="Runners" value={crew.members.length} />
+                        <Count label="Allies" value={crew.allies.length} />
+                        <Count label="Gigs" value={crew.gigs.length} />
+                    </dl>
+                </div>
+                <h3 className="truncate text-xl leading-7">{crew.name}</h3>
+                {/* Room for the tagline even without one */}
+                <p className="mb-2 h-5 truncate text-sm leading-5 text-muted-foreground italic">{crew.tagline && `"${crew.tagline}"`}</p>
+                <Leaders crew={crew} leaders={leaders} />
+                {/* The places shrink to fit a narrow card */}
+                <div className="mt-3 grid h-12 grid-cols-[repeat(8,minmax(0,3rem))] items-center gap-1.5">
+                    {shown.map((m) => (
+                        <RunnerAvatar key={m.id} runner={m} large className="aspect-square h-auto w-full text-lg [--cut:6px]" />
+                    ))}
+                    {crew.members.length > shown.length && <span className="text-center text-sm text-muted-foreground">+{crew.members.length - shown.length}</span>}
+                </div>
+                <dl className="mt-auto grid grid-cols-3 gap-2 border-t-2 border-border pt-3 lg:hidden">
+                    <Count label="Runners" value={crew.members.length} />
+                    <Count label="Allies" value={crew.allies.length} />
+                    <Count label="Gigs" value={crew.gigs.length} />
+                </dl>
+            </LinkCard>
+        </div>
+    );
+}
+
+/** A crew on a phone: logo, name and tagline, who's at the top, the runners' faces, and counts along the bottom. */
+function CrewMiniCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
     const leaders = crew.members.filter((m) => m.rank === crew.ranks[0]);
     // Six places in the row: with more runners than that, the last one says how many are left
     const shown = crew.members.slice(0, crew.members.length > 6 ? 5 : 6);
@@ -83,13 +134,7 @@ function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
                     {crew.tagline && <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground italic">"{crew.tagline}"</p>}
                 </div>
             </div>
-            <p className="h-4 truncate text-xs leading-4 text-muted-foreground">
-                {leaders.length > 0 && (
-                    <>
-                        <span className="tracking-widest uppercase">{crew.ranks[0]}</span> <span className="text-foreground">{leaders.map((l) => l.handle).join(', ')}</span>
-                    </>
-                )}
-            </p>
+            <Leaders crew={crew} leaders={leaders} />
             {/* The places shrink to fit a narrow card */}
             <div className="grid h-10 grid-cols-[repeat(6,minmax(0,2.5rem))] items-center gap-1.5">
                 {shown.map((m) => (
@@ -103,6 +148,19 @@ function CrewCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
                 <Count label="Gigs" value={crew.gigs.length} />
             </dl>
         </LinkCard>
+    );
+}
+
+/** The top rank and who holds it, on one line kept even when nobody does. */
+function Leaders({ crew, leaders }: { crew: CrewView; leaders: CrewView['members'] }) {
+    return (
+        <p className="h-4 truncate text-xs leading-4 text-muted-foreground">
+            {leaders.length > 0 && (
+                <>
+                    <span className="tracking-widest uppercase">{crew.ranks[0]}</span> <span className="text-foreground">{leaders.map((l) => l.handle).join(', ')}</span>
+                </>
+            )}
+        </p>
     );
 }
 
