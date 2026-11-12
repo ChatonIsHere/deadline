@@ -85,7 +85,7 @@ export function RunnerPage() {
                 <Live value={[runner.handle, runner.tagline, runner.role, runner.extraRoles, runner.imageId, runner.owner, runner.isFixer, runner.status]}>
                     <div className="min-w-0 space-y-4">
                         <div className="flex items-start gap-4 sm:gap-5">
-                            <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-48 sm:text-5xl', gone && 'grayscale')} />
+                            <RunnerAvatar runner={runner} framed className={cn('aspect-square h-auto w-28 shrink-0 text-4xl sm:w-52 sm:text-5xl', gone && 'grayscale')} />
                             <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
                                 <p className="text-xs tracking-widest text-muted-foreground">
                                     // RUNNER
