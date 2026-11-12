@@ -48,7 +48,7 @@ export function NotificationsCard({ prefs }: { prefs: Prefs | undefined }) {
                 <Toggle title="Confirm requests" hint="when a session time is set. your slot depends on answering, so these always come." on locked />
                 <Toggle
                     title="Session reminders"
-                    hint="a few hours before a session you've confirmed, and 30 minutes before."
+                    hint="a DM a few hours before a session you've confirmed, and a ping in the gig's thread 30 minutes before."
                     on={local.reminders}
                     onChange={(reminders) => {
                         setLocal({ ...local, reminders });
@@ -72,13 +72,11 @@ export function NotificationsCard({ prefs }: { prefs: Prefs | undefined }) {
 
             <Group title="Crews">
                 {kind('crewInvites', 'Crew invites', "with buttons to join or decline. they're on this page either way.")}
-                {kind('crewChanges', 'Crew changes', 'someone joins or leaves your crews, your rank changes, an invite you sent is turned down.')}
             </Group>
 
             {(me.isFixer || me.isAdmin) && (
                 <Group title="Gigs you put out">
                     {me.isFixer && !me.isAdmin && kind('fixerApprovals', 'Approved or turned down', 'when an admin decides on a gig you sent in.')}
-                    {kind('fixerSignups', 'Sign-ups', 'runners signing up for your gigs or pulling out.')}
                     {kind('fixerRatings', 'Reviews', 'runners reviewing your gigs once they finish, with their note.')}
                 </Group>
             )}

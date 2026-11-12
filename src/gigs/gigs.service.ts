@@ -21,11 +21,14 @@ export const ACTIVE = LIVE_STATUSES;
 const SWEEP_MS = 6 * 60 * 60 * 1000;
 /** How often reminders, nudges and no-response drops are checked. */
 const CLOCK_MS = 60 * 1000;
+const HOUR = 60 * 60 * 1000;
 
 /** A slot's fields for a runner who has just been asked to confirm. */
-const asked = () => ({ state: 'awaiting' as const, askedAt: new Date(), nudged: false });
+const asked = () => ({ state: 'awaiting' as const, askedAt: new Date(), nudged: false, confirmedAt: null });
+/** A slot's fields for a runner who is coming, as of now. */
+const confirmedNow = () => ({ state: 'confirmed' as const, confirmedAt: new Date() });
 /** A slot's fields once its runner is gone. */
-const emptied = { userId: null, runnerId: null, state: 'interested' as const, askedAt: null, nudged: false };
+const emptied = { userId: null, runnerId: null, state: 'interested' as const, askedAt: null, nudged: false, confirmedAt: null };
 
 /** Everything a gig's view needs, in one query. */
 const GIG_INCLUDE = {
@@ -120,7 +123,7 @@ export class GigsService {
     /** Posts a gig that just went live, or tells the admins one is waiting for them. */
     private announceSent(user: Me, id: string, status: GigStatus, gig: { name: string; fixerName: string }) {
         if (status === 'open') {
-            this.post(id, { after: (view) => this.announce(view) });
+            this.post(id, { after: (view) => this.announce(view, user.id) });
         } else {
             this.post(id);
             const admins = this.members.admins().filter((a) => a !== user.id);
@@ -249,9 +252,9 @@ export class GigsService {
         return checked.data;
     }
 
-    /** Heads-ups for people watching for new gigs, once the post is up so they can open it. */
-    private async announce(view: GigView) {
-        const audience = await this.notify.newGigAudience(view);
+    /** Heads-ups for people watching for new gigs, once the post is up so they can open it. Not to `by`, who put it live. */
+    private async announce(view: GigView, by: string) {
+        const audience = (await this.notify.newGigAudience(view)).filter((u) => u !== by);
         if (audience.length) await this.members.dm(audience, await this.posts.newGigMessage(view));
     }
 
@@ -286,7 +289,7 @@ export class GigsService {
         if (gig.status !== 'pending') throw new BadRequestException('Only pending gigs can be approved or rejected.');
 
         await this.prisma.gig.update({ where: { id }, data: { status: approved ? 'open' : 'rejected' } });
-        if (approved) this.post(id, { after: (view) => this.announce(view) });
+        if (approved) this.post(id, { after: (view) => this.announce(view, user.id) });
         else this.post(id);
         if (gig.createdBy !== user.id) {
             this.notify.fire('fixerApprovals', [gig.createdBy], linked(approved ? voice.gigApproved(gig.name) : voice.gigRejected(gig.name), 'Open on board', boardLink(gig)));
@@ -303,7 +306,7 @@ export class GigsService {
 
         await this.prisma.gig.update({ where: { id }, data: { status } });
         if (status === 'cancelled') {
-            const players = await this.playersOn(id);
+            const players = (await this.playersOn(id)).filter((p) => p !== user.id);
             await this.clearReserves(id);
             this.notify.fire('gigUpdates', players, linked(voice.gigCancelled(gig.name), 'Open on board', boardLink(gig)));
         }
@@ -346,7 +349,7 @@ export class GigsService {
         // Before asking which runner, so nobody picks one only to be told no
         if (!slot && !(await this.isReserve(id, userId))) await this.checkLimit(this.prisma, userId);
 
-        const added = await this.add(await this.pickRunner(userId, runnerId), id, false);
+        const added = await this.add(await this.pickRunner(userId, runnerId), id, null);
         if (added.reserve) return voice.reserve(added.reserve);
         return added.state === 'interested' ? voice.interested() : voice.joined(added.left);
     }
@@ -371,7 +374,7 @@ export class GigsService {
         const player = runner?.ownerId ? await this.members.me(runner.ownerId) : null;
         if (!runner || !player?.isEdgerunner) throw new BadRequestException('Only runners whose player has the edgerunner role can go on a gig.');
         if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
-        await this.add(runner, id, true);
+        await this.add(runner, id, user.id);
         return this.view(id, user);
     }
 
@@ -384,7 +387,7 @@ export class GigsService {
         if (!slot) throw new BadRequestException((await this.isReserve(id, userId)) ? voice.alreadyReserve : voice.notIn);
         if (slot.state === 'confirmed') throw new BadRequestException(voice.alreadyConfirmed);
 
-        await this.prisma.gigSlot.update({ where: { id: slot.id }, data: { state: 'confirmed' } });
+        await this.prisma.gigSlot.update({ where: { id: slot.id }, data: confirmedNow() });
         this.post(id);
         return voice.confirmed();
     }
@@ -408,9 +411,6 @@ export class GigsService {
             return reserve.runnerId;
         });
         if (!removed) throw new BadRequestException(voice.notIn);
-        if (gig.fixerId && gig.fixerId !== userId) {
-            this.notify.fire('fixerSignups', [gig.fixerId], async () => linked(voice.pulledOut(gig.name, await this.handle(removed)), 'Open on board', boardLink(gig)));
-        }
         await this.afterRemoval(id);
     }
 
@@ -456,19 +456,21 @@ export class GigsService {
             return this.view(id, user);
         }
 
-        const players = await this.prisma.$transaction(async (tx) => {
+        const others = await this.prisma.$transaction(async (tx) => {
             await tx.gig.update({
                 where: { id },
                 data: { sessionAt: sessionAt ? new Date(sessionAt) : null, sessionEndAt: endAt ? new Date(endAt) : null, remindedDay: false, remindedSoon: false },
             });
             const filled = { gigId: id, userId: { not: null } };
-            await tx.gigSlot.updateMany({ where: filled, data: sessionAt ? asked() : { state: 'interested', askedAt: null } });
-            return (await tx.gigSlot.findMany({ where: filled, select: { userId: true } })).map((s) => s.userId!);
+            await tx.gigSlot.updateMany({ where: filled, data: sessionAt ? asked() : { state: 'interested', askedAt: null, confirmedAt: null } });
+            // Whoever set the time knows about it: their own runner is just coming
+            if (sessionAt) await tx.gigSlot.updateMany({ where: { gigId: id, userId: user.id }, data: { ...confirmedNow(), askedAt: null } });
+            return (await tx.gigSlot.findMany({ where: filled, select: { userId: true } })).map((s) => s.userId!).filter((u) => u !== user.id);
         });
 
-        this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt, endAt), ask: players } : { note: voice.sessionCleared() });
+        this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt, endAt), ask: others } : { note: voice.sessionCleared() });
         // Setting a time asks everyone to confirm, which always goes; clearing it is a copy
-        if (!sessionAt && gig.sessionAt) this.notify.fire('gigUpdates', players, linked(voice.sessionClearedFor(gig.name), 'Open on board', boardLink(gig)));
+        if (!sessionAt && gig.sessionAt) this.notify.fire('gigUpdates', others, linked(voice.sessionClearedFor(gig.name), 'Open on board', boardLink(gig)));
         return this.view(id, user);
     }
 
@@ -501,8 +503,10 @@ export class GigsService {
     }
 
     /** Takes a slot or a place on the reserves. The gig is locked meanwhile, so two people can't take the same slot. */
-    private async add(runner: Runner, id: string, assigned: boolean): Promise<{ state?: RunnerState; left: number | null; reserve?: number }> {
+    /** `by`: the admin putting the runner on, or null when their player signs up. */
+    private async add(runner: Runner, id: string, by: string | null): Promise<{ state?: RunnerState; left: number | null; reserve?: number }> {
         const userId = runner.ownerId!;
+        const assigned = by !== null;
         const crewIds = await this.crewIds(runner.id);
         const result = await this.prisma.$transaction(async (tx) => {
             await lockGig(tx, id);
@@ -528,20 +532,21 @@ export class GigsService {
                 return { left: 0, reserve: await tx.gigReserve.count({ where: { gigId: id } }) };
             }
 
-            // An admin's pick is asked to confirm, unless the session is about to start or has: then they're just on
-            const state: RunnerState = !gig.sessionAt ? 'interested' : assigned && !tooLateToAsk(gig.sessionAt.getTime()) ? 'awaiting' : 'confirmed';
-            await tx.gigSlot.update({ where: { id: slot.id }, data: { userId, runnerId: runner.id, ...(state === 'awaiting' ? asked() : { state }) } });
+            // An admin's pick is asked to confirm, unless it's their own runner or the session is about to start (or has): then they're just on
+            const ask = assigned && by !== userId && !tooLateToAsk(gig.sessionAt?.getTime() ?? 0);
+            const state: RunnerState = !gig.sessionAt ? 'interested' : ask ? 'awaiting' : 'confirmed';
+            const fields = state === 'awaiting' ? asked() : state === 'confirmed' ? confirmedNow() : { state };
+            await tx.gigSlot.update({ where: { id: slot.id }, data: { userId, runnerId: runner.id, ...fields } });
             await this.keepSpares(tx, id);
             return { state, left: slots.some((s) => s.unlimited) ? null : slots.filter((s) => s.userId === null).length - 1 };
         });
 
         this.post(id, { ask: !result.reserve && result.state === 'awaiting' ? [userId] : [] });
-        const gig = await this.row(id);
-        if (gig.fixerId && gig.fixerId !== userId) {
-            this.notify.fire('fixerSignups', [gig.fixerId], linked(voice.signedUp(gig.name, runner.handle, !!result.reserve), 'Open on board', boardLink(gig)));
+        // Asked to confirm a set time instead, which always goes. An admin adding their own runner knows.
+        if (assigned && by !== userId && result.state !== 'awaiting') {
+            const gig = await this.row(id);
+            this.notify.fire('gigUpdates', [userId], linked(voice.assigned(gig.name, runner.handle), 'Open on board', boardLink(gig)));
         }
-        // Asked to confirm a set time instead, which always goes
-        if (assigned && result.state !== 'awaiting') this.notify.fire('gigUpdates', [userId], linked(voice.assigned(gig.name, runner.handle), 'Open on board', boardLink(gig)));
         return result;
     }
 
@@ -580,9 +585,9 @@ export class GigsService {
             const crewsOf = (runnerId: string | null) => memberships.filter((m) => m.runnerId === runnerId).map((m) => m.crewId);
 
             for (const { from, to } of shiftToCrewSlots(slots.map((s) => ({ ...s, crewIds: crewsOf(s.runnerId) })))) {
-                const { userId, runnerId, state, askedAt, nudged } = slots.find((s) => s.id === from)!;
+                const { userId, runnerId, state, askedAt, nudged, confirmedAt } = slots.find((s) => s.id === from)!;
                 await tx.gigSlot.update({ where: { id: from }, data: emptied });
-                await tx.gigSlot.update({ where: { id: to }, data: { userId, runnerId, state, askedAt, nudged } });
+                await tx.gigSlot.update({ where: { id: to }, data: { userId, runnerId, state, askedAt, nudged, confirmedAt } });
                 slots = slots.map((s) => (s.id === to ? { ...s, userId, runnerId } : s.id === from ? { ...s, userId: null, runnerId: null } : s));
             }
 
@@ -734,7 +739,11 @@ export class GigsService {
             if (work.remind) {
                 // The 30-minute reminder covers the day-of one too, so that never comes after it
                 await this.prisma.gig.update({ where: { id: gig.id }, data: work.remind === 'soon' ? { remindedDay: true, remindedSoon: true } : { remindedDay: true } });
-                const confirmed = gig.slots.filter((s) => s.userId && s.state === 'confirmed').map((s) => s.userId!);
+                // The day reminder skips anyone who confirmed within the last reminderHours: they've only just said yes
+                const recent = now - reminderHours * HOUR;
+                const confirmed = gig.slots
+                    .filter((s) => s.userId && s.state === 'confirmed' && (work.remind === 'soon' || !s.confirmedAt || s.confirmedAt.getTime() < recent))
+                    .map((s) => s.userId!);
                 const wanting: string[] = [];
                 for (const userId of confirmed) if ((await this.prefs.get(userId)).reminders) wanting.push(userId);
                 const kind = work.remind;

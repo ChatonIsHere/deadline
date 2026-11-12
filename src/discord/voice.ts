@@ -78,10 +78,9 @@ export const voice = {
 
     // Reminders for confirmed runners
     reminderDay: (gigName: string, at: number) => say('info', `reminder: ${n(gigName)} is on today.`, [{ name: 'When', value: when(at) }]),
-    reminderSoon: (gigName: string, at: number) => say('act', `${n(gigName)} starts soon. gear up.`, [{ name: 'Starts', value: ts(at, 'R') }]),
     remindersOff: (url: string) => say('quiet', `reminders off. turn them back on from your [Me page](${url}/me).`),
     remindersSet: (on: boolean) =>
-        on ? say('good', "reminders on. you'll get a DM a few hours before and 30 minutes before.") : say('quiet', 'reminders off. confirm requests still come through.'),
+        on ? say('good', "reminders on. you'll get a DM a few hours before, and a ping in the gig's thread 30 minutes before.") : say('quiet', 'reminders off. confirm requests still come through.'),
     runnerMade: (handle: string, editUrl: string) => say('good', `${n(handle)} is on file. add a picture and extra roles on the [edit page](${editUrl}).`),
 
     // After the job
@@ -114,19 +113,10 @@ export const voice = {
     gigApproved: (gigName: string) => say('good', `${n(gigName)} is approved and on the board.`),
     gigRejected: (gigName: string) => say('bad', `${n(gigName)} was turned down.`),
     scheduleFailed: (gigName: string, reason: string) => say('bad', `${n(gigName)} didn't post at its scheduled time, so it's back to a plain draft. ${reason}`),
-    signedUp: (gigName: string, handle: string, reserve: boolean) =>
-        say('info', reserve ? `${n(handle)} is on the reserves for ${n(gigName)}.` : `${n(handle)} signed up for ${n(gigName)}.`),
-    pulledOut: (gigName: string, handle: string) => say('quiet', `${n(handle)} pulled out of ${n(gigName)}.`),
     ratingIn: (gigName: string, by: string, stars: number, comment: string | null, emoji: EmojiLookup) =>
         say('info', `${n(by)} reviewed ${n(gigName)}: ${starRow(stars, emoji)}`, comment ? [{ name: 'Review', value: comment }] : undefined),
     needsApproval: (gigName: string, fixer: string) => say('act', `${n(fixer)} wants ${n(gigName)} on the board. it needs an admin's sign-off.`),
     newGig: () => say('act', 'new contract on the board.'),
-    crewMemberJoined: (crewName: string, handle: string) => say('info', `${n(handle)} joined ${n(crewName)}.`),
-    crewAdded: (crewName: string, handle: string) => say('info', `an admin put ${n(handle)} in ${n(crewName)}.`),
-    crewMemberLeft: (crewName: string, handle: string) => say('quiet', `${n(handle)} left ${n(crewName)}.`),
-    crewRemoved: (crewName: string, handle: string) => say('bad', `${n(handle)} was taken out of ${n(crewName)}.`),
-    crewRank: (crewName: string, handle: string, rank: string) => say('info', `${n(handle)} is now ${n(rank)} in ${n(crewName)}.`),
-    inviteDeclined: (crewName: string, handle: string) => say('quiet', `${n(handle)} turned down the invite to ${n(crewName)}.`),
 
     board: (url: string, open: number) => say('info', `${open} contract(s) live. full list on the [gig board](${url}/gigs).`),
 

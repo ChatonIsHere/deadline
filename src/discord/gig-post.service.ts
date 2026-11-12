@@ -223,14 +223,26 @@ export class GigPostService {
         });
     }
 
-    /** Session reminder: DMs to confirmed runners who want them, and a note in the thread for everyone. */
+    /**
+     * Session reminders. The day one DMs confirmed runners who want it, with a note in the
+     * thread. The 30-minute one is a single thread message pinging them instead.
+     */
     async remind(gig: GigView, threadId: string, userIds: string[], kind: 'day' | 'soon') {
         if (!gig.sessionAt) return;
-        const said = (kind === 'day' ? voice.reminderDay : voice.reminderSoon)(gig.name, gig.sessionAt);
-        await this.members.dm(userIds, reminderMessage(gig, said, this.threadUrl(threadId), config.PUBLIC_URL));
+        if (kind === 'day') await this.members.dm(userIds, reminderMessage(gig, voice.reminderDay(gig.name, gig.sessionAt), this.threadUrl(threadId), config.PUBLIC_URL));
 
         const thread = await this.client.channels.fetch(threadId);
-        if (thread?.isThread()) await thread.send(lineMessage((kind === 'day' ? voice.sessionToday : voice.sessionSoon)(gig.sessionAt)));
+        if (!thread?.isThread()) return;
+        if (kind === 'day') {
+            await thread.send(lineMessage(voice.sessionToday(gig.sessionAt)));
+            return;
+        }
+        // Mentions only notify from a message's text, not its embeds, so the pings stay as text
+        await thread.send({
+            ...(userIds.length && { content: userIds.map((id) => `<@${id}>`).join(' ') }),
+            embeds: [lineEmbed(voice.sessionSoon(gig.sessionAt))],
+            allowedMentions: { users: userIds },
+        });
     }
 
     /** Tells runners they were dropped for not confirming. */

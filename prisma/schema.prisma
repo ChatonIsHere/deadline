@@ -316,6 +316,8 @@ model GigSlot {
   /// When an awaiting runner was asked to confirm, and whether they've been nudged since
   askedAt  DateTime?   @map("asked_at") @db.Timestamptz(3)
   nudged   Boolean     @default(false)
+  /// When the runner confirmed (or was counted as coming). Recent ones skip the day reminder.
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
   position Int
   /// No limit on this group of slots (the gig's crew, or anyone). It always keeps one empty slot to sign up to.
   unlimited Boolean    @default(false)

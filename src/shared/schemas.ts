@@ -235,10 +235,11 @@ const timezone = z.string().max(64).refine(isTimeZone, 'Unknown timezone');
  *
  * gigUpdates: your place on a gig (moved up from the reserves, put on or taken off by an
  * admin, dropped for not confirming, the gig cancelled or its time cleared). payouts: your cut
- * after a gig. downtime: DT and what's due each month. crewInvites, crewChanges: your crews. fixerApprovals, fixerSignups,
- * fixerRatings: gigs you put out. approvals: admins, gigs waiting for sign-off.
+ * after a gig. downtime: DT and what's due each month. crewInvites: invites to a crew.
+ * fixerApprovals, fixerRatings: gigs you put out. approvals: admins, gigs waiting for sign-off.
+ * Nobody is told about things they did themselves.
  */
-export const NOTIFY_KINDS = ['gigUpdates', 'payouts', 'downtime', 'crewInvites', 'crewChanges', 'fixerApprovals', 'fixerSignups', 'fixerRatings', 'approvals'] as const;
+export const NOTIFY_KINDS = ['gigUpdates', 'payouts', 'downtime', 'crewInvites', 'fixerApprovals', 'fixerRatings', 'approvals'] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 
 /** New gig heads-ups: none, every gig, gigs with slots for your crews, or gigs from fixers you pick. */
@@ -256,9 +257,7 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
     payouts: true,
     downtime: true,
     crewInvites: true,
-    crewChanges: true,
     fixerApprovals: true,
-    fixerSignups: true,
     fixerRatings: true,
     approvals: true,
     newGigs: 'off',

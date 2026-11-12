@@ -482,6 +482,38 @@ describe('GigsService', () => {
             assert.deepEqual(reminders, [['day', 'a'], ['soon', 'a']]);
         });
 
+        it("skips the day reminder for runners who only just confirmed, but still pings them 30 minutes before", async () => {
+            const gig = await gigs.create(admin, input(one));
+            await gigs.join('a', gig.id);
+            const sessionAt = Date.now() + 10 * H;
+            await gigs.setSession(admin, gig.id, sessionAt);
+            await gigs.confirm('a', gig.id);
+            await gigs.tick(sessionAt - 8 * H);
+            await gigs.tick(sessionAt - 20 * 60_000);
+            await settle();
+            // The day note still goes in the thread, with nobody to DM
+            assert.deepEqual(reminders, [['day'], ['soon', 'a']]);
+        });
+
+        it("doesn't ask or tell an admin about their own runner", async () => {
+            const adminA = person('a', { isAdmin: true });
+            const gig = await gigs.create(admin, input(two));
+            await gigs.join('b', gig.id);
+            await gigs.assign(adminA, gig.id, ids.a);
+            await gigs.setSession(adminA, gig.id, Date.UTC(2077, 0, 1, 20));
+            await settle();
+            assert.deepEqual(await states(gig.id), [['b', 'awaiting'], ['a', 'confirmed']]);
+            assert.deepEqual(asked, ['b']);
+            assert.deepEqual(dmed, []);
+
+            const later = await gigs.create(admin, input(one));
+            await gigs.setSession(admin, later.id, Date.UTC(2077, 0, 1, 20));
+            await gigs.assign(adminA, later.id, ids.a);
+            await settle();
+            assert.deepEqual(await states(later.id), [['a', 'confirmed']]);
+            assert.deepEqual(dmed, []);
+        });
+
         it('nudges runners who have not confirmed, then drops them and asks the next reserve', async () => {
             const gig = await gigs.create(admin, input(one));
             await gigs.join('a', gig.id);

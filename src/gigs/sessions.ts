@@ -13,6 +13,8 @@ export const tooLateToAsk = (sessionAt: number, now = Date.now()) => sessionAt -
 
 /** Runners who haven't confirmed get one nudge when this much time is left. */
 export const NUDGE_HOURS = 12;
+/** No nudge when the whole confirm window is shorter than this: the ask is still fresh. */
+export const NUDGE_MIN_WINDOW_HOURS = 24;
 
 /**
  * When an asked runner has to confirm by: `windowHours` after being asked, ending an
@@ -49,8 +51,8 @@ export function sessionWork(s: SessionState): SessionWork {
     for (const r of s.awaiting) {
         const deadline = confirmDeadline(r.askedAt, s.sessionAt, s.confirmHours);
         if (s.now >= deadline) work.drop.push(r.userId);
-        // No nudge straight after asking, when the whole window is short
-        else if (!r.nudged && deadline - s.now <= NUDGE_HOURS * HOUR && s.now - r.askedAt >= HOUR) work.nudge.push(r.userId);
+        // No nudge when the whole window is short: it would land soon after the ask
+        else if (!r.nudged && deadline - r.askedAt > NUDGE_MIN_WINDOW_HOURS * HOUR && deadline - s.now <= NUDGE_HOURS * HOUR) work.nudge.push(r.userId);
     }
     return work;
 }

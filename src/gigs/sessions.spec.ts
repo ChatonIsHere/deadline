@@ -59,4 +59,14 @@ describe('sessionWork', () => {
         const awaiting = [{ userId: 'a', askedAt: session - 5 * H, nudged: false }];
         assert.deepEqual(sessionWork(state(session - 5 * H + 10 * 60_000, { awaiting })).nudge, []);
     });
+
+    it('only nudges when the confirm window is longer than a day', () => {
+        // Asked 20 hours out: 19 hours to answer, so no nudge at any point
+        const short = [{ userId: 'a', askedAt: session - 20 * H, nudged: false }];
+        for (const left of [12, 6, 2]) assert.deepEqual(sessionWork(state(session - 1 * H - left * H, { awaiting: short })).nudge, []);
+        // Asked 31 hours out: 30 hours to answer, nudged with 12 left
+        const long = [{ userId: 'a', askedAt: session - 31 * H, nudged: false }];
+        assert.deepEqual(sessionWork(state(session - 14 * H, { awaiting: long })).nudge, []);
+        assert.deepEqual(sessionWork(state(session - 13 * H, { awaiting: long })).nudge, ['a']);
+    });
 });
