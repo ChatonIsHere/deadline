@@ -153,6 +153,19 @@ describe('RunnersService', () => {
         await assert.rejects(runners.create(admin, input({ ownerId: 'stranger', handle: 'Mr Red' })), /isn't on the server/);
     });
 
+    it('ties gigs posted with a typed fixer name to the fixer made later by that name', async () => {
+        const typed = await prisma.gig.create({ data: { name: 'Wrong Box', fixerName: 'jay', location: 'Watson', brief: '', pay: 1000, status: 'completed', createdBy: 'admin' } });
+        const other = await prisma.gig.create({ data: { name: 'Soup Run', fixerName: 'Mother Ember', location: 'Watson', brief: '', pay: 1000, status: 'completed', createdBy: 'admin' } });
+        const jay = await runners.create(admin, input({ ownerId: null, role: 'Fixer', handle: 'Jay' }));
+        const linked = await prisma.gig.findUniqueOrThrow({ where: { id: typed.id } });
+        assert.deepEqual([linked.fixerRunnerId, linked.fixerName], [jay.id, 'Jay']);
+        assert.equal((await prisma.gig.findUniqueOrThrow({ where: { id: other.id } })).fixerRunnerId, null);
+        // An alias set later links gigs under that name too
+        await prisma.gig.update({ where: { id: other.id }, data: { fixerName: 'The Jaybird' } });
+        await runners.update(admin, jay.id, input({ ownerId: null, role: 'Fixer', handle: 'Jay', fixerAlias: 'The Jaybird' }));
+        assert.equal((await prisma.gig.findUniqueOrThrow({ where: { id: other.id } })).fixerRunnerId, jay.id);
+    });
+
     it('keeps handles one of a kind, as links compare them', async () => {
         await runners.create(players[1], input({ handle: 'Mr. B' }));
         await assert.rejects(runners.create(admin, input({ ownerId: 'b', handle: 'mr b' })), /taken/);

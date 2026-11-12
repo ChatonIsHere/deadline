@@ -124,6 +124,8 @@ export class RunnersService {
         const living = await this.livingFields(input, ownerId);
         const row = await this.prisma.runner.create({ data: { ...fields, ...alias, ...living, ownerId, slug, photos: { create: photoRows(artIds) } } });
         await this.library.refreshUsage([row.imageId, ...artIds]);
+        await this.linkPastGigs(row);
+        this.gigs.refresh(await this.liveGigs(row.id));
         return this.get(user, row.id);
     }
 
@@ -146,7 +148,8 @@ export class RunnersService {
         const alias = await this.alias(fields.fixerAlias, slug, id);
         const living = await this.livingFields(input, ownerId, r);
         const hadArt = await this.photoIds(id);
-        await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ...living, ownerId, slug, photos: { deleteMany: {}, create: photoRows(artIds) } } });
+        const updated = await this.prisma.runner.update({ where: { id }, data: { ...fields, ...alias, ...living, ownerId, slug, photos: { deleteMany: {}, create: photoRows(artIds) } } });
+        await this.linkPastGigs(updated);
         // A fixer character's gigs follow it to its new player
         if (ownerId !== r.ownerId) await this.prisma.gig.updateMany({ where: { fixerRunnerId: id }, data: { fixerId: ownerId } });
         await this.library.refreshUsage([input.imageId, r.imageId, ...artIds, ...hadArt]);
@@ -181,6 +184,20 @@ export class RunnersService {
         }
         const player = await this.members.me(ownerId);
         if (!player || !canLogIn(player)) throw new BadRequestException("That person isn't on the server with a role.");
+    }
+
+    /**
+     * Gigs posted with this fixer's name typed in rather than picked (before they were on file)
+     * become theirs: the fixer's profile lists them and their runners can review them. Matches
+     * the name they go by as a fixer, ignoring case. Gigs already tied to a fixer stay as they are.
+     */
+    private async linkPastGigs(r: Runner) {
+        if (!this.isFixer(r)) return;
+        const name = r.fixerAlias ?? r.handle;
+        await this.prisma.gig.updateMany({
+            where: { fixerRunnerId: null, fixerName: { equals: name, mode: 'insensitive' } },
+            data: { fixerRunnerId: r.id, fixerId: r.ownerId, fixerName: name },
+        });
     }
 
     /** In a slot or on the reserves of a gig that isn't finished. */

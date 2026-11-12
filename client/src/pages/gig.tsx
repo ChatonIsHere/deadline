@@ -104,6 +104,14 @@ export function Gig() {
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
                     {/* Keyed so going from one gig to another doesn't carry over what was picked */}
                     {gig.canRate && <RateFixer key={gig.id} gig={gig} />}
+                    {/* Typed-in fixers can't be reviewed: say why, to the runners who'd want to and the admins who can fix it */}
+                    {gig.status === 'completed' && !gig.fixerRunnerId && gig.fixerName && (me.isAdmin || gig.slots.some((s) => s.runner?.ownerId === me.id)) && (
+                        <Say>
+                            {me.isAdmin
+                                ? `${gig.fixerName} isn't on file as a fixer, so nobody can review this gig. make a fixer by that name and it links up.`
+                                : `${gig.fixerName} isn't on file as a fixer, so there's nothing to review here yet.`}
+                        </Say>
+                    )}
                     {gig.brief && (
                         <Live value={gig.brief}>
                             <Card>
