@@ -115,12 +115,12 @@ export function FixerPage() {
     );
 }
 
-/** A fixer's latest ratings, newest first. */
+/** Reviews of the fixer's latest gigs, newest first. */
 function Reviews({ reviews }: { reviews: Review[] }) {
     const tz = useTimeZone();
     return (
         <Card>
-            <CardTitle>Latest ratings</CardTitle>
+            <CardTitle>Latest reviews</CardTitle>
             <ul className="space-y-4">
                 {reviews.map((r) => (
                     <li key={liveKey(r.gig.id + (r.by?.handle ?? ''), r)} className="live-in space-y-1">

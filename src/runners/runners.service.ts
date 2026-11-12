@@ -81,7 +81,7 @@ export class RunnersService {
     async get(user: Me, id: string): Promise<RunnerView> {
         const r = await this.row(id);
         const visible = (gig: Gig) => canSeeGig(user, gig);
-        const link = (g: Gig): GigLink => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null });
+        const link = (g: Gig): GigLink => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null, imageId: g.imageId });
         const newest = { createdAt: 'desc' } as const;
 
         const [ran, fixed, memberOf, ratings] = await Promise.all([

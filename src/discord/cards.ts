@@ -22,7 +22,7 @@ export function gigCard(gig: GigView, emoji: EmojiLookup, boardUrl: string, imag
             { name: 'Fixer', value: gig.fixerName, inline: true },
             { name: 'Location', value: gig.location, inline: true },
             { name: 'Pay', value: payText(gig, emoji), inline: true },
-            { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled', inline: true },
+            { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt, gig.sessionEndAt) : 'Not scheduled', inline: true },
             { name: 'Crew', value: `${slotCount(gig.slots)}${gig.reserves.length ? ` (+${gig.reserves.length} reserve)` : ''}`, inline: true },
             { name: 'Status', value: gig.status === 'open' ? 'Taking runners' : 'Sign-ups locked', inline: true },
         )

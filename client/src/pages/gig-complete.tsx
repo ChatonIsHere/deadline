@@ -12,7 +12,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { api, useAction, useGig, useUser } from '@/lib/api';
 import { useUnsavedForm } from '@/lib/unsaved';
-import { useFormatSession } from '@/lib/time';
+import { useFormatSessionRange } from '@/lib/time';
 import { firstIssue } from '@/lib/utils';
 
 // Amounts are strings while typing so boxes can be empty
@@ -175,13 +175,13 @@ function DebriefForm({ gig }: { gig: GigView }) {
 
 /** The basics, for reference while writing the debrief. */
 function GigDetails({ gig }: { gig: GigView }) {
-    const formatSession = useFormatSession();
+    const formatSessionRange = useFormatSessionRange();
     return (
         <Card className="space-y-2">
             <CardTitle>Details</CardTitle>
             <Detail icon="fixer" label="Fixer" value={gig.fixerName} />
             <Detail icon="location" label="Location" value={gig.location} />
-            {gig.sessionAt && <Detail icon={<CalendarClock className="size-4 shrink-0 text-accent" />} label="Session" value={formatSession(gig.sessionAt)} />}
+            {gig.sessionAt && <Detail icon={<CalendarClock className="size-4 shrink-0 text-accent" />} label="Session" value={formatSessionRange(gig.sessionAt, gig.sessionEndAt)} />}
             <Detail icon="crew" label="Crew" value={slotCount(gig.slots)} />
             {/* Admins know every bonus, undisclosed ones included */}
             <Detail icon="eb" label="On offer" value={<Pay gig={{ ...gig, objectives: gig.objectives.map((o) => ({ ...o, secret: false })) }} />} />

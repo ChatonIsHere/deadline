@@ -5,6 +5,12 @@ const HOUR = 60 * MINUTE;
 
 /** The second reminder goes out this long before the session. */
 export const SOON_MINUTES = 30;
+/**
+ * Runners put on a gig this close to the session (or once it's started) are counted as coming:
+ * it's too late to ask them to confirm.
+ */
+export const tooLateToAsk = (sessionAt: number, now = Date.now()) => sessionAt - now < SOON_MINUTES * MINUTE;
+
 /** Runners who haven't confirmed get one nudge when this much time is left. */
 export const NUDGE_HOURS = 12;
 

@@ -104,7 +104,7 @@ export function gigMessage(gig: GigView, emoji: EmojiLookup, boardUrl: string, i
         ...debriefFields(gig, emoji),
     ];
     const signupFields: APIEmbedField[] = [
-        { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt) : 'Not scheduled yet. Sign up to show interest.' },
+        { name: 'Session', value: gig.sessionAt ? voice.when(gig.sessionAt, gig.sessionEndAt) : 'Not scheduled yet. Sign up to show interest.' },
         ...slotFields,
         ...(gig.reserves.length ? [{ name: 'Reserves', value: gig.reserves.map((r, i) => `${i + 1}. ${r.handle}`).join('\n') }] : []),
     ];

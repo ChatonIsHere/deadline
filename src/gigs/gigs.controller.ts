@@ -17,6 +17,7 @@ import {
     runnerRefInput,
     scheduleInput,
     sessionInput,
+    type SessionInput,
     statusInput,
     type StatusInput,
 } from '../shared/schemas';
@@ -163,10 +164,10 @@ export class GigsController {
         return this.gigs.openCrewSlots(user, id, body.crewId);
     }
 
-    /** Sets (or clears, with null) the session time. Runners get asked to confirm. */
+    /** Sets (or clears, with null) the session time and its estimated end. A new start time asks runners to confirm. */
     @Post(':id/session')
-    session(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(sessionInput)) body: { sessionAt: number | null }) {
-        return this.gigs.setSession(user, id, body.sessionAt);
+    session(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(sessionInput)) body: SessionInput) {
+        return this.gigs.setSession(user, id, body.sessionAt, body.sessionEndAt);
     }
 }
 

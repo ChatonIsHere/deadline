@@ -37,6 +37,38 @@ export function useFormatSession() {
     return (ms: number) => formatSession(ms, tz);
 }
 
+/** "Fri 3 Jan, 20:00 to 23:30", with the end's day as well when it's on another day. No end, just the start. */
+export function formatSessionRange(start: number, end: number | null, tz: string): string {
+    if (!end) return formatSession(start, tz);
+    const sameDay = toInput(start, tz).slice(0, 10) === toInput(end, tz).slice(0, 10);
+    return `${formatSession(start, tz)} to ${sameDay ? clock(end, tz) : formatSession(end, tz)}`;
+}
+
+/** formatSessionRange in the signed in player's timezone. */
+export function useFormatSessionRange() {
+    const tz = useTimeZone();
+    return (start: number, end: number | null) => formatSessionRange(start, end, tz);
+}
+
+/** "3h 30m" between two instants. */
+export function duration(start: number, end: number): string {
+    const minutes = Math.round((end - start) / 60_000);
+    const [h, m] = [Math.floor(minutes / 60), minutes % 60];
+    return [h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ') || '0m';
+}
+
+/**
+ * An end time ("23:30") for a session starting at `start`, on a clock in `tz`: that day, or
+ * the next if it isn't after the start (a session running past midnight).
+ */
+export function endFromTime(start: number, time: string, tz: string): number {
+    const end = fromInput(`${toInput(start, tz).slice(0, 10)}T${time}`, tz);
+    if (end > start) return end;
+    const w = wallTime(start, tz);
+    const next = new Date(Date.UTC(w.year, w.month - 1, w.day + 1));
+    return fromInput(`${next.toISOString().slice(0, 10)}T${time}`, tz);
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** What a datetime-local input wants for an instant, on a clock in `tz`. */

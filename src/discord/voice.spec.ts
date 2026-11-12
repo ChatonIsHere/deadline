@@ -19,7 +19,7 @@ describe('stars', () => {
     });
 
     it('turns them into text for the web', () => {
-        assert.equal(plainVoice(voice.rated(4, uploaded)), 'rating logged: ★★★★☆. change it any time.');
+        assert.equal(plainVoice(voice.rated(4, uploaded)), 'review logged: ★★★★☆. change it any time.');
     });
 
     it('leaves no custom emoji code in web text', () => {
@@ -27,6 +27,6 @@ describe('stars', () => {
     });
 
     it('uses standard stars where Discord cannot draw custom emoji', () => {
-        assert.equal(voice.rateComment(3), '⭐⭐⭐ saved. Add a note?');
+        assert.equal(voice.rateComment(3), '⭐⭐⭐ saved. Say how it went?');
     });
 });

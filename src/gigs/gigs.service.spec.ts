@@ -413,6 +413,35 @@ describe('GigsService', () => {
             assert.deepEqual(asked, ['a', 'a']);
         });
 
+        it("doesn't ask again when the start stays the same, and keeps the estimated end", async () => {
+            const gig = await gigs.create(admin, input(one));
+            await gigs.join('a', gig.id);
+            const start = Date.UTC(2077, 0, 1, 20);
+            await gigs.setSession(admin, gig.id, start);
+            await gigs.confirm('a', gig.id);
+            await gigs.setSession(admin, gig.id, start, start + 4 * H);
+            await gigs.setSession(admin, gig.id, start, start + 4 * H);
+            await settle();
+            assert.deepEqual(await states(gig.id), [['a', 'confirmed']]);
+            assert.deepEqual(asked, ['a']);
+            assert.equal((await gigs.view(gig.id)).sessionEndAt, start + 4 * H);
+            await gigs.setSession(admin, gig.id, null, start + 4 * H);
+            assert.equal((await gigs.view(gig.id)).sessionEndAt, null);
+        });
+
+        it("counts runners an admin adds as coming when it's too late to ask", async () => {
+            const soon = await gigs.create(admin, input(one));
+            await gigs.setSession(admin, soon.id, Date.now() + 20 * 60_000);
+            await gigs.assign(admin, soon.id, ids.a);
+            const started = await gigs.create(admin, input(one));
+            await gigs.setSession(admin, started.id, Date.now() - H);
+            await gigs.assign(admin, started.id, ids.b);
+            await settle();
+            assert.deepEqual(await states(soon.id), [['a', 'confirmed']]);
+            assert.deepEqual(await states(started.id), [['b', 'confirmed']]);
+            assert.deepEqual(asked, []);
+        });
+
         it('moves the oldest reserve up when someone drops out, and asks them', async () => {
             const gig = await gigs.create(admin, input(one));
             await gigs.join('a', gig.id);
@@ -548,12 +577,28 @@ describe('GigsService', () => {
         it('lets runners on the gig rate its fixer, and change their rating', async () => {
             const gig = await gigs.create(admin, input(one, { fixerRunnerId: ids['Rogue Amendiares'] }));
             await gigs.join('a', gig.id);
-            await assert.rejects(debrief.rate('a', gig.id, 5), /no fixer to rate/);
+            await assert.rejects(debrief.rate('a', gig.id, 5), /no fixer to review/);
             await debrief.complete(admin, gig.id, { ...crewRewards, runners: [] });
             await debrief.rate('a', gig.id, 3);
             await debrief.rate('a', gig.id, 5);
             assert.deepEqual((await gigs.view(gig.id, people[2])).myRating, { stars: 5, comment: null });
             await assert.rejects(debrief.rate('b', gig.id, 1), /only runners on the gig/);
+        });
+
+        it('lets runners review an older gig after a newer one has finished', async () => {
+            const fixer = { fixerRunnerId: ids['Rogue Amendiares'] };
+            const older = await gigs.create(admin, input(one, fixer));
+            await gigs.join('a', older.id);
+            await debrief.complete(admin, older.id, { ...crewRewards, runners: [] });
+            const newer = await gigs.create(admin, input(one, fixer));
+            await gigs.join('a', newer.id);
+            await debrief.complete(admin, newer.id, { ...crewRewards, runners: [] });
+
+            await debrief.rate('a', newer.id, 4);
+            assert.equal((await gigs.view(older.id, people[2])).canRate, true);
+            await debrief.rate('a', older.id, 2);
+            assert.deepEqual((await gigs.view(older.id, people[2])).myRating, { stars: 2, comment: null });
+            assert.deepEqual((await gigs.view(newer.id, people[2])).myRating, { stars: 4, comment: null });
         });
     });
 

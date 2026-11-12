@@ -102,7 +102,8 @@ export function Gig() {
                         </Live>
                     )}
                     {gig.status === 'completed' && <DebriefCard gig={gig} />}
-                    {gig.canRate && <RateFixer gig={gig} />}
+                    {/* Keyed so going from one gig to another doesn't carry over what was picked */}
+                    {gig.canRate && <RateFixer key={gig.id} gig={gig} />}
                     {gig.brief && (
                         <Live value={gig.brief}>
                             <Card>
@@ -191,7 +192,7 @@ export function Gig() {
                         </Card>
                     </Live>
 
-                    {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={gig.sessionAt ?? 'none'} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
+                    {(active || gig.status === 'pending' || gig.sessionAt) && <SessionCard key={`${gig.sessionAt ?? 'none'}-${gig.sessionEndAt ?? ''}`} gig={gig} canSet={me.isAdmin && (active || gig.status === 'pending')} />}
 
                     <Card>
                         <Live value={[gig.slots.filter((s) => s.runner).length, gig.slots.length]}>

@@ -56,7 +56,7 @@ export function NotificationsCard({ prefs }: { prefs: Prefs | undefined }) {
                     }}
                 />
                 {kind('gigUpdates', 'Your place on a gig', 'moved up from the reserves, put on or taken off by an admin, dropped for not confirming, the gig pulled or its time cleared.')}
-                {kind('payouts', 'Payouts', 'your cut after a gig, with stars to rate the fixer. you can also rate on the gig page.')}
+                {kind('payouts', 'Payouts', 'your cut after a gig, with stars to review it and its fixer. you can also review on the gig page.')}
                 {kind('downtime', 'Monthly DT and rent', "at noon on the 1st: each character's downtime and what's due.")}
             </Group>
 
@@ -79,7 +79,7 @@ export function NotificationsCard({ prefs }: { prefs: Prefs | undefined }) {
                 <Group title="Gigs you put out">
                     {me.isFixer && !me.isAdmin && kind('fixerApprovals', 'Approved or turned down', 'when an admin decides on a gig you sent in.')}
                     {kind('fixerSignups', 'Sign-ups', 'runners signing up for your gigs or pulling out.')}
-                    {kind('fixerRatings', 'Ratings', 'runners rating you after a gig, with their note.')}
+                    {kind('fixerRatings', 'Reviews', 'runners reviewing your gigs once they finish, with their note.')}
                 </Group>
             )}
 

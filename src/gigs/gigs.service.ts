@@ -14,7 +14,7 @@ import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from
 import { type GigDraftInput, gigInput, type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, type MySignups, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
 import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
-import { confirmDeadline, sessionWork } from './sessions';
+import { confirmDeadline, sessionWork, tooLateToAsk } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, slotGroups, spareChanges, unlimitedGroups } from './slots';
 
 export const ACTIVE = LIVE_STATUSES;
@@ -439,20 +439,34 @@ export class GigsService {
         return this.view(id, user);
     }
 
-    /** Sets or clears the session time. Everyone in a slot is asked to confirm, again if it changed. */
-    async setSession(user: Me, id: string, sessionAt: number | null): Promise<GigView> {
+    /**
+     * Sets or clears the session time and its estimated end. A new start time asks everyone in a
+     * slot to confirm, again if it moved. Only changing the end just updates the post.
+     */
+    async setSession(user: Me, id: string, sessionAt: number | null, sessionEndAt: number | null = null): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
         const gig = await this.row(id);
         if (!ACTIVE.includes(gig.status) && gig.status !== 'pending') throw new BadRequestException(voice.notActive);
+        const endAt = sessionAt ? sessionEndAt : null;
+
+        if (sessionAt === (gig.sessionAt?.getTime() ?? null)) {
+            if (endAt === (gig.sessionEndAt?.getTime() ?? null)) return this.view(id, user);
+            await this.prisma.gig.update({ where: { id }, data: { sessionEndAt: endAt ? new Date(endAt) : null } });
+            this.post(id, {});
+            return this.view(id, user);
+        }
 
         const players = await this.prisma.$transaction(async (tx) => {
-            await tx.gig.update({ where: { id }, data: { sessionAt: sessionAt ? new Date(sessionAt) : null, remindedDay: false, remindedSoon: false } });
+            await tx.gig.update({
+                where: { id },
+                data: { sessionAt: sessionAt ? new Date(sessionAt) : null, sessionEndAt: endAt ? new Date(endAt) : null, remindedDay: false, remindedSoon: false },
+            });
             const filled = { gigId: id, userId: { not: null } };
             await tx.gigSlot.updateMany({ where: filled, data: sessionAt ? asked() : { state: 'interested', askedAt: null } });
             return (await tx.gigSlot.findMany({ where: filled, select: { userId: true } })).map((s) => s.userId!);
         });
 
-        this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt), ask: players } : { note: voice.sessionCleared() });
+        this.post(id, sessionAt ? { note: voice.sessionSet(sessionAt, endAt), ask: players } : { note: voice.sessionCleared() });
         // Setting a time asks everyone to confirm, which always goes; clearing it is a copy
         if (!sessionAt && gig.sessionAt) this.notify.fire('gigUpdates', players, linked(voice.sessionClearedFor(gig.name), 'Open on board', boardLink(gig)));
         return this.view(id, user);
@@ -514,7 +528,8 @@ export class GigsService {
                 return { left: 0, reserve: await tx.gigReserve.count({ where: { gigId: id } }) };
             }
 
-            const state: RunnerState = !gig.sessionAt ? 'interested' : assigned ? 'awaiting' : 'confirmed';
+            // An admin's pick is asked to confirm, unless the session is about to start or has: then they're just on
+            const state: RunnerState = !gig.sessionAt ? 'interested' : assigned && !tooLateToAsk(gig.sessionAt.getTime()) ? 'awaiting' : 'confirmed';
             await tx.gigSlot.update({ where: { id: slot.id }, data: { userId, runnerId: runner.id, ...(state === 'awaiting' ? asked() : { state }) } });
             await this.keepSpares(tx, id);
             return { state, left: slots.some((s) => s.unlimited) ? null : slots.filter((s) => s.userId === null).length - 1 };
@@ -878,6 +893,7 @@ export class GigsService {
             })),
             reserves: gig.reserves.map((r) => toCard(r.runner)),
             sessionAt: gig.sessionAt?.getTime() ?? null,
+            sessionEndAt: gig.sessionEndAt?.getTime() ?? null,
             scheduled: gig.status === 'draft' && gig.postAt && gig.postBy ? { at: gig.postAt.getTime(), by: this.members.member(gig.postBy) } : null,
             status: gig.status,
             createdBy: this.members.member(gig.createdBy),

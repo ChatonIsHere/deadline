@@ -309,7 +309,7 @@ function toView(crew: CrewRow): CrewView {
         invites: crew.invites.map((i) => toCard(i.runner)),
         gigs: [...new Map(crew.slots.map((s) => [s.gig.id, s.gig])).values()]
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-            .map((g) => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null })),
+            .map((g) => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null, imageId: g.imageId })),
     };
 }
 

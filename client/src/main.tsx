@@ -22,6 +22,7 @@ import { MePage } from '@/pages/me';
 import { AvailabilityPage } from '@/pages/availability';
 import { SetupPage } from '@/pages/setup';
 import { RunnerPage } from '@/pages/runner';
+import { RunnerDowntimePage } from '@/pages/runner-downtime';
 import { RunnerEdit } from '@/pages/runner-edit';
 import { FixersPage, RunnersPage } from '@/pages/runners';
 import { SettingsPage } from '@/pages/settings';
@@ -45,6 +46,7 @@ const router = createBrowserRouter(
                 <Route path="runners/new" element={<RunnerEdit />} />
                 <Route path="runners/:id" element={<RunnerPage />} />
                 <Route path="runners/:id/edit" element={<RunnerEdit />} />
+                <Route path="runners/:id/downtime" element={<RunnerDowntimePage />} />
                 <Route path="fixers" element={<FixersPage />} />
                 <Route path="fixers/new" element={<FixerEdit />} />
                 <Route path="fixers/:id" element={<FixerPage />} />

@@ -123,15 +123,15 @@ export function Stars({ value, className }: { value: number; className?: string 
     );
 }
 
-/** Stars and the average. `count` adds how many ratings that's from. */
+/** Stars and the average. `count` adds how many reviews that's from. */
 export function RatingLine({ rating, count = true, className }: { rating: Rating; count?: boolean; className?: string }) {
-    if (!rating.average) return <span className="text-xs text-muted-foreground">no ratings yet</span>;
+    if (!rating.average) return <span className="text-xs text-muted-foreground">no reviews yet</span>;
     return (
         <span className={cn('inline-flex items-center gap-2', className)}>
             <Stars value={rating.average} />
             <span className="text-xs text-muted-foreground">
                 {rating.average.toFixed(1)}
-                {count && ` · ${rating.count} rating${rating.count === 1 ? '' : 's'}`}
+                {count && ` · ${rating.count} review${rating.count === 1 ? '' : 's'}`}
             </span>
         </span>
     );

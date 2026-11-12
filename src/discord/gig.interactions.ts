@@ -63,7 +63,7 @@ export class GigInteractions {
     }
 
     /**
-     * Star rating for the fixer, from the payout DM. The stars are saved straight away, then
+     * Reviewing the gig and its fixer, from the payout DM: stars, then a note. The stars are saved straight away, then
      * a box asks for an optional note. Closing it keeps the stars. Picking again changes them.
      */
     @StringSelect('rate/:id')
@@ -79,7 +79,7 @@ export class GigInteractions {
         const modal = new ModalBuilder()
             .setCustomId(`rate/comment/${id}/${stars}`)
             .setTitle(voice.rateComment(Number(stars)))
-            .addLabelComponents(new LabelBuilder().setLabel('Note for the fixer (optional)').setTextInputComponent(note));
+            .addLabelComponents(new LabelBuilder().setLabel('How did the gig go? (optional)').setTextInputComponent(note));
         await interaction.showModal(modal);
     }
 

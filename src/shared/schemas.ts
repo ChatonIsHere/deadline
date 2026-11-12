@@ -210,8 +210,18 @@ export type CrewInput = z.infer<typeof crewInput>;
 
 export const rankInput = z.object({ rank: text(30) });
 
-/** Unix ms, or null to clear the session time. */
-export const sessionInput = z.object({ sessionAt: z.number().int().positive().nullable() });
+/** Most a session can run, start to estimated end. */
+export const MAX_SESSION_HOURS = 24;
+
+/**
+ * Unix ms, or null to clear the session time. `sessionEndAt` is when it should finish: after the
+ * start and within a day of it. Clearing the time clears the end too.
+ */
+export const sessionInput = z
+    .object({ sessionAt: z.number().int().positive().nullable(), sessionEndAt: z.number().int().positive().nullable().default(null) })
+    .refine((s) => s.sessionEndAt === null || (s.sessionAt !== null && s.sessionEndAt > s.sessionAt), 'The session has to end after it starts.')
+    .refine((s) => s.sessionEndAt === null || s.sessionAt === null || s.sessionEndAt - s.sessionAt <= MAX_SESSION_HOURS * 3_600_000, `Sessions can run ${MAX_SESSION_HOURS} hours at most.`);
+export type SessionInput = z.infer<typeof sessionInput>;
 
 /** When a draft posts by itself (Unix ms), or null to stop that. Admins only. */
 export const scheduleInput = z.object({ postAt: z.number().int().positive().nullable() });
@@ -432,6 +442,7 @@ export interface GigLink {
     name: string;
     status: GigStatus;
     sessionAt: number | null;
+    imageId: string | null;
 }
 
 export interface RunnerView extends RunnerSummary {
@@ -529,6 +540,8 @@ export interface GigView {
     reserves: RunnerCard[];
     /** Unix ms. */
     sessionAt: number | null;
+    /** Unix ms. Roughly when the session finishes, if the admin said. */
+    sessionEndAt: number | null;
     /** A draft scheduled to post by itself: when (Unix ms) and the admin it posts as. */
     scheduled: { at: number; by: Member } | null;
     status: GigStatus;

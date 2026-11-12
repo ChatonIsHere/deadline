@@ -82,15 +82,16 @@ export class DebriefService {
     }
 
     /**
-     * A player who had a runner on the gig rates its fixer, 1 to 5 stars, with an optional
-     * comment. That includes the fixer's own player when they went as a runner. Can be
+     * A player who had a runner on the gig reviews it: 1 to 5 stars for the gig and its fixer,
+     * with an optional comment, shown on the fixer's profile. Any of their finished gigs, however
+     * old. That includes the fixer's own player when they went as a runner. Can be
      * changed later. Leaving `comment` out keeps the one already there.
      */
     async rate(userId: string, id: string, stars: number, comment?: string | null): Promise<Said> {
         const gig = await this.gigs.row(id);
-        if (gig.status !== 'completed' || !gig.fixerRunnerId) throw new BadRequestException("there's no fixer to rate on that gig.");
+        if (gig.status !== 'completed' || !gig.fixerRunnerId) throw new BadRequestException("that gig has no fixer to review.");
         const wasOn = await this.prisma.gigSlot.findFirst({ where: { gigId: id, userId } });
-        if (!wasOn) throw new BadRequestException('only runners on the gig can rate its fixer.');
+        if (!wasOn) throw new BadRequestException('only runners on the gig can review it.');
 
         const set = { stars, ratedAt: new Date(), ...(comment !== undefined && { comment }) };
         await this.prisma.fixerRating.upsert({ where: { gigId_userId: { gigId: id, userId } }, create: { gigId: id, userId, ...set }, update: set });

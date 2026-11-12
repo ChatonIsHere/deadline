@@ -41,8 +41,9 @@ export const plainVoice = (said: Said) =>
 const n = (name: string) => `**${name.replace(/\*/g, '')}**`;
 
 /** Discord renders these in each reader's own timezone. */
-const ts = (ms: number, style: 'F' | 'f' | 'R') => `<t:${Math.floor(ms / 1000)}:${style}>`;
-const when = (ms: number) => `${ts(ms, 'F')} (${ts(ms, 'R')})`;
+const ts = (ms: number, style: 'F' | 'f' | 't' | 'R') => `<t:${Math.floor(ms / 1000)}:${style}>`;
+/** The start, the estimated end's time if there is one, and how long until it starts. */
+const when = (ms: number, endMs?: number | null) => `${ts(ms, 'F')}${endMs ? ` to about ${ts(endMs, 't')}` : ''} (${ts(ms, 'R')})`;
 
 export const voice = {
     footer: (status: string) => `STATUS // ${status.toUpperCase()}`,
@@ -58,7 +59,7 @@ export const voice = {
     pickRunnerPrompt: () => say('act', 'which runner is taking this one?'),
     dtSkipped: (handle: string) => say('quiet', `${n(handle)} sat this month out. no DT, nothing due.`),
     monthStart: () => say('act', "new month. DT has reset and this month's is in."),
-    rated: (stars: number, emoji: EmojiLookup) => say('good', `rating logged: ${starRow(stars, emoji)}. change it any time.`),
+    rated: (stars: number, emoji: EmojiLookup) => say('good', `review logged: ${starRow(stars, emoji)}. change it any time.`),
     error: (message: string) => say('bad', message),
 
     // Asking runners to confirm, by DM (or in the thread if their DMs are closed)
@@ -84,8 +85,8 @@ export const voice = {
     runnerMade: (handle: string, editUrl: string) => say('good', `${n(handle)} is on file. add a picture and extra roles on the [edit page](${editUrl}).`),
 
     // After the job
-    rateFixer: (fixer: string) => `Rate ${fixer} (fixer)`,
-    rateComment: (stars: number) => `${plainStars(stars)} saved. Add a note?`,
+    rateFixer: (fixer: string) => `Review the gig and ${fixer}`,
+    rateComment: (stars: number) => `${plainStars(stars)} saved. Say how it went?`,
 
     // Crews
     crewInvite: (crewName: string, handle: string, from: string) => say('act', `${n(crewName)} wants ${n(handle)} in the crew. ${from} sent the invite.`),
@@ -93,7 +94,7 @@ export const voice = {
     crewDeclined: (crewName: string) => say('quiet', `invite from ${n(crewName)} declined.`),
 
     // Posted in the gig's thread: gig-wide news only. Runners coming and going show in the post's crew list.
-    sessionSet: (at: number) => say('info', 'session time set. runners, check your DMs and confirm.', [{ name: 'When', value: when(at) }]),
+    sessionSet: (at: number, end: number | null) => say('info', 'session time set. runners, check your DMs and confirm.', [{ name: 'When', value: when(at, end) }]),
     sessionCleared: () => say('quiet', 'session time cleared. back to gauging interest.'),
     sessionSoon: (at: number) => say('info', 'session starts soon.', [{ name: 'Starts', value: ts(at, 'R') }]),
     sessionToday: (at: number) => say('info', 'session is on today. confirmed runners, see you there.', [{ name: 'When', value: when(at) }]),
@@ -117,7 +118,7 @@ export const voice = {
         say('info', reserve ? `${n(handle)} is on the reserves for ${n(gigName)}.` : `${n(handle)} signed up for ${n(gigName)}.`),
     pulledOut: (gigName: string, handle: string) => say('quiet', `${n(handle)} pulled out of ${n(gigName)}.`),
     ratingIn: (gigName: string, by: string, stars: number, comment: string | null, emoji: EmojiLookup) =>
-        say('info', `${n(by)} rated you for ${n(gigName)}: ${starRow(stars, emoji)}`, comment ? [{ name: 'Note', value: comment }] : undefined),
+        say('info', `${n(by)} reviewed ${n(gigName)}: ${starRow(stars, emoji)}`, comment ? [{ name: 'Review', value: comment }] : undefined),
     needsApproval: (gigName: string, fixer: string) => say('act', `${n(fixer)} wants ${n(gigName)} on the board. it needs an admin's sign-off.`),
     newGig: () => say('act', 'new contract on the board.'),
     crewMemberJoined: (crewName: string, handle: string) => say('info', `${n(handle)} joined ${n(crewName)}.`),

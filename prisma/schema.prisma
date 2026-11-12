@@ -255,6 +255,8 @@ model Gig {
   overflowMessageIds Json      @default("[]") @map("overflow_message_ids")
   /// When the session is played. Until then runners are only "interested".
   sessionAt          DateTime? @map("session_at") @db.Timestamptz(3)
+  /// Roughly when the session finishes. Only set with a session time.
+  sessionEndAt       DateTime? @map("session_end_at") @db.Timestamptz(3)
   /// Reminders already sent for the current session time
   remindedDay        Boolean   @default(false) @map("reminded_day")
   remindedSoon       Boolean   @default(false) @map("reminded_soon")

@@ -1,18 +1,24 @@
 import type { GigLink, RunnerView } from '@shared/schemas';
+import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtGallery } from '@/components/art';
 import { ConfirmButton, LinkCard, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
-import { DowntimePanel } from '@/components/downtime';
 import { Markdown } from '@/components/markdown';
 import { RetireControls } from '@/components/retire';
 import { Roles, RunnerAvatar } from '@/components/runner';
+import { StaggeredImage } from '@/components/staggered-image';
 import { useFormatSession } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
-import { api, useAction, useRunner, useUser } from '@/lib/api';
+import { api, thumbUrl, useAction, useRunner, useUser } from '@/lib/api';
+import { usePhone } from '@/lib/media';
 
-/** A runner's profile: roles, player, crews and gigs run. Fixers have their own profile (fixer.tsx), linked from here. */
+/**
+ * A runner's profile: roles, player, crews and gigs run. Fixers have their own profile
+ * (fixer.tsx), linked from here. Downtime has its own page (runner-downtime.tsx), linked for
+ * their player and admins.
+ */
 export function RunnerPage() {
     const { id } = useParams();
     const me = useUser();
@@ -29,14 +35,23 @@ export function RunnerPage() {
     const gone = runner.status !== 'active';
     const hasArt = runner.artIds.length > 0;
     const hasCrews = runner.crews.length > 0;
+    // With nothing written, the gigs sit beside the gallery instead of under it
+    const hasText = !!(runner.bio || runner.obituary);
 
     const details = (
         <>
             <p className="text-xs text-muted-foreground">
                 played by <Person member={runner.owner} />
             </p>
-            {(canManage || runner.isFixer) && (
+            {(canManage || runner.isFixer || runner.downtime) && (
                 <div className="flex flex-wrap gap-2">
+                    {runner.downtime && (
+                        <Button asChild variant="outline" size="sm">
+                            <Link to={`/runners/${runner.slug}/downtime`}>
+                                Downtime <span className="text-primary">{runner.downtime.balance} DT</span>
+                            </Link>
+                        </Button>
+                    )}
                     {runner.isFixer && (
                         <Button asChild variant="outline" size="sm">
                             <Link to={`/fixers/${runner.fixerSlug}`}>View fixer profile</Link>
@@ -113,20 +128,60 @@ export function RunnerPage() {
                         </Live>
                     )}
 
-                    {/* Downtime comes first so phones get it on top. Only its player and admins have it; everyone else gets the gigs on their own. */}
-                    <div className={cn('grid items-start gap-6', runner.downtime && 'xl:grid-cols-2')}>
-                        {runner.downtime && (
-                            <div className="min-w-0 xl:col-start-2 xl:row-start-1">
-                                <DowntimePanel runner={runner} />
-                            </div>
-                        )}
-                        <div className="min-w-0 xl:col-start-1 xl:row-start-1">
-                            <GigList title="Gigs run" gigs={runner.gigs} empty="no gigs yet." />
-                        </div>
-                    </div>
+                    {!hasText && <GigTiles gigs={runner.gigs} />}
                 </div>
             </div>
+            {/* The page's full width, for as many in a row as fit */}
+            {hasText && <GigTiles gigs={runner.gigs} />}
         </div>
+    );
+}
+
+/** How many gigs phones show before "show all". */
+const PHONE_GIGS = 5;
+
+/**
+ * The gigs a runner has been on, newest first, as small cards: picture on top, name, status and
+ * session under it. Up to ten in a row. Phones show the latest few until asked for the rest.
+ */
+function GigTiles({ gigs }: { gigs: GigLink[] }) {
+    const phone = usePhone();
+    const [all, setAll] = useState(false);
+    const formatSession = useFormatSession();
+    const shown = phone && !all ? gigs.slice(0, PHONE_GIGS) : gigs;
+    return (
+        <Card className="space-y-3">
+            <CardTitle>Gigs run</CardTitle>
+            {gigs.length ? (
+                // As many as fit at 7.5rem or more, but never more than ten across
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(max(7.5rem,calc((100%_-_9*0.75rem)/10)),1fr))] gap-3">
+                    {shown.map((g) => (
+                        <li key={liveKey(g.id, g)} className="live-in">
+                            <LinkCard to={`/gigs/${g.ref}`} className="flex h-full flex-col p-2 [--cut:8px]">
+                                {g.imageId ? (
+                                    <StaggeredImage src={thumbUrl(g.imageId)} className="-mx-2 -mt-2 mb-2 aspect-video w-[calc(100%+1rem)] max-w-none object-cover" />
+                                ) : (
+                                    <span className="-mx-2 -mt-2 mb-2 grid aspect-video w-[calc(100%+1rem)] place-items-center bg-muted font-display text-2xl text-primary">{g.name[0]?.toUpperCase()}</span>
+                                )}
+                                {/* Two lines kept for the name, so the rows line up */}
+                                <h3 className="line-clamp-2 h-8 text-xs leading-4">{g.name}</h3>
+                                <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
+                                    <StatusBadge status={g.status} />
+                                    {g.sessionAt && <span className="text-[10px] text-muted-foreground">{formatSession(g.sessionAt)}</span>}
+                                </div>
+                            </LinkCard>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <Say>no gigs yet.</Say>
+            )}
+            {shown.length < gigs.length && (
+                <Button variant="outline" size="sm" className="w-full" onClick={() => setAll(true)}>
+                    Show all {gigs.length}
+                </Button>
+            )}
+        </Card>
     );
 }
 
