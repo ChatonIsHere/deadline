@@ -141,13 +141,12 @@ export function RunnerPage() {
 const PHONE_GIGS = 5;
 
 /**
- * The gigs a runner has been on, newest first, as small cards: picture on top, name, status and
- * session under it. Up to ten in a row. Phones show the latest few until asked for the rest.
+ * The gigs a runner has been on, newest first, as small cards: picture on top, name and status
+ * under it. Up to ten in a row. Phones show the latest few until asked for the rest.
  */
 function GigTiles({ gigs }: { gigs: GigLink[] }) {
     const phone = usePhone();
     const [all, setAll] = useState(false);
-    const formatSession = useFormatSession();
     const shown = phone && !all ? gigs.slice(0, PHONE_GIGS) : gigs;
     return (
         <Card className="space-y-3">
@@ -165,9 +164,8 @@ function GigTiles({ gigs }: { gigs: GigLink[] }) {
                                 )}
                                 {/* Two lines kept for the name, so the rows line up */}
                                 <h3 className="line-clamp-2 h-8 text-xs leading-4">{g.name}</h3>
-                                <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
+                                <div className="mt-auto pt-2">
                                     <StatusBadge status={g.status} />
-                                    {g.sessionAt && <span className="text-[10px] text-muted-foreground">{formatSession(g.sessionAt)}</span>}
                                 </div>
                             </LinkCard>
                         </li>
