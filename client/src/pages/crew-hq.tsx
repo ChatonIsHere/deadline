@@ -42,20 +42,23 @@ export function CrewHqPage() {
     );
 }
 
+/** What the amount box starts at. */
+const DEFAULT_SPEND = 40;
+
 /**
  * The crew's HQ IP. Left: what it has, and spending it (founders, saying what on; admins can add
  * some too). Right: what it earned on gigs and spent.
  */
 function HqCard({ crew, url, canSpend, canAdd }: { crew: CrewView; url: string; canSpend: boolean; canAdd: boolean }) {
     const tz = useTimeZone();
-    const [amount, setAmount] = useState('');
+    const [amount, setAmount] = useState(String(DEFAULT_SPEND));
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
     const save = useAction(
         (input: HqInput) => api(`${url}/hq`, 'POST', input),
         'HQ IP logged.',
         () => {
-            setAmount('');
+            setAmount(String(DEFAULT_SPEND));
             setNote('');
         },
     );
