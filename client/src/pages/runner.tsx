@@ -187,16 +187,17 @@ function GigTiles({ gigs }: { gigs: GigLink[] }) {
 
 type RunnerCrew = RunnerView['crews'][number];
 
-/** Two rows at most, to sit beside their picture: one crew fills the row, two share it. With three or more, the second row is just logos. */
+/**
+ * Beside their picture, as tall as it: one crew fills the space, two stack and take half each.
+ * With three or more, the first crew is on top and the rest are logos underneath.
+ */
 function RunnerCrews({ crews }: { crews: RunnerCrew[] }) {
+    const boxes = crews.slice(0, crews.length === 2 ? 2 : 1);
     return (
-        <div className="space-y-3">
-            {/* One crew takes the whole row; two share it, half each */}
-            <div className={cn('grid gap-3', crews.length === 2 && 'grid-cols-2')}>
-                {crews.slice(0, crews.length === 2 ? 2 : 1).map((c) => (
-                    <CrewBox key={liveKey(c.id, c)} crew={c} />
-                ))}
-            </div>
+        <div className="flex flex-col gap-3 lg:self-stretch">
+            {boxes.map((c) => (
+                <CrewBox key={liveKey(c.id, c)} crew={c} big={crews.length === 1} />
+            ))}
             {crews.length > 2 && <CrewLogos crews={crews.slice(1)} />}
         </div>
     );
@@ -217,13 +218,13 @@ function CrewLogos({ crews }: { crews: RunnerCrew[] }) {
     );
 }
 
-/** A crew the runner is in: its logo and name, and their rank in it. */
-function CrewBox({ crew }: { crew: RunnerCrew }) {
+/** A crew the runner is in: its logo and name, and their rank in it. Wider screens: it grows to fill its share of the column, `big` when it's the only one. */
+function CrewBox({ crew, big }: { crew: RunnerCrew; big?: boolean }) {
     return (
-        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex min-w-0 items-center gap-3 py-3 [--frame:var(--color-accent)]">
-            <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-14 text-2xl [--cut:8px]" />
+        <LinkCard to={`/crews/${crew.slug}`} className={cn('live-in flex min-w-0 items-center gap-3 py-3 [--frame:var(--color-accent)] lg:flex-1', big && 'lg:gap-5 lg:px-5')}>
+            <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className={cn('size-14 text-2xl [--cut:8px]', big && 'lg:size-28 lg:text-4xl lg:[--cut:12px]')} />
             <div className="min-w-0">
-                <h2 className="truncate text-lg leading-tight text-accent">{crew.name}</h2>
+                <h2 className={cn('truncate text-lg leading-tight text-accent', big && 'lg:text-2xl')}>{crew.name}</h2>
                 <p className="truncate font-display text-xs tracking-widest text-muted-foreground uppercase">{crew.rank}</p>
             </div>
         </LinkCard>
