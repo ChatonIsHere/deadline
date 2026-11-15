@@ -187,12 +187,16 @@ function GigTiles({ gigs }: { gigs: GigLink[] }) {
 
 type RunnerCrew = RunnerView['crews'][number];
 
-/** Two rows at most, to sit beside their picture. With three or more crews, the second row is just logos. */
+/** Two rows at most, to sit beside their picture: one crew fills the row, two share it. With three or more, the second row is just logos. */
 function RunnerCrews({ crews }: { crews: RunnerCrew[] }) {
     return (
         <div className="space-y-3">
-            <CrewBox key={liveKey(crews[0].id, crews[0])} crew={crews[0]} />
-            {crews.length === 2 && <CrewBox key={liveKey(crews[1].id, crews[1])} crew={crews[1]} />}
+            {/* One crew takes the whole row; two share it, half each */}
+            <div className={cn('grid gap-3', crews.length === 2 && 'grid-cols-2')}>
+                {crews.slice(0, crews.length === 2 ? 2 : 1).map((c) => (
+                    <CrewBox key={liveKey(c.id, c)} crew={c} />
+                ))}
+            </div>
             {crews.length > 2 && <CrewLogos crews={crews.slice(1)} />}
         </div>
     );
@@ -216,7 +220,7 @@ function CrewLogos({ crews }: { crews: RunnerCrew[] }) {
 /** A crew the runner is in: its logo and name, and their rank in it. */
 function CrewBox({ crew }: { crew: RunnerCrew }) {
     return (
-        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex items-center gap-3 py-3 [--frame:var(--color-accent)]">
+        <LinkCard to={`/crews/${crew.slug}`} className="live-in flex min-w-0 items-center gap-3 py-3 [--frame:var(--color-accent)]">
             <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-14 text-2xl [--cut:8px]" />
             <div className="min-w-0">
                 <h2 className="truncate text-lg leading-tight text-accent">{crew.name}</h2>
