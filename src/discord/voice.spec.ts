@@ -9,6 +9,16 @@ describe('stars', () => {
         assert.equal(starRow(2, uploaded), '<:star_full_a1b2c3:111><:star_full_a1b2c3:111><:star_empty_d4e5f6:222><:star_empty_d4e5f6:222><:star_empty_d4e5f6:222>');
     });
 
+    it('fills a star part way for an average, to the nearest tenth', () => {
+        const all = (name: string) => `<${name}>`;
+        assert.equal(starRow(3.64, all), '<star_full><star_full><star_full><star_6><star_empty>');
+        assert.equal(starRow(4.96, all), '<star_full>'.repeat(5));
+        assert.equal(starRow(0.1, all), '<star_1>' + '<star_empty>'.repeat(4));
+        // Old uploads without the part stars: whole ones
+        assert.equal(starRow(3.6, uploaded), starRow(4, uploaded));
+        assert.equal(plainVoice({ text: starRow(3.6, all).replace(/<(\w+)>/g, '<:$1_abc123:1>'), tone: 'info' }), '★★★★☆');
+    });
+
     it('falls back to standard emoji if they are not uploaded', () => {
         assert.equal(starRow(3, () => ''), '⭐⭐⭐⬛⬛');
     });

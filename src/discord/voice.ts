@@ -20,8 +20,23 @@ const say = (tone: Tone, text: string, details?: Said['details']): Said => ({ to
 
 const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 
-/** A rating as five stars, for messages and embeds. */
-export const starRow = (filled: number, emoji: EmojiLookup) => (emoji('star_full') || '⭐').repeat(filled) + (emoji('star_empty') || '⬛').repeat(5 - filled);
+/**
+ * A rating as five stars, for messages and embeds. Averages fill a star part way, to the
+ * nearest tenth like the number beside it (star_1 to star_9 in assets/emoji). Without the
+ * bot's emoji, standard ones and whole stars.
+ */
+export function starRow(value: number, emoji: EmojiLookup): string {
+    const tenths = Math.round(Math.min(Math.max(value, 0), 5) * 10);
+    const part = tenths % 10 ? emoji(`star_${tenths % 10}`) : '';
+    const full = emoji('star_full');
+    const empty = emoji('star_empty');
+    if (!full || !empty || (tenths % 10 && !part)) {
+        const filled = Math.round(tenths / 10);
+        return (full || '⭐').repeat(filled) + (empty || '⬛').repeat(5 - filled);
+    }
+    const filled = Math.floor(tenths / 10);
+    return full.repeat(filled) + part + empty.repeat(5 - filled - (part ? 1 : 0));
+}
 
 /** Menus and pop-up titles can't draw the bot's own emoji, so they count in standard stars. */
 export const plainStars = (filled: number) => '⭐'.repeat(filled);
@@ -32,6 +47,8 @@ export const plainVoice = (said: Said) =>
         .replace(LINK_RE, '$1')
         .replace(/<a?:star_full_\w+:\d+>/g, '★')
         .replace(/<a?:star_empty_\w+:\d+>/g, '☆')
+        // A part-filled star: filled from half way
+        .replace(/<a?:star_(\d)_\w+:\d+>/g, (_, tenths: string) => (Number(tenths) >= 5 ? '★' : '☆'))
         .replace(/<a?:\w+:\d+>/g, '')
         .replace(/[*`]/g, '')
         .replace(/\s+/g, ' ')

@@ -114,11 +114,20 @@ export function Roles({ runner, className }: { runner: Pick<RunnerCard, 'role' |
 }
 
 export function Stars({ value, className }: { value: number; className?: string }) {
+    // To the nearest tenth, like the number shown beside them
+    const tenths = Math.round(value * 10);
     return (
-        <span className={cn('inline-flex text-primary', className)} aria-label={`${value} of 5 stars`}>
-            {[1, 2, 3, 4, 5].map((n) => (
-                <Star key={n} className={cn('size-4', n <= Math.round(value) ? 'fill-current' : 'opacity-30')} />
-            ))}
+        <span className={cn('inline-flex text-primary', className)} aria-label={`${tenths / 10} of 5 stars`}>
+            {[1, 2, 3, 4, 5].map((n) => {
+                const fill = Math.min(Math.max(tenths - (n - 1) * 10, 0), 10) / 10;
+                return (
+                    <span key={n} className="relative inline-flex">
+                        <Star className="size-4 opacity-30" />
+                        {/* The star's points span 2 to 22 of the icon's 24, so the fill is cut across that */}
+                        {fill > 0 && <Star className="absolute inset-0 size-4 fill-current" style={fill < 1 ? { clipPath: `inset(0 ${100 - (2 + 20 * fill) / 0.24}% 0 0)` } : undefined} />}
+                    </span>
+                );
+            })}
         </span>
     );
 }

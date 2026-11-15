@@ -51,7 +51,7 @@ export function runnerCard(runner: RunnerView, side: 'runner' | 'fixer', emoji: 
     ];
     if (fixer) {
         fields.push(
-            { name: 'Rating', value: runner.rating.average ? `${starRow(Math.round(runner.rating.average), emoji)} (${runner.rating.count})` : 'Not rated yet', inline: true },
+            { name: 'Rating', value: runner.rating.average ? `${starRow(runner.rating.average, emoji)} (${runner.rating.count})` : 'Not rated yet', inline: true },
             ...(runner.officeLocation ? [{ name: 'Office', value: runner.officeLocation, inline: true }] : []),
             ...(runner.contact ? [{ name: 'Reach them', value: runner.contact, inline: true }] : []),
             ...(runner.specialties ? [{ name: 'Specialties', value: runner.specialties, inline: false }] : []),
