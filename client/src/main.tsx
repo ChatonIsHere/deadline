@@ -23,6 +23,7 @@ import { AvailabilityPage } from '@/pages/availability';
 import { SetupPage } from '@/pages/setup';
 import { RunnerPage } from '@/pages/runner';
 import { RunnerDowntimePage } from '@/pages/runner-downtime';
+import { CrewHqPage } from '@/pages/crew-hq';
 import { RunnerEdit } from '@/pages/runner-edit';
 import { FixersPage, RunnersPage } from '@/pages/runners';
 import { SettingsPage } from '@/pages/settings';
@@ -54,6 +55,7 @@ const router = createBrowserRouter(
                 <Route path="crews" element={<Crews />} />
                 <Route path="crews/new" element={<NewCrewPage />} />
                 <Route path="crews/:id" element={<Crew />} />
+                <Route path="crews/:id/hq" element={<CrewHqPage />} />
                 <Route path="settings/library" element={<LibraryPage />} />
                 {/* Old /library links */}
                 <Route path="library" element={<Navigate to="/settings/library" replace />} />

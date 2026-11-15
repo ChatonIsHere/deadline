@@ -24,7 +24,7 @@ const CREW_INCLUDE = {
 } as const satisfies Prisma.CrewInclude;
 
 /** How much of a crew's HQ IP record its page shows. */
-const HQ_LOG = 20;
+const HQ_LOG = 50;
 type CrewRow = Prisma.CrewGetPayload<{ include: typeof CREW_INCLUDE }>;
 
 /**
