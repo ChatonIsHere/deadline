@@ -14,39 +14,25 @@ import { usePhone } from '@/lib/media';
 import { useUnsavedChanges } from '@/lib/unsaved';
 import { cn } from '@/lib/utils';
 
-/** The crew list: crews you have a runner in, then everyone else's. New crews are registered at /crews/new, from the corner +. */
+/**
+ * Every crew in one grid, yours first in a yellow frame. Sized like the fixers' cards: there are
+ * only ever a few crews. New crews are registered at /crews/new, from the corner +.
+ */
 export function Crews() {
     const me = useUser();
+    const phone = usePhone();
     const { data: crews, isPending } = useCrews();
 
     if (isPending) return <Loading>scanning...</Loading>;
     if (!crews?.length) return <Say>no crews registered. a crew is a group of runners with ranks, and gigs can hold slots for one.</Say>;
     const isMine = (c: CrewView) => c.members.some((m) => m.ownerId === me.id);
-    const mine = crews.filter(isMine);
-    const rest = crews.filter((c) => !isMine(c));
+    const sorted = [...crews.filter(isMine), ...crews.filter((c) => !isMine(c))];
     return (
-        <div className="space-y-8">
-            {mine.length > 0 && <CrewGrid title={rest.length ? 'Your crews' : null} crews={mine} mine />}
-            {rest.length > 0 && <CrewGrid title={mine.length ? 'Other crews' : null} crews={rest} />}
-        </div>
-    );
-}
-
-/** `title` only when the page splits crews into groups. */
-function CrewGrid({ title, crews, mine }: { title: string | null; crews: CrewView[]; mine?: boolean }) {
-    const phone = usePhone();
-    return (
-        <section className="space-y-3">
-            {title && (
-                <h2 className="text-center text-xs tracking-widest text-muted-foreground">
-                    // {title.toUpperCase()} <span className="opacity-60">{crews.length}</span>
-                </h2>
+        <div className="card-rows [--gap:0.75rem] sm:[--cols:2] sm:[--gap:1rem] xl:[--cols:3] 3xl:[--cols:4]">
+            {sorted.map((c) =>
+                phone ? <CrewMiniCard key={liveKey(c.id, c)} crew={c} mine={isMine(c)} /> : <CrewCard key={liveKey(c.id, c)} crew={c} mine={isMine(c)} />,
             )}
-            {/* Sized like the fixers' cards: there are only ever a few crews */}
-            <div className="card-rows [--gap:0.75rem] sm:[--cols:2] sm:[--gap:1rem] xl:[--cols:3] 3xl:[--cols:4]">
-                {crews.map((c) => (phone ? <CrewMiniCard key={liveKey(c.id, c)} crew={c} mine={mine} /> : <CrewCard key={liveKey(c.id, c)} crew={c} mine={mine} />))}
-            </div>
-        </section>
+        </div>
     );
 }
 
