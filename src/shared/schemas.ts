@@ -210,6 +210,10 @@ export type CrewInput = z.infer<typeof crewInput>;
 
 export const rankInput = z.object({ rank: text(30) });
 
+/** A crew logo to show in another of the frames (0 to 5, see shared/frame.ts). */
+export const frameInput = z.object({ imageId: id, variant: z.number().int().min(0).max(5) });
+export type FrameInput = z.infer<typeof frameInput>;
+
 /** Most a session can run, start to estimated end. */
 export const MAX_SESSION_HOURS = 24;
 

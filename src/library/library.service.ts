@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit, PayloadTooLargeException } from '@nestjs/common';
@@ -8,7 +8,7 @@ import { type Db, PrismaService } from '../prisma/prisma.service';
 import { artPreviewFile, artThumbFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
 import { StorageService } from '../storage/storage.service';
-import { frameSvg, type ImageKind, PREVIEWS, SIZES, variantFor } from './frame';
+import { frameSvg, type ImageKind, PREVIEWS, SIZES, VARIANTS, variantFor, variantIndex } from './frame';
 import { CARD_VERSION, renderGigCard } from './gig-card';
 import { NIGHT_CITY } from './night-city';
 
@@ -178,6 +178,33 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         if (!user.isAdmin) throw new ForbiddenException();
         await this.prisma.image.update({ where: { id }, data: { inLibrary: false } });
         await this.refreshUsage([id]);
+    }
+
+    /**
+     * A copy of a square picture in another of the frames, as a new image. A picture's frame comes
+     * from its ID, so the copy gets an ID that lands on the one asked for: every file is new, and
+     * nothing cached shows the old frame. Unused until it's saved with something, like any upload.
+     */
+    async reframe(user: Me, id: string, variant: number): Promise<string> {
+        if (!Number.isInteger(variant) || variant < 0 || variant >= VARIANTS.length) throw new BadRequestException('No such frame.');
+        const image = await this.prisma.image.findUnique({ where: { id } });
+        if (!image || image.kind !== 'avatar') throw new BadRequestException('Only square pictures can change frame.');
+        if (variantIndex(id) === variant) return id;
+        const plain = await this.storage.get(plainFile(id));
+        if (!plain) throw new BadRequestException('That picture is gone. Upload it again.');
+
+        let copyId = randomUUID();
+        while (variantIndex(copyId) !== variant) copyId = randomUUID();
+        await this.prisma.image.create({ data: { id: copyId, kind: 'avatar', inLibrary: false, createdBy: user.id, unusedSince: new Date() } });
+        try {
+            await this.storage.put(plainFile(copyId), plain, 'image/webp');
+            await this.writeCopies(copyId, 'avatar', plain);
+            await this.prisma.image.update({ where: { id: copyId }, data: { bytes: await this.storage.size(imagePrefix(copyId)) } });
+        } catch (err) {
+            await this.discard(copyId);
+            throw err;
+        }
+        return copyId;
     }
 
     async exists(id: string): Promise<boolean> {

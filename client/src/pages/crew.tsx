@@ -5,6 +5,7 @@ import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ConfirmButton, Icon, Live, liveKey, Loading, Say } from '@/components/common';
 import { RoleIcon, RunnerAvatar, RunnerChip, RunnerTile } from '@/components/runner';
+import { FramePicker } from '@/components/frame-picker';
 import { UploadButton } from '@/components/upload-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -261,6 +262,8 @@ function EditCrew({ crew }: { crew: CrewView }) {
     const [imageId, setImageId] = useState(crew.imageId);
     const [ranks, setRanks] = useState(crew.ranks.map((r) => ({ name: r, was: r as string | null })));
     const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, imageId, ranks }), 'crew saved.');
+    // A copy of the logo in another frame. It takes effect on Save, like a new upload.
+    const copyInFrame = async (variant: number) => (await api<{ imageId: string }>(`/api/crews/${crew.id}/frame`, 'POST', { imageId, variant })).imageId;
 
     const setRank = (i: number, value: string) => setRanks(ranks.map((r, j) => (j === i ? { ...r, name: value } : r)));
     const move = (i: number, by: number) => {
@@ -291,6 +294,12 @@ function EditCrew({ crew }: { crew: CrewView }) {
                             )}
                         </div>
                     </div>
+                    {imageId && (
+                        <div className="mt-3 space-y-1.5">
+                            <p className="text-xs text-muted-foreground">Frame</p>
+                            <FramePicker imageId={imageId} copy={copyInFrame} onChange={setImageId} disabled={save.isPending} />
+                        </div>
+                    )}
                 </div>
                 <div>
                     <Label htmlFor="name">Name</Label>

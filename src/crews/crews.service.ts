@@ -241,6 +241,17 @@ export class CrewsService {
     }
 
     /** The crew, if the user can run it. */
+    /**
+     * The crew's logo (or one just uploaded for it) in another frame, for the edit form to save.
+     * Founders and admins only.
+     */
+    async frame(user: Me, id: string, imageId: string, variant: number): Promise<{ imageId: string }> {
+        const crew = await this.manage(user, id);
+        const image = await this.prisma.image.findUnique({ where: { id: imageId }, select: { createdBy: true } });
+        if (!image || (imageId !== crew.imageId && image.createdBy !== user.id)) throw new ForbiddenException();
+        return { imageId: await this.library.reframe(user, imageId, variant) };
+    }
+
     private async manage(user: Me, id: string): Promise<CrewView> {
         const crew = await this.get(id);
         if (!canManageCrew(user, crew)) throw new ForbiddenException();

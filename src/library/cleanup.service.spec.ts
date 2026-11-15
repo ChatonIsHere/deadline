@@ -10,6 +10,7 @@ import type { Me } from '../shared/schemas';
 import { artPreviewFile, artThumbFile, cardFile, imagePrefix, plainFile, webFile } from '../shared/images';
 import { DiskStorage, StorageService } from '../storage/storage.service';
 import { CleanupService } from './cleanup.service';
+import { VARIANTS, variantIndex } from './frame';
 import { compressArt, LibraryService } from './library.service';
 
 const DAY = 86_400_000;
@@ -50,6 +51,22 @@ describe('picture cleanup', () => {
         await prisma.runner.update({ where: { id: runner.id }, data: { imageId: null } });
         await library.refreshUsage([id]);
         assert.ok((await prisma.image.findUniqueOrThrow({ where: { id } })).unusedSince);
+    });
+
+    it('copies a square picture into another frame under an ID that lands on it', async () => {
+        const square = await sharp({ create: { width: 600, height: 600, channels: 3, background: '#336699' } }).png().toBuffer();
+        const id = await library.add(square, { regionId: null, inLibrary: false, createdBy: 'a', kind: 'avatar' });
+        const want = (variantIndex(id) + 1) % VARIANTS.length;
+        const me = { id: 'a', isAdmin: false } as Me;
+        const copy = await library.reframe(me, id, want);
+        assert.notEqual(copy, id);
+        assert.equal(variantIndex(copy), want);
+        assert.ok(await storage.get(webFile(copy)));
+        assert.equal((await prisma.image.findUniqueOrThrow({ where: { id: copy } })).createdBy, 'a');
+        // Its own frame is itself, and gig pictures can't change frame
+        assert.equal(await library.reframe(me, id, variantIndex(id)), id);
+        const wide = await library.add(await sharp({ create: { width: 1280, height: 720, channels: 3, background: '#336699' } }).png().toBuffer(), { regionId: null, inLibrary: false, createdBy: 'a', kind: 'gig' });
+        await assert.rejects(library.reframe(me, wide, want), /Only square pictures/);
     });
 
     it('deletes pictures unused for 30 days, rows and files, and keeps newer ones', async () => {
