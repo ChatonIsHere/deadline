@@ -1,4 +1,4 @@
-import type { Review } from '@shared/schemas';
+import type { GigStatus, Review } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtGallery } from '@/components/art';
 import { ConfirmButton, Live, liveKey, Loading, Say } from '@/components/common';
@@ -9,7 +9,10 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
 import { useTimeZone } from '@/lib/time';
 import { cn } from '@/lib/utils';
-import { GigList } from '@/pages/runner';
+import { GigList, GigTiles } from '@/pages/runner';
+
+/** Done with: these go in the list beside the tiles. */
+const FINISHED: GigStatus[] = ['completed', 'cancelled', 'rejected'];
 
 /**
  * A fixer's profile: the business side of a character. Office, specialties, how to reach
@@ -31,6 +34,8 @@ export function FixerPage() {
     if (id !== fixer.fixerSlug) return <Navigate to={`/fixers/${fixer.fixerSlug}`} replace />;
 
     const canManage = me.isAdmin || fixer.ownerId === me.id;
+    const live = fixer.fixerGigs.filter((g) => !FINISHED.includes(g.status));
+    const finished = fixer.fixerGigs.filter((g) => FINISHED.includes(g.status));
     const hasArt = fixer.artIds.length > 0;
     const fields = [
         { label: 'Office', value: fixer.officeLocation },
@@ -88,6 +93,13 @@ export function FixerPage() {
                     </div>
                 </div>
             </Live>
+            {/* Two thirds for what's on now, a third for what's done */}
+            <div className="grid items-start gap-6 lg:grid-cols-3">
+                <div className="min-w-0 lg:col-span-2">
+                    <GigTiles title="Live gigs" gigs={live} empty="nothing on right now." large />
+                </div>
+                <GigList title="Finished gigs" gigs={finished} empty="none finished yet." />
+            </div>
             <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]')}>
                 {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
                 {hasArt && (
@@ -105,10 +117,7 @@ export function FixerPage() {
                         </Live>
                     )}
 
-                    <div className={cn('grid gap-5', !hasArt && 'lg:grid-cols-2')}>
-                        <GigList title="Gigs put out" gigs={fixer.fixerGigs} empty="no gigs yet." />
-                        {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
-                    </div>
+                    {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
                 </div>
             </div>
         </div>

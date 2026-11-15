@@ -128,11 +128,11 @@ export function RunnerPage() {
                         </Live>
                     )}
 
-                    {!hasText && <GigTiles gigs={runner.gigs} />}
+                    {!hasText && <GigTiles title="Gigs run" gigs={runner.gigs} />}
                 </div>
             </div>
             {/* The page's full width, for as many in a row as fit */}
-            {hasText && <GigTiles gigs={runner.gigs} />}
+            {hasText && <GigTiles title="Gigs run" gigs={runner.gigs} />}
         </div>
     );
 }
@@ -140,20 +140,25 @@ export function RunnerPage() {
 /** How many gigs phones show before "show all". */
 const PHONE_GIGS = 5;
 
+/** As many as fit at the smallest size, but never more than ten (or six, `large`) across. */
+const TILE_GRID = {
+    small: 'grid-cols-[repeat(auto-fill,minmax(max(7.5rem,calc((100%_-_9*0.75rem)/10)),1fr))]',
+    large: 'grid-cols-[repeat(auto-fill,minmax(max(9.5rem,calc((100%_-_5*0.75rem)/6)),1fr))]',
+};
+
 /**
- * The gigs a runner has been on, newest first, as small cards: picture on top, name and status
- * under it. Up to ten in a row. Phones show the latest few until asked for the rest.
+ * Gigs, newest first, as small cards: picture on top, name and status under it. Up to ten in a
+ * row, or six bigger ones when `large`. Phones show the latest few until asked for the rest.
  */
-function GigTiles({ gigs }: { gigs: GigLink[] }) {
+export function GigTiles({ title, gigs, empty = 'no gigs yet.', large }: { title: string; gigs: GigLink[]; empty?: string; large?: boolean }) {
     const phone = usePhone();
     const [all, setAll] = useState(false);
     const shown = phone && !all ? gigs.slice(0, PHONE_GIGS) : gigs;
     return (
         <Card className="space-y-3">
-            <CardTitle>Gigs run</CardTitle>
+            <CardTitle>{title}</CardTitle>
             {gigs.length ? (
-                // As many as fit at 7.5rem or more, but never more than ten across
-                <ul className="grid grid-cols-[repeat(auto-fill,minmax(max(7.5rem,calc((100%_-_9*0.75rem)/10)),1fr))] gap-3">
+                <ul className={cn('grid gap-3', TILE_GRID[large ? 'large' : 'small'])}>
                     {shown.map((g) => (
                         <li key={liveKey(g.id, g)} className="live-in">
                             <LinkCard to={`/gigs/${g.ref}`} className="flex h-full flex-col p-2 [--cut:8px]">
@@ -163,7 +168,7 @@ function GigTiles({ gigs }: { gigs: GigLink[] }) {
                                     <span className="-mx-2 -mt-2 mb-2 grid aspect-video w-[calc(100%+1rem)] place-items-center bg-muted font-display text-2xl text-primary">{g.name[0]?.toUpperCase()}</span>
                                 )}
                                 {/* Two lines kept for the name, so the rows line up */}
-                                <h3 className="line-clamp-2 h-8 text-xs leading-4">{g.name}</h3>
+                                <h3 className={cn('line-clamp-2', large ? 'h-10 text-sm leading-5' : 'h-8 text-xs leading-4')}>{g.name}</h3>
                                 <div className="mt-auto pt-2">
                                     <StatusBadge status={g.status} />
                                 </div>
@@ -172,7 +177,7 @@ function GigTiles({ gigs }: { gigs: GigLink[] }) {
                     ))}
                 </ul>
             ) : (
-                <Say>no gigs yet.</Say>
+                <Say>{empty}</Say>
             )}
             {shown.length < gigs.length && (
                 <Button variant="outline" size="sm" className="w-full" onClick={() => setAll(true)}>
