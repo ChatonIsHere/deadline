@@ -37,6 +37,7 @@ const GIG_INCLUDE = {
     slots: { include: { crew: true, runner: true }, orderBy: { position: 'asc' } },
     reserves: { include: { runner: true }, orderBy: { joinedAt: 'asc' } },
     rewards: { include: { runner: true } },
+    crewHq: { include: { crew: true }, orderBy: { createdAt: 'asc' } },
     fixerRunner: true,
 } as const satisfies Prisma.GigInclude;
 type GigRow = Prisma.GigGetPayload<{ include: typeof GIG_INCLUDE }>;
@@ -944,6 +945,7 @@ export class GigsService {
             summary: done ? gig.summary : null,
             crewRewards: done ? { eb: gig.rewardEb, ip: gig.rewardIp, hqIp: gig.rewardHqIp, text: gig.rewardText } : null,
             runnerRewards: gig.rewards.map((r) => ({ runner: toCard(r.runner), eb: r.eb, ip: r.ip, hqIp: r.hqIp, text: r.text, share: r.share })),
+            crewHqIp: done ? gig.crewHq.map((e) => ({ crew: { id: e.crew.id, slug: e.crew.slug, name: e.crew.name, imageId: e.crew.imageId }, hqIp: e.amount })) : [],
             canRate: done && !!gig.fixerRunnerId && !!userId && gig.slots.some((s) => s.userId === userId),
             myRating: rating ? { stars: rating.stars, comment: rating.comment } : null,
         };

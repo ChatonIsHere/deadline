@@ -16,6 +16,7 @@ const MODEL_TOPICS: Record<string, LiveTopic[]> = {
     CrewMember: ['crews', 'runners'],
     CrewAlly: ['crews'],
     CrewInvite: ['crews'],
+    CrewHqEntry: ['crews', 'gigs'],
     Image: ['library'],
     Region: ['library'],
     Settings: ['settings'],

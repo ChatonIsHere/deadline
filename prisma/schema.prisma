@@ -122,6 +122,7 @@ model Crew {
   invites CrewInvite[]
   slots   GigSlot[]
   inviteDeclines CrewInviteDecline[]
+  hqEntries CrewHqEntry[]
 
   @@index([imageId])
   @@map("crews")
@@ -293,6 +294,7 @@ model Gig {
   reserves    GigReserve[]
   rewards     GigReward[]
   ratings     FixerRating[]
+  crewHq      CrewHqEntry[]
 
   @@index([status])
   @@index([fixerRunnerId])
@@ -360,6 +362,28 @@ model GigReserve {
   @@id([gigId, userId])
   @@index([runnerId])
   @@map("gig_reserves")
+}
+
+/// HQ IP a crew earned on a gig (positive) or spent (negative). The crew's balance is the sum.
+model CrewHqEntry {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  crewId    String   @map("crew_id") @db.Uuid
+  amount    Int
+  /// The gig it was earned on
+  gigId     String?  @map("gig_id") @db.Uuid
+  /// What it was spent on
+  note      String?
+  /// Who gave or spent it, and their name at the time
+  byUserId  String?  @map("by_user_id")
+  byName    String?  @map("by_name")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  crew Crew @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  gig  Gig? @relation(fields: [gigId], references: [id], onDelete: SetNull)
+
+  @@index([crewId])
+  @@index([gigId])
+  @@map("crew_hq_entries")
 }
 
 /// Extra rewards for one runner, on top of the crew's.

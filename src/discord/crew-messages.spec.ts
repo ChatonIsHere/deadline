@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import type { CrewView } from '../shared/schemas';
 import { crewCard } from './crew-messages';
 
-const crew: CrewView = { id: 'c', slug: 'moxes', name: 'Moxes', tagline: '', imageId: null, ranks: ['Boss', 'Kid'], members: [], allies: [], invites: [], gigs: [] };
+const crew: CrewView = { id: 'c', slug: 'moxes', name: 'Moxes', tagline: '', imageId: null, ranks: ['Boss', 'Kid'], members: [], allies: [], invites: [], gigs: [], hqIp: 0, hqLog: [] };
 
 describe('crewCard', () => {
     it('shows the logo as a thumbnail', () => {

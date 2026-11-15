@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { crewInput, type CrewInput, frameInput, type FrameInput, type Me, newCrewInput, type NewCrewInput, rankInput, runnerRefInput } from '../shared/schemas';
+import { crewInput, type CrewInput, frameInput, type FrameInput, hqInput, type HqInput, type Me, newCrewInput, type NewCrewInput, rankInput, runnerRefInput } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { CrewsService } from './crews.service';
 
@@ -42,6 +42,12 @@ export class CrewsController {
     @HttpCode(204)
     delete(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
         return this.crews.delete(user, id);
+    }
+
+    /** Founders spend HQ IP. Admins can add or take it away too. */
+    @Post(':id/hq')
+    hq(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(hqInput)) body: HqInput) {
+        return this.crews.hq(user, id, body);
     }
 
     /** The logo in another frame, as a new picture for the edit form to save. */

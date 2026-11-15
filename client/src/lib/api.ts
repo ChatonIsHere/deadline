@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewInvite, CrewView, Prefs, FixerSummary, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import type { CrewInvite, CrewView, FixerSummary, GigCrew, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, Prefs, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { artPreviewFile, artThumbFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
 import { useAllowNextNavigation } from '@/lib/unsaved';
@@ -27,6 +27,8 @@ export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('
 /** The signed in user. Only call inside the layout, which waits for it. */
 export const useUser = () => useMe().data!;
 
+/** Crews that were on a gig, for HQ IP at the debrief. Admins only. */
+export const useGigCrews = (id: string) => useQuery({ queryKey: ['gigs', id, 'crews'], queryFn: () => api<GigCrew[]>(`/api/gigs/${id}/crews`) });
 export const useGigs = () => useQuery({ queryKey: ['gigs'], queryFn: () => api<GigView[]>('/api/gigs') });
 export const useGig = (id: string | undefined) =>
     useQuery({ queryKey: ['gigs', id], queryFn: () => api<GigView>(`/api/gigs/${id}`), enabled: !!id });

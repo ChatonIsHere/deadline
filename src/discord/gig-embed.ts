@@ -46,9 +46,11 @@ function debriefFields(gig: GigView, emoji: EmojiLookup): APIEmbedField[] {
     const runners = gig.slots.filter((s) => s.runner).length;
     const rewards = [r.eb ? `${money(r.eb, emoji)}${gig.splitPay ? ` split between ${runners}` : ''}` : '', r.ip ? `${r.ip} IP` : '', r.hqIp ? `${r.hqIp} HQ IP` : '', r.text ?? ''].filter(Boolean);
     const extra = gig.runnerRewards.map((x) => `**${x.runner.handle}**: ${[x.share ? money(x.share, emoji) : '', x.eb ? `+${money(x.eb, emoji)}` : '', x.ip ? `+${x.ip} IP` : '', x.hqIp ? `+${x.hqIp} HQ IP` : '', x.text ?? ''].filter(Boolean).join(' · ')}`);
+    const hq = gig.crewHqIp.map((c) => `**${c.crew.name}**: +${c.hqIp} HQ IP`);
     return [
         ...(gig.summary ? [{ name: 'Debrief', value: gig.summary }] : []),
         ...(rewards.length || extra.length ? [{ name: 'Crew rewards', value: [rewards.join(' · ') || 'none', ...extra].join('\n') }] : []),
+        ...(hq.length ? [{ name: 'HQ IP', value: cut(hq.join('\n')) }] : []),
     ];
 }
 
@@ -192,7 +194,7 @@ export function payoutMessage(gig: GigView, payout: Payout, emoji: EmojiLookup, 
             { name: 'Pay', value: payout.eb ? money(payout.eb, emoji) : '-', inline: true },
             { name: 'IP', value: String(payout.ip || '-'), inline: true },
             ...(payout.dt ? [{ name: 'DT', value: `+${payout.dt}`, inline: true }] : []),
-            ...(payout.hqIp ? [{ name: 'HQ IP (crew)', value: String(payout.hqIp), inline: true }] : []),
+            ...(payout.hq.length ? [{ name: 'HQ IP', value: cut(payout.hq.join('\n')), inline: true }] : []),
             ...(payout.extras.length ? [{ name: 'Extras', value: cut(payout.extras.map((e) => `- ${e}`).join('\n')) }] : []),
         );
 

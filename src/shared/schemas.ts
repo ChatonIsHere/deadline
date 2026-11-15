@@ -111,14 +111,17 @@ export type SlotGroup = GigInput['slots'][number];
 export const statusInput = z.object({ status: z.enum(SET_STATUSES) });
 export type StatusInput = z.infer<typeof statusInput>;
 
-/** An admin wrapping up a gig. Crew rewards go to everyone on it, runner rewards on top. */
+/**
+ * An admin wrapping up a gig. Crew rewards go to everyone on it, runner rewards on top. HQ IP
+ * goes to the crews that were there (see GigCrew), into each crew's pool.
+ */
 export const completeInput = z.object({
     summary: optionalText(2000),
     eb: optionalAmount,
     ip: optionalAmount,
-    hqIp: optionalAmount,
     text: optionalText(200),
-    runners: z.array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, hqIp: optionalAmount, text: optionalText(200) })),
+    runners: z.array(z.object({ runnerId: id, eb: optionalAmount, ip: optionalAmount, text: optionalText(200) })),
+    crews: z.array(z.object({ crewId: id, hqIp: z.number().int().min(1).max(MAX_AMOUNT) })).default([]),
 });
 export type CompleteInput = z.infer<typeof completeInput>;
 
@@ -557,8 +560,10 @@ export interface GigView {
     createdAt: number;
     /** Set once completed. */
     summary: string | null;
-    /** On a gig with overall pay, `eb` is the whole pot. */
+    /** On a gig with overall pay, `eb` is the whole pot. `hqIp`: from before HQ IP went to crews. */
     crewRewards: (Rewards & { hqIp: number | null }) | null;
+    /** HQ IP each crew got from the gig. */
+    crewHqIp: { crew: { id: string; slug: string; name: string; imageId: string | null }; hqIp: number }[];
     /** `share`: their cut of the pot, on a gig with overall pay. The rest is extra, on top. */
     runnerRewards: (Rewards & { hqIp: number | null; share: number | null; runner: RunnerCard })[];
     /** Whether the signed in player had a runner on this finished gig and can rate its fixer. */
@@ -594,6 +599,40 @@ export interface CrewMember extends RunnerCard {
     rank: string;
 }
 
+/** A line in a crew's HQ IP record: earned on a gig (positive) or spent (negative). */
+export interface CrewHqEntry {
+    id: string;
+    amount: number;
+    gig: { ref: string; name: string } | null;
+    /** What it was spent on. */
+    note: string | null;
+    /** Who gave or spent it. */
+    by: string | null;
+    at: number;
+}
+
+/** A crew spending HQ IP (negative), or an admin adding some (positive). */
+export const hqInput = z.object({
+    amount: z
+        .number()
+        .int()
+        .min(-MAX_AMOUNT)
+        .max(MAX_AMOUNT)
+        .refine((n) => n !== 0, 'Enter an amount'),
+    note: text(200),
+});
+export type HqInput = z.infer<typeof hqInput>;
+
+/** A crew that was on a gig, for HQ IP at the debrief: it had a crew slot, or one of its runners went. */
+export interface GigCrew {
+    id: string;
+    slug: string;
+    name: string;
+    imageId: string | null;
+    /** Its runners who were on the gig. */
+    runners: RunnerCard[];
+}
+
 export interface CrewView {
     id: string;
     /** The crew's link, made from the name. */
@@ -611,6 +650,10 @@ export interface CrewView {
     invites: RunnerCard[];
     /** Posted gigs with slots for the crew, newest first. */
     gigs: GigLink[];
+    /** HQ IP the crew has to spend. */
+    hqIp: number;
+    /** The latest of what it earned and spent, newest first. */
+    hqLog: CrewHqEntry[];
 }
 
 /** A crew asking one of your runners to join. */

@@ -122,6 +122,12 @@ export class GigsController {
         return this.gigs.assign(user, id, body.runnerId);
     }
 
+    /** Crews that were on the gig, for the debrief's HQ IP. */
+    @Get(':id/crews')
+    crews(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.debrief.crews(user, id);
+    }
+
     /** The GM wraps up the gig: summary and rewards. Runners get DMs with their payout. */
     @Post(':id/complete')
     complete(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(completeInput)) body: CompleteInput) {

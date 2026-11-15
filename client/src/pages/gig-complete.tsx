@@ -1,23 +1,23 @@
 import { splitPot } from '@shared/pay';
 import { slotCount } from '@shared/slots';
-import { completeInput, type CompleteInput, type GigView, isLive } from '@shared/schemas';
+import { completeInput, type CompleteInput, type GigCrew, type GigView, isLive } from '@shared/schemas';
 import { CalendarClock, Minus, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Icon, Loading, Money, Pay, Say } from '@/components/common';
 import { Markdown, MarkdownEditor } from '@/components/markdown';
-import { RunnerChip } from '@/components/runner';
+import { RunnerAvatar, RunnerChip } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import { api, useAction, useGig, useUser } from '@/lib/api';
+import { api, useAction, useGig, useGigCrews, useUser } from '@/lib/api';
 import { useUnsavedForm } from '@/lib/unsaved';
 import { useFormatSessionRange } from '@/lib/time';
 import { firstIssue } from '@/lib/utils';
 
 // Amounts are strings while typing so boxes can be empty
-type Amounts = { eb: string; ip: string; hqIp: string; text: string };
-const blank: Amounts = { eb: '', ip: '', hqIp: '', text: '' };
+type Amounts = { eb: string; ip: string; text: string };
+const blank: Amounts = { eb: '', ip: '', text: '' };
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
 /** The GM's debrief: what happened and what everyone earned. Completing sends payout DMs. */
@@ -60,10 +60,12 @@ function DebriefForm({ gig }: { gig: GigView }) {
     const runners = gig.slots.flatMap((s) => (s.runner && s.runner.id ? [s.runner] : []));
     const [summary, setSummary] = useState('');
     const [done, setDone] = useState<Done>({ primary: true, objectives: gig.objectives.map(() => 0) });
-    const [crew, setCrew] = useState({ bonus: '', ip: '', hqIp: '', text: '' });
+    const [crew, setCrew] = useState({ bonus: '', ip: '', text: '' });
     const [extra, setExtra] = useState<Record<string, Amounts>>({});
+    // HQ IP by crew
+    const [hq, setHq] = useState<Record<string, string>>({});
     const [error, setError] = useState('');
-    useUnsavedForm({ summary, done, crew, extra });
+    useUnsavedForm({ summary, done, crew, extra, hq });
 
     const fromObjectives = objectivesPay(gig, done);
     const bonus = num(crew.bonus);
@@ -81,9 +83,9 @@ function DebriefForm({ gig }: { gig: GigView }) {
             summary: summary.trim() || null,
             eb: pay || null,
             ip: num(crew.ip),
-            hqIp: num(crew.hqIp),
             text: crew.text,
-            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId, eb: num(a.eb), ip: num(a.ip), hqIp: num(a.hqIp), text: a.text })),
+            runners: Object.entries(extra).map(([runnerId, a]) => ({ runnerId, eb: num(a.eb), ip: num(a.ip), text: a.text })),
+            crews: Object.entries(hq).flatMap(([crewId, v]) => (num(v) ? [{ crewId, hqIp: num(v)! }] : [])),
         });
         if (!result.success) {
             setError(firstIssue(result.error));
@@ -133,7 +135,6 @@ function DebriefForm({ gig }: { gig: GigView }) {
                         {gig.splitPay && <PotLine pot={pay} runners={runners.length} />}
                         <div className="grid grid-cols-2 gap-3">
                             <Amount id="ip" label="IP" value={crew.ip} onChange={(ip) => setCrew({ ...crew, ip })} />
-                            <Amount id="hq" label="HQ IP" value={crew.hqIp} onChange={(hqIp) => setCrew({ ...crew, hqIp })} />
                         </div>
                         <div>
                             <Label htmlFor="crew-extra">Other rewards</Label>
@@ -149,11 +150,10 @@ function DebriefForm({ gig }: { gig: GigView }) {
                             return (
                                 <div key={r.id} className="space-y-2 border-b-2 border-border pb-4 last:border-0 last:pb-0">
                                     <RunnerChip runner={r} />
-                                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-[8rem_5rem_5rem_1fr]">
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[8rem_5rem_1fr]">
                                         <Amount id={`eb-${r.id}`} label="Pay" icon value={a.eb} onChange={(eb) => setRunner(r.id, { eb })} />
                                         <Amount id={`ip-${r.id}`} label="IP" value={a.ip} onChange={(ip) => setRunner(r.id, { ip })} />
-                                        <Amount id={`hq-${r.id}`} label="HQ IP" value={a.hqIp} onChange={(hqIp) => setRunner(r.id, { hqIp })} />
-                                        <div className="col-span-3 sm:col-span-1">
+                                        <div className="col-span-2 sm:col-span-1">
                                             <Label htmlFor={`text-${r.id}`}>Other</Label>
                                             <Input id={`text-${r.id}`} value={a.text} onChange={(e) => setRunner(r.id, { text: e.target.value })} maxLength={200} />
                                         </div>
@@ -163,6 +163,8 @@ function DebriefForm({ gig }: { gig: GigView }) {
                         })}
                     </Card>
 
+                    <CrewHq gigId={gig.id} value={hq} onChange={setHq} />
+
                     {error && <p className="text-destructive">{error}</p>}
                     <Button type="submit" className="w-full" disabled={complete.isPending}>
                         Complete the gig
@@ -170,6 +172,43 @@ function DebriefForm({ gig }: { gig: GigView }) {
                 </div>
             </div>
         </form>
+    );
+}
+
+/** HQ IP for each crew that was on the gig: it had a crew slot, or one of its runners went. */
+function CrewHq({ gigId, value, onChange }: { gigId: string; value: Record<string, string>; onChange: (value: Record<string, string>) => void }) {
+    const { data: crews } = useGigCrews(gigId);
+    return (
+        <Card className="space-y-4">
+            <CardTitle help="goes into the crew's pool, for its founders to spend. crews show here if they had a slot on the gig or one of their runners went.">HQ IP</CardTitle>
+            {!crews ? <Say>checking crews...</Say> : !crews.length && <Say>no crews on this gig.</Say>}
+            {crews?.map((c) => (
+                <CrewHqRow key={c.id} crew={c} value={value[c.id] ?? ''} onChange={(v) => onChange({ ...value, [c.id]: v })} />
+            ))}
+        </Card>
+    );
+}
+
+function CrewHqRow({ crew, value, onChange }: { crew: GigCrew; value: string; onChange: (value: string) => void }) {
+    return (
+        <div className="flex items-end gap-3 border-b-2 border-border pb-4 last:border-0 last:pb-0">
+            <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-12 text-xl [--cut:8px]" />
+            <div className="min-w-0 flex-1 space-y-1">
+                <p className="truncate text-accent">{crew.name}</p>
+                {crew.runners.length ? (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {crew.runners.map((r) => (
+                            <RunnerChip key={r.id} runner={r} />
+                        ))}
+                    </div>
+                ) : (
+                    <Say>had a slot. none of its runners went.</Say>
+                )}
+            </div>
+            <div className="w-24 shrink-0">
+                <Amount id={`hq-${crew.id}`} label="HQ IP" value={value} onChange={onChange} />
+            </div>
+        </div>
     );
 }
 

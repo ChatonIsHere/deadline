@@ -66,6 +66,38 @@ describe('CrewsService', () => {
 
     const make = () => crews.create(a, { name: 'Moxes', tagline: '', runnerId: ids.a });
 
+    describe('HQ IP', () => {
+        const give = async (crewId: string, amount: number) => {
+            const gig = await prisma.gig.create({ data: { name: 'Job', fixerName: 'Jay', location: 'Watson', brief: '', pay: 1000, status: 'completed', createdBy: 'admin' } });
+            await prisma.crewHqEntry.create({ data: { crewId, amount, gigId: gig.id, byName: 'admin' } });
+        };
+
+        it('adds up what the crew earned and spent, newest first', async () => {
+            const crew = await make();
+            assert.equal(crew.hqIp, 0);
+            await give(crew.id, 5);
+            const after = await crews.hq(a, crew.id, { amount: -2, note: 'Bigger garage' });
+            assert.equal(after.hqIp, 3);
+            assert.deepEqual(
+                after.hqLog.map((e) => [e.amount, e.note, e.gig?.name ?? null, e.by]),
+                [
+                    [-2, 'Bigger garage', null, 'a'],
+                    [5, null, 'Job', 'admin'],
+                ],
+            );
+        });
+
+        it('lets founders spend what the crew has, and only admins add it', async () => {
+            const crew = await make();
+            await give(crew.id, 2);
+            await assert.rejects(crews.hq(a, crew.id, { amount: -3, note: 'Too much' }), /Moxes has 2 HQ IP/);
+            await assert.rejects(crews.hq(a, crew.id, { amount: 4, note: 'Free IP' }), /Only admins can add it/);
+            await assert.rejects(crews.hq(b, crew.id, { amount: -1, note: 'Not mine' }));
+            assert.equal((await crews.hq(admin, crew.id, { amount: 4, note: 'Makeup session' })).hqIp, 6);
+            assert.equal((await crews.hq(a, crew.id, { amount: -6, note: 'Armoury' })).hqIp, 0);
+        });
+    });
+
     describe('logo', () => {
         const picture = async () => (await prisma.image.create({ data: { inLibrary: false, kind: 'avatar' } })).id;
         const save = (user: Me, crew: { id: string; name: string; ranks: string[] }, imageId: string | null) =>

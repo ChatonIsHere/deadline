@@ -72,7 +72,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48, maxSignups }) } as unknown as SettingsService;
 const H = 3_600_000;
 const library = { exists: async () => true, pick: async () => null, refreshUsage: async () => {} } as unknown as LibraryService;
-const noRewards = { summary: null, eb: null, ip: null, hqIp: null, text: null, runners: [] };
+const noRewards = { summary: null, eb: null, ip: null, text: null, runners: [], crews: [] };
 
 const input = (slots: GigInput['slots'], patch: Partial<GigInput> = {}): GigInput => ({
     name: 'Grab the data',
@@ -612,23 +612,44 @@ describe('GigsService', () => {
     });
 
     describe('debrief', () => {
-        const crewRewards = { summary: 'Clean job.', eb: 1000, ip: 5, hqIp: 2, text: 'Shard of Arasaka intel' };
+        const crewRewards = { summary: 'Clean job.', eb: 1000, ip: 5, text: 'Shard of Arasaka intel', crews: [] };
 
         it('pays everyone the crew rewards plus their own extras', async () => {
             const gig = await gigs.create(admin, input(two, { fixerRunnerId: ids['Rogue Amendiares'] }));
             await gigs.join('a', gig.id);
             await gigs.join('b', gig.id);
-            const done = await debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.a, eb: 500, ip: null, hqIp: 1, text: 'Kept the cyberdeck' }] });
+            const done = await debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.a, eb: 500, ip: null, text: 'Kept the cyberdeck' }] });
             await settle();
             assert.equal(done.status, 'completed');
             assert.equal(done.summary, 'Clean job.');
             assert.deepEqual(
-                payouts.map((p) => [p.handle, p.eb, p.ip, p.hqIp, p.extras]).sort(),
+                payouts.map((p) => [p.handle, p.eb, p.ip, p.extras]).sort(),
                 [
-                    ['a', 1500, 5, 3, ['Shard of Arasaka intel', 'Kept the cyberdeck']],
-                    ['b', 1000, 5, 2, ['Shard of Arasaka intel']],
+                    ['a', 1500, 5, ['Shard of Arasaka intel', 'Kept the cyberdeck']],
+                    ['b', 1000, 5, ['Shard of Arasaka intel']],
                 ],
             );
+        });
+
+        it('gives HQ IP to crews that were on the gig, and tells their runners', async () => {
+            const moxes = await crews.create(admin, { name: 'Moxes', tagline: '', runnerId: ids.a });
+            const slotted = await crews.create(admin, { name: 'Slotted', tagline: '', runnerId: ids.c });
+            const away = await crews.create(admin, { name: 'Away', tagline: '', runnerId: ids.c });
+            const gig = await gigs.create(admin, input([{ crewId: slotted.id, count: 1 }, { crewId: null, count: 2 }]));
+            await gigs.join('a', gig.id);
+            await gigs.join('b', gig.id);
+            // Moxes has a runner on it, Slotted has a slot (nobody from it went), Away neither
+            assert.deepEqual(
+                (await debrief.crews(admin, gig.id)).map((c) => [c.name, c.runners.map((r) => r.handle)]),
+                [['Moxes', ['a']], ['Slotted', []]],
+            );
+            await assert.rejects(debrief.crews(people[2], gig.id));
+            await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, crews: [{ crewId: away.id, hqIp: 2 }] }), /crews that were on the gig/);
+            const done = await debrief.complete(admin, gig.id, { ...noRewards, crews: [{ crewId: moxes.id, hqIp: 3 }] });
+            await settle();
+            assert.deepEqual(done.crewHqIp.map((c) => [c.crew.name, c.hqIp]), [['Moxes', 3]]);
+            assert.deepEqual(payouts.map((p) => [p.handle, p.hq]).sort(), [['a', ['Moxes +3']], ['b', []]]);
+            assert.equal((await crews.get(moxes.id)).hqIp, 3);
         });
 
         it('caps rewards, for admins too', async () => {
@@ -637,14 +658,14 @@ describe('GigsService', () => {
             await withLimits({ MAX_IP: 50, MAX_PAY: 1_000 }, async () => {
                 await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, ip: 51 }), /crew IP can be 50 at most/);
                 await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, eb: 2_000 }), /crew pay can be 1,000 eb/);
-                await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, runners: [{ runnerId: ids.a, eb: null, ip: 60, hqIp: null, text: null }] }), /runner IP/);
+                await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, runners: [{ runnerId: ids.a, eb: null, ip: 60, text: null }] }), /runner IP/);
             });
         });
 
         it('only gives runner rewards to runners on the gig', async () => {
             const gig = await gigs.create(admin, input(one));
             await gigs.join('a', gig.id);
-            await assert.rejects(debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.b, eb: 1, ip: null, hqIp: null, text: null }] }), /on the gig/);
+            await assert.rejects(debrief.complete(admin, gig.id, { ...crewRewards, runners: [{ runnerId: ids.b, eb: 1, ip: null, text: null }] }), /on the gig/);
         });
 
         it('lets runners on the gig rate its fixer, and change their rating', async () => {
@@ -691,7 +712,7 @@ describe('GigsService', () => {
 
     describe('overall pay', () => {
         const three = [{ crewId: null, count: 3 }];
-        const pot = { summary: null, eb: 1001, ip: 2, hqIp: null, text: null, runners: [] };
+        const pot = { summary: null, eb: 1001, ip: 2, text: null, runners: [], crews: [] };
         /** c is the oldest character, then a, then b. */
         const age = async () => {
             for (const [handle, day] of [['c', 1], ['a', 2], ['b', 3]] as const) await prisma.runner.update({ where: { id: ids[handle] }, data: { createdAt: new Date(2026, 0, day) } });
@@ -715,7 +736,7 @@ describe('GigsService', () => {
             await age();
             const gig = await gigs.create(admin, input(three, { splitPay: true }));
             await joinAll(gig.id);
-            await debrief.complete(admin, gig.id, { ...pot, runners: [{ runnerId: ids.b, eb: 100, ip: null, hqIp: null, text: 'Found the keys' }] });
+            await debrief.complete(admin, gig.id, { ...pot, runners: [{ runnerId: ids.b, eb: 100, ip: null, text: 'Found the keys' }] });
             await settle();
             const b = payouts.find((p) => p.handle === 'b')!;
             assert.deepEqual([b.eb, b.extras], [433, ['Found the keys']]);

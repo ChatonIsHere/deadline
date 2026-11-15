@@ -4,14 +4,14 @@ import { config } from '../config';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
 import { NotifyService } from '../discord/notify.service';
-import { checkCount, until, Window } from '../limits';
+import { checkCount, checkIp, until, Window } from '../limits';
 import { type Said, voice } from '../discord/voice';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
 import { stringList } from '../prisma/json';
 import { PrismaService } from '../prisma/prisma.service';
 import { canCreateCrew, canManageCrew, isFounderRank } from '../shared/permissions';
-import { type CrewInput, type CrewInvite, type CrewMember, type CrewView, DEFAULT_RANKS, type Me, type NewCrewInput } from '../shared/schemas';
+import { type CrewInput, type CrewInvite, type CrewMember, type CrewView, DEFAULT_RANKS, type HqInput, type Me, type NewCrewInput } from '../shared/schemas';
 import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
 
 const CREW_INCLUDE = {
@@ -20,7 +20,11 @@ const CREW_INCLUDE = {
     invites: { include: { runner: true }, orderBy: { createdAt: 'asc' } },
     // Gigs with slots for the crew. Only posted ones, so nobody sees an unposted gig they shouldn't
     slots: { where: { gig: { status: { notIn: ['draft', 'pending', 'rejected'] } } }, select: { gig: true } },
+    hqEntries: { include: { gig: true }, orderBy: { createdAt: 'desc' } },
 } as const satisfies Prisma.CrewInclude;
+
+/** How much of a crew's HQ IP record its page shows. */
+const HQ_LOG = 20;
 type CrewRow = Prisma.CrewGetPayload<{ include: typeof CREW_INCLUDE }>;
 
 /**
@@ -287,6 +291,23 @@ export class CrewsService {
     }
 
     /** MAX_CREWS_PER_RUNNER, checked before they join or are asked to. */
+    /**
+     * Founders spend the crew's HQ IP (a negative amount), saying what on. Admins can also add
+     * some (positive) or take it away. Nobody can spend more than the crew has.
+     */
+    async hq(user: Me, id: string, input: HqInput): Promise<CrewView> {
+        const crew = await this.manage(user, id);
+        if (input.amount > 0 && !user.isAdmin) throw new ForbiddenException('Crews earn HQ IP on gigs. Only admins can add it.');
+        checkIp(Math.abs(input.amount), 'HQ IP');
+        await this.prisma.$transaction(async (tx) => {
+            const { _sum } = await tx.crewHqEntry.aggregate({ where: { crewId: id }, _sum: { amount: true } });
+            const balance = _sum.amount ?? 0;
+            if (balance + input.amount < 0) throw new BadRequestException(`${crew.name} has ${balance} HQ IP to spend.`);
+            await tx.crewHqEntry.create({ data: { crewId: id, amount: input.amount, note: input.note, byUserId: user.id, byName: user.name } });
+        });
+        return this.get(id);
+    }
+
     private async checkRunnerCrews(runnerId: string, handle: string) {
         const crews = await this.prisma.crewMember.count({ where: { runnerId } });
         checkCount(crews, config.MAX_CREWS_PER_RUNNER, `${handle} is in ${config.MAX_CREWS_PER_RUNNER} crews already, the most a runner can be.`);
@@ -343,6 +364,8 @@ function toView(crew: CrewRow): CrewView {
         gigs: [...new Map(crew.slots.map((s) => [s.gig.id, s.gig])).values()]
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
             .map((g) => ({ id: g.id, ref: gigRef(g), name: g.name, status: g.status, sessionAt: g.sessionAt?.getTime() ?? null, imageId: g.imageId })),
+        hqIp: crew.hqEntries.reduce((sum, e) => sum + e.amount, 0),
+        hqLog: crew.hqEntries.slice(0, HQ_LOG).map((e) => ({ id: e.id, amount: e.amount, gig: e.gig && { ref: gigRef(e.gig), name: e.gig.name }, note: e.note, by: e.byName, at: e.createdAt.getTime() })),
     };
 }
 

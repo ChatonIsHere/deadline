@@ -1,8 +1,9 @@
 import type { GigView, Rewards } from '@shared/schemas';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Money, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
-import { RunnerChip, StarPicker } from '@/components/runner';
+import { RunnerAvatar, RunnerChip, StarPicker } from '@/components/runner';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/input';
@@ -31,6 +32,22 @@ export function DebriefCard({ gig }: { gig: GigView }) {
                         </li>
                     ))}
                 </ul>
+            )}
+            {gig.crewHqIp.length > 0 && (
+                <div>
+                    <p className="mb-1 font-display text-xs tracking-widest text-muted-foreground uppercase">HQ IP</p>
+                    <ul className="space-y-1">
+                        {gig.crewHqIp.map((c) => (
+                            <li key={c.crew.id} className="flex items-center gap-2">
+                                <Link to={`/crews/${c.crew.slug}`} className="flex min-w-0 items-center gap-2 hover:text-accent">
+                                    <RunnerAvatar runner={{ handle: c.crew.name, imageId: c.crew.imageId }} />
+                                    <span className="truncate">{c.crew.name}</span>
+                                </Link>
+                                <span className="text-success">+{c.hqIp}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </Card>
     );
