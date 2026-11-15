@@ -1,4 +1,4 @@
-import { emptyDb, prisma } from '../test-db';
+import { emptyDb, prisma, withLimits } from '../test-db';
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
@@ -172,6 +172,27 @@ describe('GigsService', () => {
             assert.equal((await gigs.list(people[2])).length, 1);
             assert.equal((await gigs.list(fixer)).length, 2);
             assert.equal((await gigs.approve(admin, pending.id, true)).status, 'open');
+        });
+
+        it('caps the pay and bonuses, for admins too', async () => {
+            await withLimits({ MAX_PAY: 5_000 }, async () => {
+                await assert.rejects(gigs.create(admin, input(one, { pay: 5_001 })), /pay can be 5,000 eb at most/);
+                const bonus = [{ text: 'Extra', bonus: 6_000, each: false, hidden: false }];
+                await assert.rejects(gigs.create(admin, input(one, { objectives: bonus })), /objective bonus can be 5,000 eb/);
+                await assert.rejects(gigs.createDraft(fixer, { ...blank, pay: 9_000 }), /pay can be/);
+                assert.equal((await gigs.create(admin, input(one, { pay: 5_000 }))).pay, 5_000);
+            });
+        });
+
+        it('limits how many drafts and waiting gigs a fixer can have, but not admins', async () => {
+            await withLimits({ MAX_DRAFTS: 1, MAX_PENDING_GIGS: 1 }, async () => {
+                await gigs.createDraft(fixer, blank);
+                await assert.rejects(gigs.createDraft(fixer, blank), /1 drafts/);
+                await gigs.createDraft(admin, blank);
+                await gigs.createDraft(admin, blank);
+                await gigs.create(fixer, input(one));
+                await assert.rejects(gigs.create(fixer, input(one)), /waiting for an admin/);
+            });
         });
 
         it('lets fixers edit only their own pending gigs', async () => {
@@ -392,6 +413,16 @@ describe('GigsService', () => {
             assert.deepEqual(await states(gig.id), [['a', 'confirmed'], ['b', 'confirmed']]);
         });
 
+        it('makes players wait before signing up again to a gig they pulled out of', async () => {
+            const gig = await gigs.create(admin, input(two));
+            await gigs.join('a', gig.id);
+            await gigs.leave('a', gig.id);
+            await assert.rejects(gigs.join('a', gig.id), /pulled out of this one/);
+            await withLimits({ REJOIN_COOLDOWN_MINUTES: 0 }, async () => {
+                await gigs.join('a', gig.id);
+            });
+        });
+
         it('confirms new runners straight away once a time is set, but asks runners an admin adds', async () => {
             const gig = await gigs.create(admin, input(two));
             await gigs.setSession(admin, gig.id, Date.UTC(2077, 0, 1, 20));
@@ -598,6 +629,16 @@ describe('GigsService', () => {
                     ['b', 1000, 5, 2, ['Shard of Arasaka intel']],
                 ],
             );
+        });
+
+        it('caps rewards, for admins too', async () => {
+            const gig = await gigs.create(admin, input(one));
+            await gigs.join('a', gig.id);
+            await withLimits({ MAX_IP: 50, MAX_PAY: 1_000 }, async () => {
+                await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, ip: 51 }), /crew IP can be 50 at most/);
+                await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, eb: 2_000 }), /crew pay can be 1,000 eb/);
+                await assert.rejects(debrief.complete(admin, gig.id, { ...noRewards, runners: [{ runnerId: ids.a, eb: null, ip: 60, hqIp: null, text: null }] }), /runner IP/);
+            });
         });
 
         it('only gives runner rewards to runners on the gig', async () => {
@@ -885,9 +926,16 @@ describe('GigsService', () => {
             assert.equal((await gigs.mySignups('a')).used, 1);
         });
 
-        it('has no limit at 0', async () => {
-            for (let i = 0; i < 3; i++) await gigs.join('a', (await gigs.create(admin, input(two))).id);
-            assert.deepEqual(await gigs.mySignups('a'), { used: 3, max: 0 });
+        it("uses MAX_SIGNUPS when Settings leaves it at 0, and has no limit when that's 0 too", async () => {
+            await withLimits({ MAX_SIGNUPS: 2 }, async () => {
+                await gigs.join('a', (await gigs.create(admin, input(two))).id);
+                await gigs.join('a', (await gigs.create(admin, input(two))).id);
+                await assert.rejects(gigs.join('a', (await gigs.create(admin, input(two))).id), /2 live gigs, which is the limit/);
+            });
+            await withLimits({ MAX_SIGNUPS: 0 }, async () => {
+                await gigs.join('a', (await gigs.create(admin, input(two))).id);
+                assert.deepEqual(await gigs.mySignups('a'), { used: 3, max: 0 });
+            });
         });
     });
 });

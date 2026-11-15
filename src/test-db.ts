@@ -1,4 +1,5 @@
 import './test-env';
+import { config } from './config';
 import { PrismaService } from './prisma/prisma.service';
 
 /**
@@ -31,4 +32,15 @@ const TABLES = [
 
 export async function emptyDb() {
     await prisma.$executeRawUnsafe(`TRUNCATE ${TABLES.map((t) => `"${t}"`).join(', ')} CASCADE`);
+}
+
+/** Runs `fn` with some limits (config.ts) changed, then puts them back. */
+export async function withLimits(patch: Partial<typeof config>, fn: () => Promise<void>) {
+    const before = { ...config };
+    Object.assign(config, patch);
+    try {
+        await fn();
+    } finally {
+        Object.assign(config, before);
+    }
 }

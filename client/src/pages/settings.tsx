@@ -176,7 +176,9 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                                 onChange={(e) => set({ maxSignups: Number(e.target.value) })}
                             />
                             {invalid.has('maxSignups') && <p className="mt-1 text-xs text-destructive">Whole number, 0 to 50.</p>}
-                            <p className="mt-1 text-xs text-muted-foreground">Across all of a player's runners, reserves included. 0 for no limit. Admins adding someone can go over it.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Across all of a player's runners, reserves included. 0 uses the server's default ({view.defaultMaxSignups ? view.defaultMaxSignups : 'no limit'}, set by MAX_SIGNUPS). Admins adding someone can go over it.
+                            </p>
                         </div>
                     </Card>
                 </div>

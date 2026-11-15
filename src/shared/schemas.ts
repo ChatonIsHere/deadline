@@ -48,7 +48,9 @@ const optionalText = (max: number) =>
         .max(max)
         .nullable()
         .transform((s) => s || null);
-const optionalAmount = z.number().int().min(0).nullable();
+/** Whole-number columns stop at about 2.1 billion. The server's own ceilings (MAX_PAY, MAX_IP) are lower. */
+export const MAX_AMOUNT = 2_000_000_000;
+const optionalAmount = z.number().int().min(0).max(MAX_AMOUNT).nullable();
 /** A record's ID: a UUID. */
 const id = z.uuid();
 
@@ -65,7 +67,7 @@ export const gigInput = z.object({
     /** What the crew has to do to get paid: one or more parts, one line each, with one payout. */
     primaryObjective: z.array(oneLine(150)).min(1, 'Add the primary objective').max(8),
     /** What the primary objective pays. */
-    pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay'),
+    pay: z.number({ error: 'Set the pay' }).int().min(1, 'Set the pay').max(MAX_AMOUNT),
     /** The pay is one pot divided between the runners, rather than this much each. */
     splitPay: z.boolean().default(false),
     imageId: id.nullable(),
@@ -74,7 +76,7 @@ export const gigInput = z.object({
         // `hidden`: players see "not disclosed" until the gig begins.
         .array(
             z
-                .object({ text: oneLine(150), bonus: z.number().int().min(1).nullable(), each: z.boolean(), hidden: z.boolean() })
+                .object({ text: oneLine(150), bonus: z.number().int().min(1).max(MAX_AMOUNT).nullable(), each: z.boolean(), hidden: z.boolean() })
                 .refine((o) => !o.each || o.bonus, 'A per-each objective needs a bonus'),
         )
         .max(8),
@@ -95,10 +97,10 @@ export const gigDraftInput = z.object({
     type: z.string().trim().max(40).nullable(),
     brief: z.string().trim().max(4000),
     primaryObjective: z.array(z.string().trim().max(150)).max(8),
-    pay: z.number().int().min(0),
+    pay: z.number().int().min(0).max(MAX_AMOUNT),
     splitPay: z.boolean().default(false),
     imageId: id.nullable(),
-    objectives: z.array(z.object({ text: z.string().trim().max(150), bonus: z.number().int().min(1).nullable(), each: z.boolean(), hidden: z.boolean() })).max(8),
+    objectives: z.array(z.object({ text: z.string().trim().max(150), bonus: z.number().int().min(1).max(MAX_AMOUNT).nullable(), each: z.boolean(), hidden: z.boolean() })).max(8),
     slots: z
         .array(z.object({ crewId: id.nullable(), count: z.number().int().min(0) }))
         .refine((groups) => groups.reduce((sum, g) => sum + g.count, 0) <= MAX_SLOTS, `${MAX_SLOTS} slots max`),
@@ -577,6 +579,8 @@ export interface GuildOptions {
 
 export interface SettingsView {
     settings: Settings;
+    /** Live gigs per player when settings.maxSignups is 0 (MAX_SIGNUPS on the server). 0 is no limit. */
+    defaultMaxSignups: number;
     guilds: Option[];
     /** Forums and roles of the chosen server, if there is one. */
     options: GuildOptions | null;

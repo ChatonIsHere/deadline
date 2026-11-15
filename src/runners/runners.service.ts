@@ -9,6 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { canLogIn, canSeeGig } from '../shared/permissions';
 import { CUSTOM_LIVING, hasLiving } from '../shared/downtime';
+import { config } from '../config';
+import { checkCount } from '../limits';
 import { FIXER_ROLE, type FixerSummary, type GigLink, type Me, type Rating, type RetireInput, type RunnerCard, type Review, type RunnerInput, type RunnerSummary, type RunnerView } from '../shared/schemas';
 import { gigRef, isFreeSlugWord, isUuid, toSlug } from '../shared/slug';
 import { DowntimeService } from './downtime.service';
@@ -119,6 +121,7 @@ export class RunnersService {
         const ownerId = requested === undefined ? user.id : requested;
         await this.checkOwner(user, ownerId, input);
         await this.check(input);
+        if (!user.isAdmin && ownerId) await this.checkActiveLimit(ownerId);
         const slug = await this.handleSlug(input.handle);
         const alias = await this.alias(fields.fixerAlias, slug);
         const living = await this.livingFields(input, ownerId);
@@ -200,6 +203,12 @@ export class RunnersService {
         });
     }
 
+    /** MAX_ACTIVE_RUNNERS: retired and flatlined runners don't count. */
+    private async checkActiveLimit(ownerId: string) {
+        const active = await this.prisma.runner.count({ where: { ownerId, status: 'active' } });
+        checkCount(active, config.MAX_ACTIVE_RUNNERS, `that's ${config.MAX_ACTIVE_RUNNERS} active runners, the most a player can have. retire one first.`);
+    }
+
     /** In a slot or on the reserves of a gig that isn't finished. */
     private async onUnfinishedGigs(id: string): Promise<boolean> {
         const unfinished = { status: { in: [...UNFINISHED] } };
@@ -221,6 +230,7 @@ export class RunnersService {
         // Their player can still edit the obituary
         if (r.status === 'dead' && input.status !== 'dead' && !user.isAdmin) throw new ForbiddenException('Only admins can bring back the dead.');
         if (input.status === r.status && input.status !== 'dead') return this.get(user, id);
+        if (input.status === 'active' && !user.isAdmin && r.ownerId) await this.checkActiveLimit(r.ownerId);
 
         await this.prisma.runner.update({
             where: { id },

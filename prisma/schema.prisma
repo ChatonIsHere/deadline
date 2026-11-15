@@ -121,6 +121,7 @@ model Crew {
   allies  CrewAlly[]
   invites CrewInvite[]
   slots   GigSlot[]
+  inviteDeclines CrewInviteDecline[]
 
   @@index([imageId])
   @@map("crews")
@@ -166,6 +167,19 @@ model CrewInvite {
   @@id([crewId, runnerId])
   @@index([runnerId])
   @@map("crew_invites")
+}
+
+/// When a runner turned down a crew's invite, so the crew waits (INVITE_COOLDOWN_DAYS) before asking again
+model CrewInviteDecline {
+  crewId     String   @map("crew_id") @db.Uuid
+  runnerId   String   @map("runner_id") @db.Uuid
+  declinedAt DateTime @default(now()) @map("declined_at") @db.Timestamptz(3)
+
+  crew   Crew   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([crewId, runnerId])
+  @@map("crew_invite_declines")
 }
 
 /// A character. Players can have several. One with the Fixer role counts as a fixer only while
@@ -215,6 +229,7 @@ model Runner {
   memberships CrewMember[]
   allyOf      CrewAlly[]
   invites     CrewInvite[]
+  inviteDeclines CrewInviteDecline[]
   fixedGigs   Gig[]
   slots       GigSlot[]
   reserves    GigReserve[]

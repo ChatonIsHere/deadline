@@ -1,4 +1,4 @@
-import { emptyDb, prisma } from '../test-db';
+import { emptyDb, prisma, withLimits } from '../test-db';
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
@@ -164,6 +164,18 @@ describe('RunnersService', () => {
         await prisma.gig.update({ where: { id: other.id }, data: { fixerName: 'The Jaybird' } });
         await runners.update(admin, jay.id, input({ ownerId: null, role: 'Fixer', handle: 'Jay', fixerAlias: 'The Jaybird' }));
         assert.equal((await prisma.gig.findUniqueOrThrow({ where: { id: other.id } })).fixerRunnerId, jay.id);
+    });
+
+    it('limits active runners per player, but not retired ones or admins', async () => {
+        await withLimits({ MAX_ACTIVE_RUNNERS: 2 }, async () => {
+            const first = await runners.create(players[1], input({ handle: 'One' }));
+            await runners.create(players[1], input({ handle: 'Two' }));
+            await assert.rejects(runners.create(players[1], input({ handle: 'Three' })), /2 active runners/);
+            await runners.retire(players[1], first.id, { status: 'retired' });
+            await runners.create(players[1], input({ handle: 'Three' }));
+            await assert.rejects(runners.retire(players[1], first.id, { status: 'active' }), /2 active runners/);
+            await runners.create(admin, input({ ownerId: 'a', handle: 'Four' }));
+        });
     });
 
     it('keeps handles one of a kind, as links compare them', async () => {

@@ -1,5 +1,7 @@
-import { CanActivate, createParamDecorator, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, createParamDecorator, ExecutionContext, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
+import { config } from '../config';
+import { Window } from '../limits';
 import type { Me } from '../shared/schemas';
 import { AuthService } from './auth.service';
 
@@ -7,7 +9,10 @@ export const SESSION_COOKIE = 'deadline_session';
 
 type AuthedRequest = Request & { user?: Me };
 
-/** Lets signed in users through and puts them on the request. */
+/** Changes in the last minute, per person, for MAX_WRITES_PER_MINUTE. */
+const writes = new Window(60_000);
+
+/** Lets signed in users through and puts them on the request. Anything but reading counts toward the write limit. */
 @Injectable()
 export class AuthGuard implements CanActivate {
     constructor(private readonly auth: AuthService) {}
@@ -17,6 +22,10 @@ export class AuthGuard implements CanActivate {
         const user = await this.auth.user(req.cookies?.[SESSION_COOKIE]);
         if (!user) throw new UnauthorizedException();
         req.user = user;
+        const max = config.MAX_WRITES_PER_MINUTE;
+        if (max && req.method !== 'GET' && !user.isAdmin && writes.hit(user.id) >= max) {
+            throw new HttpException('slow down: too many changes in a minute. try again shortly.', HttpStatus.TOO_MANY_REQUESTS);
+        }
         return true;
     }
 }

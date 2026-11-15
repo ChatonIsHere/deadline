@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleInit, PayloadTooLargeException } from '@nestjs/common';
 import sharp from 'sharp';
 import { config } from '../config';
+import { checkCount } from '../limits';
 import { type Db, PrismaService } from '../prisma/prisma.service';
 import { artPreviewFile, artThumbFile, cardFile, FRAME_VERSION, framedFile, imagePrefix, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '../shared/images';
 import type { LibraryView, Me, RegionInput } from '../shared/schemas';
@@ -161,16 +162,28 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         if (opts.regionId && !(await this.prisma.region.findUnique({ where: { id: opts.regionId } }))) throw new NotFoundException('No such region.');
         if (opts.inLibrary) return this.add(data, { ...opts, createdBy: user.id });
 
-        const limit = config.MAX_USER_STORAGE_MB * 1024 * 1024;
-        const full = new PayloadTooLargeException(`you've used your ${config.MAX_USER_STORAGE_MB} MB of picture storage. pictures nothing uses any more clear out after 30 days.`);
-        if ((await this.usedBytes(user.id)) >= limit) throw full;
+        await this.checkQuota(user);
         // Only its real size counts, so it's checked once stored. Two at once can't both slip under.
         const id = await this.add(data, { ...opts, createdBy: user.id });
-        if ((await this.usedBytes(user.id)) > limit) {
-            await this.discard(id);
-            throw full;
-        }
+        await this.checkStoredSize(user, id);
         return id;
+    }
+
+    /** Before a new picture: MAX_UPLOADS_PER_DAY (admins aren't held to it) and the storage limit. */
+    private async checkQuota(user: Me) {
+        if (!user.isAdmin) {
+            const today = await this.prisma.image.count({ where: { createdBy: user.id, inLibrary: false, createdAt: { gt: new Date(Date.now() - 86_400_000) } } });
+            checkCount(today, config.MAX_UPLOADS_PER_DAY, `that's ${config.MAX_UPLOADS_PER_DAY} pictures today, the most for one day. try again tomorrow.`);
+        }
+        if ((await this.usedBytes(user.id)) >= config.MAX_USER_STORAGE_MB * 1024 * 1024) throw storageFull();
+    }
+
+    /** After storing it: over the storage limit, it goes again. */
+    private async checkStoredSize(user: Me, id: string) {
+        if ((await this.usedBytes(user.id)) > config.MAX_USER_STORAGE_MB * 1024 * 1024) {
+            await this.discard(id);
+            throw storageFull();
+        }
     }
 
     /** Takes a picture out of the library. It's deleted 30 days after nothing uses it (see CleanupService). */
@@ -193,6 +206,8 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
         const plain = await this.storage.get(plainFile(id));
         if (!plain) throw new BadRequestException('That picture is gone. Upload it again.');
 
+        // A copy is a new picture: it counts toward the uploads per day and the storage limit
+        await this.checkQuota(user);
         let copyId = randomUUID();
         while (variantIndex(copyId) !== variant) copyId = randomUUID();
         await this.prisma.image.create({ data: { id: copyId, kind: 'avatar', inLibrary: false, createdBy: user.id, unusedSince: new Date() } });
@@ -204,6 +219,7 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
             await this.discard(copyId);
             throw err;
         }
+        await this.checkStoredSize(user, copyId);
         return copyId;
     }
 
@@ -327,6 +343,9 @@ function frame(plain: Buffer, kind: ImageKind, id: string, padded: boolean): Pro
         .webp(WEBP)
         .toBuffer();
 }
+
+const storageFull = () =>
+    new PayloadTooLargeException(`you've used your ${config.MAX_USER_STORAGE_MB} MB of picture storage. pictures nothing uses any more clear out after 30 days.`);
 
 /** images/cards/<gig>/<hash>.png → cards-<gig>-<hash>.png, images/<id>/framed-v6.webp → <id>-framed-v6.webp */
 export const attachmentName = (key: string) => key.split('/').slice(1).join('-');

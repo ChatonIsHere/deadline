@@ -3,6 +3,7 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BotProfileService } from '../discord/bot-profile.service';
 import { GigPostService } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
+import { config } from '../config';
 import { botProfileInput, type BotProfileInput, type Me, type Settings, settingsInput, type SettingsView } from '../shared/schemas';
 import { ZodPipe } from '../zod.pipe';
 import { SettingsService } from './settings.service';
@@ -24,6 +25,7 @@ export class SettingsController {
         const guilds = this.settings.guilds().filter((g) => user.isOwner || g.id === current.guildId);
         return {
             settings: current,
+            defaultMaxSignups: config.MAX_SIGNUPS,
             guilds,
             options: current.guildId ? await this.settings.options(current.guildId).catch(() => null) : null,
             inviteUrl: this.settings.inviteUrl(),

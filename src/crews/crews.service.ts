@@ -4,6 +4,7 @@ import { config } from '../config';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
 import { NotifyService } from '../discord/notify.service';
+import { checkCount, until, Window } from '../limits';
 import { type Said, voice } from '../discord/voice';
 import { GigsService, toCard } from '../gigs/gigs.service';
 import { LibraryService } from '../library/library.service';
@@ -30,6 +31,9 @@ type CrewRow = Prisma.CrewGetPayload<{ include: typeof CREW_INCLUDE }>;
  */
 @Injectable()
 export class CrewsService {
+    /** Logo frame changes per crew in the last day, for MAX_FRAME_CHANGES_PER_DAY. */
+    private readonly frameChanges = new Window(86_400_000);
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly members: MembersService,
@@ -63,6 +67,11 @@ export class CrewsService {
         const runner = await this.runner(input.runnerId);
         if (!runner.ownerId || (!user.isAdmin && runner.ownerId !== user.id)) throw new BadRequestException('Found the crew with one of your own runners.');
         if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
+        if (!user.isAdmin) {
+            const founded = await this.prisma.crew.count({ where: { ownerId: runner.ownerId } });
+            checkCount(founded, config.MAX_CREWS_FOUNDED, `you've founded ${config.MAX_CREWS_FOUNDED} crews, the most a player can.`);
+            await this.checkRunnerCrews(runner.id, runner.handle);
+        }
 
         const crew = await this.prisma.crew.create({
             data: {
@@ -149,6 +158,9 @@ export class CrewsService {
         const crew = await this.manage(user, id);
         await this.runner(runnerId);
         if (crew.members.some((m) => m.id === runnerId)) throw new ConflictException("They're already in the crew.");
+        if (!user.isAdmin && !crew.allies.some((a) => a.id === runnerId)) {
+            checkCount(crew.allies.length, config.MAX_CREW_ALLIES, `a crew can have ${config.MAX_CREW_ALLIES} allies at most.`);
+        }
         await this.prisma.crewAlly.createMany({ data: [{ crewId: id, runnerId }], skipDuplicates: true });
         return this.get(id);
     }
@@ -171,6 +183,14 @@ export class CrewsService {
         if (runner.status !== 'active') throw new BadRequestException(`${runner.handle} is ${runner.status}.`);
         if (crew.members.some((m) => m.id === runnerId)) throw new ConflictException("They're already in the crew.");
         if (crew.invites.some((r) => r.id === runnerId)) throw new ConflictException('They already have an invite.');
+        if (!user.isAdmin) {
+            checkCount(crew.invites.length, config.MAX_PENDING_INVITES, `the crew has ${config.MAX_PENDING_INVITES} invites waiting. let some get answered first.`);
+            checkCount(crew.members.length, config.MAX_CREW_MEMBERS, `the crew is full: ${config.MAX_CREW_MEMBERS} runners at most.`);
+            await this.checkRunnerCrews(runner.id, runner.handle);
+            const declined = await this.prisma.crewInviteDecline.findUnique({ where: { crewId_runnerId: { crewId: id, runnerId } } });
+            const again = declined && config.INVITE_COOLDOWN_DAYS ? declined.declinedAt.getTime() + config.INVITE_COOLDOWN_DAYS * 86_400_000 : 0;
+            if (again > Date.now()) throw new BadRequestException(`${runner.handle} turned down an invite recently. you can ask again ${until(again)}.`);
+        }
 
         await this.prisma.crewInvite.create({ data: { crewId: id, runnerId, invitedBy: user.id } });
         const sent = await this.notify.send('crewInvites', [runner.ownerId], inviteMessage(crew, toCard(runner), user.name, config.PUBLIC_URL));
@@ -188,6 +208,9 @@ export class CrewsService {
     async accept(userId: string, id: string, runnerId: string): Promise<Said> {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
+        const runner = await this.runner(runnerId);
+        checkCount(crew.members.length, config.MAX_CREW_MEMBERS, `${crew.name} is full: ${config.MAX_CREW_MEMBERS} runners at most.`);
+        await this.checkRunnerCrews(runnerId, runner.handle);
         await this.join(crew, runnerId);
         return voice.crewJoined(crew.name, (await this.runner(runnerId)).handle);
     }
@@ -196,6 +219,12 @@ export class CrewsService {
         const crew = await this.get(id);
         await this.checkInvite(userId, crew, runnerId);
         await this.prisma.crewInvite.deleteMany({ where: { crewId: id, runnerId } });
+        // The crew waits INVITE_COOLDOWN_DAYS before asking again
+        await this.prisma.crewInviteDecline.upsert({
+            where: { crewId_runnerId: { crewId: id, runnerId } },
+            create: { crewId: id, runnerId },
+            update: { declinedAt: new Date() },
+        });
         return voice.crewDeclined(crew.name);
     }
 
@@ -249,7 +278,18 @@ export class CrewsService {
         const crew = await this.manage(user, id);
         const image = await this.prisma.image.findUnique({ where: { id: imageId }, select: { createdBy: true } });
         if (!image || (imageId !== crew.imageId && image.createdBy !== user.id)) throw new ForbiddenException();
-        return { imageId: await this.library.reframe(user, imageId, variant) };
+        if (!user.isAdmin) {
+            checkCount(this.frameChanges.count(id), config.MAX_FRAME_CHANGES_PER_DAY, `that's ${config.MAX_FRAME_CHANGES_PER_DAY} frame changes today. try again tomorrow.`);
+        }
+        const copy = await this.library.reframe(user, imageId, variant);
+        if (copy !== imageId) this.frameChanges.hit(id);
+        return { imageId: copy };
+    }
+
+    /** MAX_CREWS_PER_RUNNER, checked before they join or are asked to. */
+    private async checkRunnerCrews(runnerId: string, handle: string) {
+        const crews = await this.prisma.crewMember.count({ where: { runnerId } });
+        checkCount(crews, config.MAX_CREWS_PER_RUNNER, `${handle} is in ${config.MAX_CREWS_PER_RUNNER} crews already, the most a runner can be.`);
     }
 
     private async manage(user: Me, id: string): Promise<CrewView> {

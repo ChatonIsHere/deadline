@@ -14,6 +14,7 @@ import { canCreateGig, canDeleteGig, canEditGig, canSeeGig, NEXT_STATUSES } from
 import { type GigDraftInput, gigInput, type GigInput, type GigStatus, type GigView, LIVE_STATUSES, type Me, type MySignups, objectivesRevealed, type RunnerCard, type RunnerState } from '../shared/schemas';
 import { gigRef, gigRefPrefix, isUuid } from '../shared/slug';
 import { SettingsService } from '../settings/settings.service';
+import { checkCount, checkEb, until } from '../limits';
 import { confirmDeadline, sessionWork, tooLateToAsk } from './sessions';
 import { diffSlots, fillFromReserves, pickSlot, shiftToCrewSlots, slotGroups, spareChanges, unlimitedGroups } from './slots';
 
@@ -62,6 +63,8 @@ export class GigsService {
     private readonly logger = new Logger(GigsService.name);
     /** Post updates per gig, run one at a time so an older state never lands last. */
     private readonly postQueue = new Map<string, Promise<void>>();
+    /** When each player last pulled out of each gig ("gig:user"), for REJOIN_COOLDOWN_MINUTES. Forgotten on restart. */
+    private readonly leftAt = new Map<string, number>();
     private readonly timers: NodeJS.Timeout[] = [];
 
     constructor(
@@ -106,6 +109,7 @@ export class GigsService {
     async create(user: Me, input: GigInput): Promise<GigView> {
         if (!canCreateGig(user)) throw new ForbiddenException();
         const status: GigStatus = user.isAdmin ? 'open' : 'pending';
+        if (status === 'pending') await this.checkPending(user);
         const { objectives, slots, ...fields } = await this.prepare(user, input);
 
         const id = await this.prisma.$transaction(async (tx) => {
@@ -134,6 +138,10 @@ export class GigsService {
     /** Saves a new draft. Only the name has to be there yet. */
     async createDraft(user: Me, input: GigDraftInput): Promise<GigView> {
         if (!canCreateGig(user)) throw new ForbiddenException();
+        if (!user.isAdmin) {
+            const drafts = await this.prisma.gig.count({ where: { createdBy: user.id, status: 'draft' } });
+            checkCount(drafts, config.MAX_DRAFTS, `that's ${config.MAX_DRAFTS} drafts, the most you can have. send or delete one first.`);
+        }
         const { objectives, slots, ...fields } = await this.prepareDraft(user, input);
         const id = await this.prisma.$transaction(async (tx) => {
             const gig = await tx.gig.create({ data: { ...fields, status: 'draft', createdBy: user.id }, select: { id: true } });
@@ -171,6 +179,7 @@ export class GigsService {
 
         const { objectives: _, slots: __, ...fields } = await this.prepare(user, this.readyToSend(gig));
         const status: GigStatus = user.isAdmin ? 'open' : 'pending';
+        if (status === 'pending') await this.checkPending(user);
         // Only one send can win, so a double click (or the schedule firing at the same moment) can't post it twice
         const { count } = await this.prisma.gig.updateMany({ where: { id, status: 'draft' }, data: { ...fields, status, postAt: null, postBy: null } });
         if (!count) throw new BadRequestException('That gig is not a draft any more.');
@@ -346,6 +355,10 @@ export class GigsService {
         const slot = await this.slotOf(id, userId);
         if (slot?.state === 'awaiting') return this.confirm(userId, id);
         if ((await this.row(id)).status !== 'open') throw new BadRequestException(voice.notOpen);
+        // Pulling out and straight back in edits the post every time
+        const left = this.leftAt.get(`${id}:${userId}`);
+        const back = left && config.REJOIN_COOLDOWN_MINUTES ? left + config.REJOIN_COOLDOWN_MINUTES * 60_000 : 0;
+        if (!slot && !me.isAdmin && back > Date.now()) throw new BadRequestException(`you pulled out of this one a moment ago. you can sign up again ${until(back)}.`);
         // Before asking which runner, so nobody picks one only to be told no
         if (!slot && !(await this.isReserve(id, userId))) await this.checkLimit(this.prisma, userId);
 
@@ -411,6 +424,7 @@ export class GigsService {
             return reserve.runnerId;
         });
         if (!removed) throw new BadRequestException(voice.notIn);
+        this.leftAt.set(`${id}:${userId}`, Date.now());
         await this.afterRemoval(id);
     }
 
@@ -520,7 +534,7 @@ export class GigsService {
                 throw new BadRequestException(assigned ? voice.playerAlreadyReserve : voice.alreadyReserve);
             }
             // Admins putting someone on a gig can go over the limit
-            if (!assigned && this.settings.get().maxSignups) {
+            if (!assigned && this.maxSignups()) {
                 // One sign-up per player at a time, or two quick ones on different gigs could both fit
                 await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
                 await this.checkLimit(tx, userId);
@@ -614,16 +628,16 @@ export class GigsService {
     }
 
     private async atLimit(db: PrismaService | Tx, userId: string): Promise<boolean> {
-        const { maxSignups } = this.settings.get();
+        const maxSignups = this.maxSignups();
         return !!maxSignups && (await this.signupCount(db, userId)) >= maxSignups;
     }
 
     private async checkLimit(db: PrismaService | Tx, userId: string) {
-        if (await this.atLimit(db, userId)) throw new BadRequestException(voice.atLimit(this.settings.get().maxSignups));
+        if (await this.atLimit(db, userId)) throw new BadRequestException(voice.atLimit(this.maxSignups()));
     }
 
     async mySignups(userId: string): Promise<MySignups> {
-        return { used: await this.signupCount(this.prisma, userId), max: this.settings.get().maxSignups };
+        return { used: await this.signupCount(this.prisma, userId), max: this.maxSignups() };
     }
 
     /** Which of the player's runners is signing up. One runner means no need to ask. */
@@ -773,7 +787,25 @@ export class GigsService {
      * characters. Admins pick any fixer character or type a name. No picture means a
      * random one for the location.
      */
+    /** Live gigs per player: the Settings page's number, or MAX_SIGNUPS when that's 0. 0 is no limit. */
+    private maxSignups(): number {
+        return this.settings.get().maxSignups || config.MAX_SIGNUPS;
+    }
+
+    /** MAX_PENDING_GIGS: a fixer's gigs waiting for an admin. Each one DMs every admin. */
+    private async checkPending(user: Me) {
+        const pending = await this.prisma.gig.count({ where: { createdBy: user.id, status: 'pending' } });
+        checkCount(pending, config.MAX_PENDING_GIGS, `you have ${config.MAX_PENDING_GIGS} gigs waiting for an admin. wait for some to be approved first.`);
+    }
+
+    /** MAX_PAY on the pay and each objective bonus, for everyone. */
+    private checkMoney(input: { pay: number; objectives: { bonus: number | null }[] }) {
+        checkEb(input.pay, 'pay');
+        for (const o of input.objectives) checkEb(o.bonus, 'an objective bonus');
+    }
+
     private async prepare(user: Me, input: GigInput) {
+        this.checkMoney(input);
         const fixer = await this.resolveFixer(user, input);
         if (input.imageId && !(await this.library.exists(input.imageId))) throw new BadRequestException('That picture is gone. Pick another.');
         const imageId = input.imageId ?? (await this.library.pick(input.location));
@@ -782,6 +814,7 @@ export class GigsService {
 
     /** The same for a draft, which can leave things blank. A fixer who can't be worked out yet stays empty. */
     private async prepareDraft(user: Me, input: GigDraftInput) {
+        this.checkMoney(input);
         const fixer = await this.resolveFixer(user, input).catch((err) => {
             if (err instanceof BadRequestException) return { name: input.fixerName, runnerId: null, userId: null };
             throw err;

@@ -8,6 +8,7 @@ import { gigRef } from '../shared/slug';
 import { type Said, voice } from '../discord/voice';
 import { PrismaService } from '../prisma/prisma.service';
 import { DowntimeService } from '../runners/downtime.service';
+import { checkEb, checkIp } from '../limits';
 import { splitPot } from '../shared/pay';
 import type { CompleteInput, GigView, Me } from '../shared/schemas';
 import { ACTIVE, GigsService } from './gigs.service';
@@ -41,6 +42,14 @@ export class DebriefService {
         if (!user.isAdmin) throw new ForbiddenException();
         const gig = await this.gigs.row(id);
         if (!ACTIVE.includes(gig.status)) throw new BadRequestException('Only live gigs can be completed.');
+        checkEb(input.eb, 'the crew pay');
+        checkIp(input.ip, 'the crew IP');
+        checkIp(input.hqIp, 'the HQ IP');
+        for (const r of input.runners) {
+            checkEb(r.eb, 'a runner reward');
+            checkIp(r.ip, 'runner IP');
+            checkIp(r.hqIp, 'runner HQ IP');
+        }
 
         const slots = (await this.prisma.gigSlot.findMany({ where: { gigId: id }, include: { runner: true } })).filter((s) => s.userId && s.runnerId);
         const onGig = new Set(slots.map((s) => s.runnerId!));

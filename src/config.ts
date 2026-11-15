@@ -7,6 +7,10 @@ const optional = z
     .string()
     .optional()
     .transform((s) => s || undefined);
+/** A limit from the environment. 0 turns it off. */
+const limit = (fallback: number) => z.coerce.number().int().min(0).default(fallback);
+/** Postgres whole-number columns stop at about 2.1 billion. */
+const amount = (fallback: number) => z.coerce.number().int().min(1).max(2_000_000_000).default(fallback);
 
 // Only what the bot needs to start. Server, forum and roles are set on the web (see settings/).
 const schema = z.object({
@@ -24,6 +28,26 @@ const schema = z.object({
     S3_BUCKET: optional,
     // How much picture storage one person's uploads can take up. The library doesn't count.
     MAX_USER_STORAGE_MB: z.coerce.number().int().min(1).default(100),
+
+    // Limits on what people can make and how often (see .env.example). Admins aren't held to the
+    // per-person ones. The money and IP ceilings apply to everyone. 0 turns a limit off.
+    MAX_ACTIVE_RUNNERS: limit(5),
+    MAX_CREWS_FOUNDED: limit(2),
+    MAX_CREWS_PER_RUNNER: limit(3),
+    MAX_CREW_MEMBERS: limit(30),
+    MAX_CREW_ALLIES: limit(50),
+    MAX_PENDING_INVITES: limit(10),
+    INVITE_COOLDOWN_DAYS: limit(7),
+    MAX_DRAFTS: limit(10),
+    MAX_PENDING_GIGS: limit(5),
+    // Live gigs per player, when the Settings page leaves it at 0
+    MAX_SIGNUPS: limit(3),
+    REJOIN_COOLDOWN_MINUTES: limit(10),
+    MAX_FRAME_CHANGES_PER_DAY: limit(6),
+    MAX_UPLOADS_PER_DAY: limit(30),
+    MAX_WRITES_PER_MINUTE: limit(60),
+    MAX_PAY: amount(1_000_000),
+    MAX_IP: amount(1_000),
     DISCORD_TOKEN: z.string().min(1),
     DISCORD_CLIENT_SECRET: z.string().min(1),
 });

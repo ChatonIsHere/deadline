@@ -1,4 +1,4 @@
-import { emptyDb, prisma } from '../test-db';
+import { emptyDb, prisma, withLimits } from '../test-db';
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 import { PrefsService } from '../auth/prefs.service';
@@ -126,6 +126,36 @@ describe('CrewsService', () => {
         assert.deepEqual(await ranks(crew.id), [['a', 'Founder'], ['b', 'Member']]);
         assert.equal((await crews.get(crew.id)).invites.length, 0);
         await assert.rejects(crews.accept('b', crew.id, ids.b), /invite is gone/);
+    });
+
+    it('waits a while before a crew can ask a runner who said no again', async () => {
+        const crew = await make();
+        await crews.invite(a, crew.id, ids.b);
+        await crews.decline('b', crew.id, ids.b);
+        await assert.rejects(crews.invite(a, crew.id, ids.b), /turned down an invite recently. you can ask again in 7 days/);
+        await crews.invite(admin, crew.id, ids.b);
+        await crews.cancelInvite(admin, crew.id, ids.b);
+        await withLimits({ INVITE_COOLDOWN_DAYS: 0 }, async () => {
+            await crews.invite(a, crew.id, ids.b);
+        });
+    });
+
+    it('limits crews founded, crews per runner, members, waiting invites and allies', async () => {
+        await withLimits({ MAX_CREWS_FOUNDED: 1, MAX_CREWS_PER_RUNNER: 1, MAX_CREW_MEMBERS: 2, MAX_PENDING_INVITES: 1, MAX_CREW_ALLIES: 1 }, async () => {
+            const crew = await make();
+            await assert.rejects(crews.create(a, { name: 'Second', tagline: '', runnerId: ids.a }), /founded 1 crews/);
+            const other = await crews.create(b, { name: 'Other', tagline: '', runnerId: ids.b });
+            // b's runner is in a crew already
+            await assert.rejects(crews.invite(a, crew.id, ids.b), /in 1 crews already/);
+            await crews.invite(a, crew.id, ids.c);
+            await addRunner('c', 'c2');
+            await assert.rejects(crews.invite(a, crew.id, ids.c2), /invites waiting/);
+            await crews.accept('c', crew.id, ids.c);
+            await assert.rejects(crews.invite(a, crew.id, ids.c2), /crew is full/);
+            await crews.addAlly(a, crew.id, ids.c2);
+            await assert.rejects(crews.addAlly(a, crew.id, ids.npc), /1 allies at most/);
+            assert.ok(other);
+        });
     });
 
     it('only lets founders and admins invite', async () => {
