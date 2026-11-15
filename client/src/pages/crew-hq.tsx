@@ -21,7 +21,7 @@ export function CrewHqPage() {
     if (!crew) return <Loading>scanning...</Loading>;
 
     return (
-        <div className="mx-auto w-full max-w-4xl space-y-5">
+        <div className="space-y-5">
             <Link to={`/crews/${crew.slug}`} className="group flex w-fit items-center gap-3">
                 {crew.imageId ? (
                     <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} large className="size-12 text-xl [--cut:6px]" />
@@ -43,8 +43,8 @@ export function CrewHqPage() {
 }
 
 /**
- * The crew's HQ IP: what it has, and what it earned on gigs and spent. Founders spend it, saying
- * what on. Admins can add some too.
+ * The crew's HQ IP. Left: what it has, and spending it (founders, saying what on; admins can add
+ * some too). Right: what it earned on gigs and spent.
  */
 function HqCard({ crew, url, canSpend, canAdd }: { crew: CrewView; url: string; canSpend: boolean; canAdd: boolean }) {
     const tz = useTimeZone();
@@ -72,63 +72,69 @@ function HqCard({ crew, url, canSpend, canAdd }: { crew: CrewView; url: string; 
     };
 
     return (
-        <Card className="space-y-3">
-            <CardTitle help="improvement points for the crew's headquarters. crews earn them on gigs, and founders spend them.">HQ IP</CardTitle>
-            <p className="flex items-baseline gap-2">
-                <span className="font-display text-4xl leading-none text-primary">{crew.hqIp}</span>
-                <span className="text-xs text-muted-foreground uppercase">to spend</span>
-            </p>
-            {canSpend && (
-                <form onSubmit={submit(-1)} className="space-y-2">
-                    <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
-                        <div>
-                            <Label htmlFor="hq-amount">IP</Label>
-                            <Input id="hq-amount" type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <div className="grid items-start gap-5 lg:grid-cols-2">
+            <Card className="space-y-3">
+                <CardTitle help="improvement points for the crew's headquarters. crews earn them on gigs, and founders spend them.">HQ IP</CardTitle>
+                <p className="flex items-baseline gap-2">
+                    <span className="font-display text-4xl leading-none text-primary">{crew.hqIp}</span>
+                    <span className="text-xs text-muted-foreground uppercase">to spend</span>
+                </p>
+                {canSpend && (
+                    <form onSubmit={submit(-1)} className="space-y-2">
+                        <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
+                            <div>
+                                <Label htmlFor="hq-amount">IP</Label>
+                                <Input id="hq-amount" type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} />
+                            </div>
+                            <div>
+                                <Label htmlFor="hq-note">On what</Label>
+                                <Input id="hq-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. a med bay" />
+                            </div>
                         </div>
-                        <div>
-                            <Label htmlFor="hq-note">On what</Label>
-                            <Input id="hq-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. a med bay" />
-                        </div>
-                    </div>
-                    {error && <p className="text-sm text-destructive">{error}</p>}
-                    <div className="flex justify-end gap-2">
-                        {canAdd && (
-                            <Button type="button" variant="outline" size="sm" disabled={save.isPending} onClick={() => submit(1)()}>
-                                Add
+                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        <div className="flex justify-end gap-2">
+                            {canAdd && (
+                                <Button type="button" variant="outline" size="sm" disabled={save.isPending} onClick={() => submit(1)()}>
+                                    Add
+                                </Button>
+                            )}
+                            <Button type="submit" size="sm" disabled={save.isPending || !crew.hqIp}>
+                                Spend
                             </Button>
-                        )}
-                        <Button type="submit" size="sm" disabled={save.isPending || !crew.hqIp}>
-                            Spend
-                        </Button>
-                    </div>
-                </form>
-            )}
-            {crew.hqLog.length ? (
-                <ul className="space-y-2 border-t-2 border-border pt-3">
-                    {crew.hqLog.map((e) => (
-                        <li key={e.id} className="live-in flex items-start gap-3 text-sm">
-                            <span className={cn('w-10 shrink-0 text-right font-display', e.amount > 0 ? 'text-success' : 'text-destructive')}>
-                                {e.amount > 0 ? '+' : ''}
-                                {e.amount}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                                {e.gig ? (
-                                    <Link to={`/gigs/${e.gig.ref}`} className="hover:text-accent">
-                                        {e.gig.name}
-                                    </Link>
-                                ) : (
-                                    <span className="break-words">{e.note}</span>
-                                )}
-                                <span className="block text-xs text-muted-foreground">
-                                    {[e.by, new Date(e.at).toLocaleDateString('en-GB', { timeZone: tz })].filter(Boolean).join(' · ')}
+                        </div>
+                    </form>
+                )}
+            </Card>
+
+            <Card className="space-y-3">
+                <CardTitle help="the latest of what the crew earned on gigs and spent, newest first.">History</CardTitle>
+                {crew.hqLog.length ? (
+                    <ul className="space-y-2">
+                        {crew.hqLog.map((e) => (
+                            <li key={e.id} className="live-in flex items-start gap-3 text-sm">
+                                <span className={cn('w-10 shrink-0 text-right font-display', e.amount > 0 ? 'text-success' : 'text-destructive')}>
+                                    {e.amount > 0 ? '+' : ''}
+                                    {e.amount}
                                 </span>
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <Say>nothing earned yet.</Say>
-            )}
-        </Card>
+                                <span className="min-w-0 flex-1">
+                                    {e.gig ? (
+                                        <Link to={`/gigs/${e.gig.ref}`} className="hover:text-accent">
+                                            {e.gig.name}
+                                        </Link>
+                                    ) : (
+                                        <span className="break-words">{e.note}</span>
+                                    )}
+                                    <span className="block text-xs text-muted-foreground">
+                                        {[e.by, new Date(e.at).toLocaleDateString('en-GB', { timeZone: tz })].filter(Boolean).join(' · ')}
+                                    </span>
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <Say>nothing earned yet.</Say>
+                )}
+            </Card>
+        </div>
     );
 }

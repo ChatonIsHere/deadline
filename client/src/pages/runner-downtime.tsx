@@ -15,7 +15,7 @@ export function RunnerDowntimePage() {
     if (!runner.downtime) return <Navigate to={`/runners/${runner.slug}`} replace />;
 
     return (
-        <div className="mx-auto w-full max-w-4xl space-y-5">
+        <div className="space-y-5">
             <Link to={`/runners/${runner.slug}`} className="group flex w-fit items-center gap-3">
                 <RunnerAvatar runner={runner} large className="size-12 text-xl [--cut:6px]" />
                 <div>
