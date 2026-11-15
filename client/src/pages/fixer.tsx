@@ -93,6 +93,28 @@ export function FixerPage() {
                     </div>
                 </div>
             </Live>
+            {(hasArt || fixer.bio || fixer.reviews.length > 0) && (
+                <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]')}>
+                    {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
+                    {hasArt && (
+                        <div className="lg:col-start-2 lg:row-start-1">
+                            <ArtGallery artIds={fixer.artIds} name={fixer.fixerName} />
+                        </div>
+                    )}
+                    <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
+                        {fixer.bio && (
+                            <Live value={fixer.bio}>
+                                <Card>
+                                    <CardTitle>About</CardTitle>
+                                    <Markdown text={fixer.bio} />
+                                </Card>
+                            </Live>
+                        )}
+
+                        {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
+                    </div>
+                </div>
+            )}
             {/* Two thirds for what's on now, a third for what's done */}
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="min-w-0 lg:col-span-2">
@@ -101,26 +123,6 @@ export function FixerPage() {
                 {/* As tall as the tiles, with room for a few even when there are none */}
                 <div className="relative lg:min-h-56">
                     <GigList title="Finished gigs" gigs={finished} empty="none finished yet." fill />
-                </div>
-            </div>
-            <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]')}>
-                {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}
-                {hasArt && (
-                    <div className="lg:col-start-2 lg:row-start-1">
-                        <ArtGallery artIds={fixer.artIds} name={fixer.fixerName} />
-                    </div>
-                )}
-                <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
-                    {fixer.bio && (
-                        <Live value={fixer.bio}>
-                            <Card>
-                                <CardTitle>About</CardTitle>
-                                <Markdown text={fixer.bio} />
-                            </Card>
-                        </Live>
-                    )}
-
-                    {fixer.reviews.length > 0 && <Reviews reviews={fixer.reviews} />}
                 </div>
             </div>
         </div>
