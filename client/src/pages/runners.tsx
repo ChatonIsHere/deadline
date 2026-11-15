@@ -4,15 +4,17 @@ import { LinkCard, liveKey, Loading, Say } from '@/components/common';
 import { RatingLine, RunnerAvatar, RunnerTile, Stars } from '@/components/runner';
 import { StaggeredImage } from '@/components/staggered-image';
 import { PageTabs } from '@/components/ui/tabs';
-import { imageUrl, useFixers, useRunners } from '@/lib/api';
+import { imageUrl, useFixers, useRunners, useUser } from '@/lib/api';
 import { usePhone } from '@/lib/media';
 import { cn } from '@/lib/utils';
 
-/** Runners taking gigs, and retired and flatlined ones (latest first). */
+/** Runners taking gigs (yours first, then by name), and retired and flatlined ones (latest first). */
 export function RunnersPage() {
+    const me = useUser();
     const { data: runners, isPending } = useRunners();
     if (isPending) return <Loading>pulling records...</Loading>;
-    const active = runners?.filter((r) => r.status === 'active') ?? [];
+    const mine = (r: RunnerSummary) => (r.ownerId === me.id ? 0 : 1);
+    const active = (runners?.filter((r) => r.status === 'active') ?? []).sort((a, b) => mine(a) - mine(b) || a.handle.localeCompare(b.handle));
     const retired = (runners?.filter((r) => r.status !== 'active') ?? []).sort((a, b) => (b.retiredAt ?? 0) - (a.retiredAt ?? 0));
 
     return (
@@ -26,11 +28,16 @@ export function RunnersPage() {
     );
 }
 
+/** Best rated first (unrated last), then whoever had a gig on most recently, then by name. */
+const byRatingThenActivity = (a: FixerSummary, b: FixerSummary) =>
+    (b.rating.average ?? -1) - (a.rating.average ?? -1) || (b.lastGigAt ?? 0) - (a.lastGigAt ?? 0) || a.fixerName.localeCompare(b.fixerName);
+
 /** Fixers: player fixers (with the Discord fixer role) and NPC ones. */
 export function FixersPage() {
-    const { data: fixers, isPending } = useFixers();
+    const { data, isPending } = useFixers();
     const phone = usePhone();
     if (isPending) return <Loading>pinging contacts...</Loading>;
+    const fixers = data && [...data].sort(byRatingThenActivity);
     if (!fixers?.length) return <Say>no fixers yet. a runner with the Fixer role shows here once their player has the Discord fixer role.</Say>;
 
     return (

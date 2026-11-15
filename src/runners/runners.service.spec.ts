@@ -166,6 +166,18 @@ describe('RunnersService', () => {
         assert.equal((await prisma.gig.findUniqueOrThrow({ where: { id: other.id } })).fixerRunnerId, jay.id);
     });
 
+    it("lists fixers with when their latest gig went out or was played", async () => {
+        const jay = await runners.create(admin, input({ ownerId: null, role: 'Fixer', handle: 'Jay' }));
+        const gig = (data: object) => prisma.gig.create({ data: { name: 'Job', fixerName: 'Jay', fixerRunnerId: jay.id, location: 'Watson', brief: '', pay: 1000, createdBy: 'admin', ...data } });
+        const lastGigAt = async () => (await runners.fixers()).find((f) => f.id === jay.id)?.lastGigAt;
+        assert.equal(await lastGigAt(), null);
+        await gig({ status: 'draft', createdAt: new Date(5_000) });
+        assert.equal(await lastGigAt(), null);
+        await gig({ status: 'completed', createdAt: new Date(1_000), sessionAt: new Date(3_000) });
+        await gig({ status: 'open', createdAt: new Date(2_000) });
+        assert.equal(await lastGigAt(), 3_000);
+    });
+
     it('limits active runners per player, but not retired ones or admins', async () => {
         await withLimits({ MAX_ACTIVE_RUNNERS: 2 }, async () => {
             const first = await runners.create(players[1], input({ handle: 'One' }));

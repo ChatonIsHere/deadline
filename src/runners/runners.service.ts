@@ -49,13 +49,24 @@ export class RunnersService {
     async fixers(): Promise<FixerSummary[]> {
         const rows = await this.prisma.runner.findMany({ where: { status: 'active' }, orderBy: { handle: 'asc' }, include: { _count: { select: { fixedGigs: true } } } });
         const fixers = rows.filter((r) => this.isFixer(r));
-        const ratings = await this.ratings(fixers.map((r) => r.id));
+        const ids = fixers.map((r) => r.id);
+        const [ratings, latest] = await Promise.all([
+            this.ratings(ids),
+            // Drafts and turned-down gigs never went out, so they're not activity
+            this.prisma.gig.groupBy({
+                by: ['fixerRunnerId'],
+                where: { fixerRunnerId: { in: ids }, status: { notIn: ['draft', 'rejected'] } },
+                _max: { createdAt: true, sessionAt: true },
+            }),
+        ]);
+        const lastGigAt = new Map(latest.map((g) => [g.fixerRunnerId, Math.max(g._max.createdAt?.getTime() ?? 0, g._max.sessionAt?.getTime() ?? 0) || null]));
         return fixers.map((r) => ({
             ...this.summary(r),
             officeLocation: r.officeLocation,
             specialties: r.specialties,
             rating: ratings.get(r.id) ?? { average: null, count: 0 },
             gigCount: r._count.fixedGigs,
+            lastGigAt: lastGigAt.get(r.id) ?? null,
         }));
     }
 

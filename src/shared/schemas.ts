@@ -433,6 +433,8 @@ export interface FixerSummary extends RunnerSummary {
     specialties: string | null;
     rating: Rating;
     gigCount: number;
+    /** When their latest gig was posted or played (whichever is later), or null with none. */
+    lastGigAt: number | null;
 }
 
 export interface Rating {
