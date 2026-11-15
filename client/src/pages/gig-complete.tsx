@@ -103,18 +103,10 @@ function DebriefForm({ gig }: { gig: GigView }) {
                 <Say>completing locks the post. everyone on the gig gets a DM with their payout and a way to rate the fixer.</Say>
             </div>
 
-            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="grid items-start gap-5 lg:grid-cols-2">
                 <div className="space-y-5">
                     <GigDetails gig={gig} />
                     <Objectives gig={gig} done={done} onChange={setDone} />
-                </div>
-
-                <div className="space-y-5">
-                    <Card className="space-y-2">
-                        <CardTitle>What happened</CardTitle>
-                        <MarkdownEditor value={summary} onChange={setSummary} max={2000} />
-                    </Card>
-
                     <Card className="space-y-4">
                         <CardTitle help={gig.splitPay ? 'the pot is divided between everyone on the gig. IP and anything else goes to each of them.' : 'everyone on the gig gets these. pay comes from the objectives ticked off, plus any bonus.'}>Crew rewards</CardTitle>
                         <div className="grid grid-cols-[1fr_auto] items-end gap-x-4 gap-y-3 sm:grid-cols-[auto_1fr_auto]">
@@ -142,6 +134,13 @@ function DebriefForm({ gig }: { gig: GigView }) {
                         </div>
                     </Card>
 
+                    <Card className="space-y-2">
+                        <CardTitle>What happened</CardTitle>
+                        <MarkdownEditor value={summary} onChange={setSummary} max={2000} />
+                    </Card>
+                </div>
+
+                <div className="space-y-5">
                     <Card className="space-y-4">
                         <CardTitle help={gig.splitPay ? "on top of their cut of the pot. it doesn't come out of it." : 'on top of what everyone gets.'}>Extra for individual runners</CardTitle>
                         {!runners.length && <Say>nobody's on this gig.</Say>}
