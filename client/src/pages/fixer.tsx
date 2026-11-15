@@ -94,11 +94,14 @@ export function FixerPage() {
                 </div>
             </Live>
             {/* Two thirds for what's on now, a third for what's done */}
-            <div className="grid items-start gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-3">
                 <div className="min-w-0 lg:col-span-2">
                     <GigTiles title="Live gigs" gigs={live} empty="nothing on right now." large />
                 </div>
-                <GigList title="Finished gigs" gigs={finished} empty="none finished yet." />
+                {/* As tall as the tiles, with room for a few even when there are none */}
+                <div className="relative lg:min-h-56">
+                    <GigList title="Finished gigs" gigs={finished} empty="none finished yet." fill />
+                </div>
             </div>
             <div className={cn('grid items-start gap-6', hasArt && 'lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]')}>
                 {/* Comes first so phones get it under their name. Wider, it's the right-hand column. */}

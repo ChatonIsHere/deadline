@@ -234,15 +234,20 @@ function CrewBox({ crew, big }: { crew: RunnerCrew; big?: boolean }) {
     );
 }
 
-export function GigList({ title, gigs, empty }: { title: string; gigs: GigLink[]; empty: string }) {
+/**
+ * Gigs as a list. `fill`: on wider screens it takes the height of whatever's beside it, never
+ * adding to it, and shows as many of the newest as fit there.
+ */
+export function GigList({ title, gigs, empty, fill }: { title: string; gigs: GigLink[]; empty: string; fill?: boolean }) {
     const formatSession = useFormatSession();
     return (
-        <Card>
+        <Card className={cn(fill && 'lg:absolute lg:inset-0 lg:flex lg:flex-col')}>
             <CardTitle>{title}</CardTitle>
             {gigs.length ? (
-                <ul className="space-y-2">
+                // Filling: the ones that don't fit wrap into a second column, which is cut off
+                <ul className={cn(fill ? 'space-y-2 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:flex-wrap lg:gap-2 lg:space-y-0 lg:overflow-hidden' : 'space-y-2')}>
                     {gigs.map((g) => (
-                        <li key={liveKey(g.id, g)} className="live-in flex flex-wrap items-center gap-2">
+                        <li key={liveKey(g.id, g)} className="live-in flex flex-wrap items-center gap-2 lg:w-full">
                             <StatusBadge status={g.status} />
                             <Link to={`/gigs/${g.ref}`} className="hover:text-accent">
                                 {g.name}
