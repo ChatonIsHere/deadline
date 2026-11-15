@@ -39,34 +39,34 @@ export function Crew() {
 
     return (
         <div className="space-y-5">
-            <Live value={[crew.name, crew.tagline, crew.imageId, crew.members.length, crew.gigs.length]}>
-                <div className="cut-frame flex flex-wrap items-center gap-x-5 gap-y-3 p-5 [--cut:20px] [--frame:var(--color-accent)]">
-                    {crew.imageId ? (
-                        <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-24" />
-                    ) : (
-                        <span className="cut grid size-24 shrink-0 place-items-center bg-muted [--cut:10px]">
-                            <Icon name="crew" className="size-12" />
-                        </span>
-                    )}
-                    <div className="min-w-0 flex-[1_1_14rem]">
-                        <h1 className="text-3xl break-words text-primary">{crew.name}</h1>
-                        {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <p className="text-xs tracking-widest text-muted-foreground uppercase">
-                            {crew.members.length} runner{crew.members.length === 1 ? '' : 's'} · {crew.gigs.length} gig{crew.gigs.length === 1 ? '' : 's'}
-                        </p>
-                        {canManage && (
-                            <Button variant={editing ? 'default' : 'outline'} size="sm" onClick={() => setEditing(!editing)}>
-                                {editing ? 'Done' : 'Edit'}
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </Live>
-
             <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 3xl:grid-cols-[minmax(0,1fr)_28rem]">
                 <div className="space-y-6">
+                    <Live value={[crew.name, crew.tagline, crew.imageId, crew.members.length, crew.gigs.length]}>
+                        <div className="cut-frame flex flex-wrap items-center gap-x-5 gap-y-3 p-5 [--cut:20px] [--frame:var(--color-accent)]">
+                            {/* Phones: the logo sits here. Wider, it's big at the top of the right-hand column. */}
+                            {crew.imageId ? (
+                                <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-24 lg:hidden" />
+                            ) : (
+                                <span className="cut grid size-24 shrink-0 place-items-center bg-muted [--cut:10px] lg:hidden">
+                                    <Icon name="crew" className="size-12" />
+                                </span>
+                            )}
+                            <div className="min-w-0 flex-[1_1_14rem]">
+                                <h1 className="text-3xl break-words text-primary">{crew.name}</h1>
+                                {crew.tagline && <p className="mt-1 text-muted-foreground italic">"{crew.tagline}"</p>}
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <p className="text-xs tracking-widest text-muted-foreground uppercase">
+                                    {crew.members.length} runner{crew.members.length === 1 ? '' : 's'} · {crew.gigs.length} gig{crew.gigs.length === 1 ? '' : 's'}
+                                </p>
+                                {canManage && (
+                                    <Button variant={editing ? 'default' : 'outline'} size="sm" onClick={() => setEditing(!editing)}>
+                                        {editing ? 'Done' : 'Edit'}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </Live>
                     {!crew.members.length && <Say>no runners yet.</Say>}
                     {crew.ranks.map((rank) => {
                         const members = crew.members.filter((m) => m.rank === rank);
@@ -115,6 +115,16 @@ export function Crew() {
                 </div>
 
                 <div className="space-y-5">
+                    {/* As big as the column allows. Phones have it in the header instead. */}
+                    {crew.imageId ? (
+                        <Live value={crew.imageId}>
+                            <RunnerAvatar runner={{ handle: crew.name, imageId: crew.imageId }} framed className="h-auto w-full max-lg:hidden" />
+                        </Live>
+                    ) : (
+                        <span className="cut grid aspect-square w-full place-items-center bg-muted [--cut:20px] max-lg:hidden">
+                            <Icon name="crew" className="size-1/3" />
+                        </span>
+                    )}
                     <GigList title="Crew gigs" gigs={crew.gigs} empty="no gigs with crew slots yet." />
 
                     <Card className="space-y-3">
