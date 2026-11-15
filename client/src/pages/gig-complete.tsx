@@ -97,7 +97,7 @@ function DebriefForm({ gig }: { gig: GigView }) {
     const setRunner = (runnerId: string, patch: Partial<Amounts>) => setExtra((x) => ({ ...x, [runnerId]: { ...(x[runnerId] ?? blank), ...patch } }));
 
     return (
-        <form onSubmit={submit} className="mx-auto max-w-6xl space-y-5">
+        <form onSubmit={submit} className="space-y-5">
             <div>
                 <h1 className="text-3xl text-primary">{gig.name}</h1>
                 <Say>completing locks the post. everyone on the gig gets a DM with their payout and a way to rate the fixer.</Say>
@@ -133,12 +133,12 @@ function DebriefForm({ gig }: { gig: GigView }) {
                             </div>
                         </div>
                         {gig.splitPay && <PotLine pot={pay} runners={runners.length} />}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
                             <Amount id="ip" label="IP" value={crew.ip} onChange={(ip) => setCrew({ ...crew, ip })} />
-                        </div>
-                        <div>
-                            <Label htmlFor="crew-extra">Other rewards</Label>
-                            <Input id="crew-extra" value={crew.text} onChange={(e) => setCrew({ ...crew, text: e.target.value })} maxLength={200} placeholder="e.g. a favour from Rogue" />
+                            <div>
+                                <Label htmlFor="crew-extra">Other rewards</Label>
+                                <Input id="crew-extra" value={crew.text} onChange={(e) => setCrew({ ...crew, text: e.target.value })} maxLength={200} placeholder="e.g. a favour from Rogue" />
+                            </div>
                         </div>
                     </Card>
 
