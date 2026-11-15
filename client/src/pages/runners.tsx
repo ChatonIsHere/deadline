@@ -101,9 +101,11 @@ function FixerCard({ fixer: f }: { fixer: FixerSummary }) {
                     )}
                     <RatingColumn rating={f.rating} />
                 </div>
+                {/* Room for a tagline and two lines of specialties on every card, so all rows are the
+                    same height and the pages break in the same place whatever order they're in */}
                 <h3 className="mb-1 truncate text-lg leading-tight">{f.fixerName}</h3>
-                {f.tagline && <p className="mb-1 truncate text-xs text-accent">{f.tagline}</p>}
-                {f.specialties && <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{f.specialties}</p>}
+                <p className="mb-1 h-4 truncate text-xs leading-4 text-accent">{f.tagline}</p>
+                <p className="mb-3 line-clamp-2 h-10 text-sm leading-5 text-muted-foreground">{f.specialties}</p>
                 <div className="mt-auto flex justify-end text-right lg:hidden">
                     <RatingLine rating={f.rating} count={false} className="flex-wrap justify-end gap-x-2 gap-y-0.5" />
                 </div>
