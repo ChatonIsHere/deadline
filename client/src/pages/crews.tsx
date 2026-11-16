@@ -105,7 +105,7 @@ function CrewMiniCard({ crew, mine }: { crew: CrewView; mine?: boolean }) {
     // Six places in the row: with more runners than that, the last one says how many are left
     const shown = crew.members.slice(0, crew.members.length > 6 ? 5 : 6);
     return (
-        <LinkCard to={`/crews/${crew.slug}`} className={cn('flex h-full flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
+        <LinkCard to={`/crews/${crew.slug}`} className={cn('flex flex-col gap-3', mine && '[--frame:var(--color-primary)]')}>
             {/* Tall enough for the name and two lines of tagline */}
             <div className="flex h-18 items-start gap-3">
                 {crew.imageId ? (
