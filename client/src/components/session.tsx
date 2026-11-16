@@ -102,7 +102,10 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
     const slot = gig.slots.find((s) => s.runner?.ownerId === userId);
     const reserve = gig.reserves.findIndex((r) => r.ownerId === userId) + 1;
     const limit = useMySignups().data;
-    const atLimit = !!limit?.max && limit.used >= limit.max;
+    const used = (id: string) => limit?.used[id] ?? 0;
+    // The limit is per runner: only ones with room can sign up
+    const open = mine?.filter((r) => !limit?.max || used(r.id) < limit.max);
+    const atLimit = !!mine?.length && !!open && !open.length;
     const canJoin = !slot && !reserve && gig.status === 'open';
 
     if (canJoin && mine && !mine.length) {
@@ -119,13 +122,15 @@ export function SignUp({ gig, userId }: { gig: GigView; userId: string }) {
     return (
         <div className='space-y-3'>
             {/* A fixed note. Where you stand shows in the list above; what changes comes as a notification. */}
-            {canJoin && atLimit ? <Say>you're on the most live gigs a player can be. pull out of one or wait for one to finish.</Say> : <Say>sign up here or on the Discord post. full gigs put you on the reserves.</Say>}
-            {!!limit?.max && (
+            {canJoin && atLimit ? <Say>your runners are on the most live gigs they can be. pull one out of a gig or wait for one to finish.</Say> : <Say>sign up here or on the Discord post. full gigs put you on the reserves.</Say>}
+            {!!limit?.max && !!mine?.length && (
                 <p className='text-xs text-muted-foreground'>
-                    {limit.used}/{limit.max} live gigs
+                    {mine.length === 1 ? `${used(mine[0].id)}/${limit.max} live gigs` : mine.map((r) => `${r.handle} ${used(r.id)}/${limit.max}`).join(' · ')}
                 </p>
             )}
-            {canJoin && !atLimit && mine && mine.length > 1 && <Select value={picked} onChange={setPicked} placeholder='Which runner?' options={mine.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />}
+            {canJoin && !atLimit && open && mine && mine.length > 1 && (
+                <Select value={picked} onChange={setPicked} placeholder='Which runner?' options={open.map((r) => ({ value: String(r.id), label: r.handle, hint: r.role }))} />
+            )}
             <div className='flex flex-wrap gap-2'>
                 {canJoin && !atLimit && (
                     <Button size='sm' disabled={busy || (!!mine && mine.length > 1 && !picked)} onClick={() => join.mutate(picked || undefined)}>

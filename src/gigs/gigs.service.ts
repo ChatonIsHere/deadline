@@ -361,7 +361,7 @@ export class GigsService {
         const back = left && config.REJOIN_COOLDOWN_MINUTES ? left + config.REJOIN_COOLDOWN_MINUTES * 60_000 : 0;
         if (!slot && !me.isAdmin && back > Date.now()) throw new BadRequestException(`you pulled out of this one a moment ago. you can sign up again ${until(back)}.`);
         // Before asking which runner, so nobody picks one only to be told no
-        if (!slot && !(await this.isReserve(id, userId))) await this.checkLimit(this.prisma, userId);
+        if (!slot && !(await this.isReserve(id, userId)) && !(await this.openRunners(userId)).length) throw new BadRequestException(voice.allAtLimit(this.maxSignups()));
 
         const added = await this.add(await this.pickRunner(userId, runnerId), id, null);
         if (added.reserve) return voice.reserve(added.reserve);
@@ -376,9 +376,9 @@ export class GigsService {
         const gig = await this.prisma.gig.findUnique({ where: { id }, select: { status: true } });
         if (gig?.status !== 'open' || !this.members.isEdgerunner(userId)) return [];
         if ((await this.slotOf(id, userId)) || (await this.isReserve(id, userId))) return [];
-        if (await this.atLimit(this.prisma, userId)) return [];
-        const mine = await this.runnersOf(userId);
-        return mine.length > 1 ? mine.map(toCard) : [];
+        // Only runners with room for another gig. With several runners, even one is offered as a choice.
+        const open = await this.openRunners(userId);
+        return (await this.runnersOf(userId)).length > 1 ? open.map(toCard) : [];
     }
 
     /** Admin puts a runner on a gig. Same as them joining, except they're asked to confirm a set time. */
@@ -536,9 +536,9 @@ export class GigsService {
             }
             // Admins putting someone on a gig can go over the limit
             if (!assigned && this.maxSignups()) {
-                // One sign-up per player at a time, or two quick ones on different gigs could both fit
-                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
-                await this.checkLimit(tx, userId);
+                // One sign-up per runner at a time, or two quick ones on different gigs could both fit
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${runner.id}))`;
+                await this.checkLimit(tx, runner);
             }
 
             const slot = pickSlot(slots, crewIds);
@@ -623,22 +623,33 @@ export class GigsService {
     }
 
     /** Slots and reserve places on live gigs, across all the player's runners. */
-    private async signupCount(db: PrismaService | Tx, userId: string): Promise<number> {
-        const live = { userId, gig: { status: { in: ACTIVE } } };
-        return (await db.gigSlot.count({ where: live })) + (await db.gigReserve.count({ where: live }));
+    /** Live gigs each runner is on or waiting for. The sign-up limit is per runner. */
+    private async signupCounts(db: PrismaService | Tx, runnerIds: string[]): Promise<Map<string, number>> {
+        const live = { runnerId: { in: runnerIds }, gig: { status: { in: ACTIVE } } };
+        const [slots, reserves] = await Promise.all([db.gigSlot.groupBy({ by: ['runnerId'], where: live, _count: true }), db.gigReserve.groupBy({ by: ['runnerId'], where: live, _count: true })]);
+        const counts = new Map<string, number>();
+        for (const row of [...slots, ...reserves]) if (row.runnerId) counts.set(row.runnerId, (counts.get(row.runnerId) ?? 0) + row._count);
+        return counts;
     }
 
-    private async atLimit(db: PrismaService | Tx, userId: string): Promise<boolean> {
-        const maxSignups = this.maxSignups();
-        return !!maxSignups && (await this.signupCount(db, userId)) >= maxSignups;
+    private async checkLimit(db: PrismaService | Tx, runner: Runner) {
+        const max = this.maxSignups();
+        if (max && ((await this.signupCounts(db, [runner.id])).get(runner.id) ?? 0) >= max) throw new BadRequestException(voice.atLimit(runner.handle, max));
     }
 
-    private async checkLimit(db: PrismaService | Tx, userId: string) {
-        if (await this.atLimit(db, userId)) throw new BadRequestException(voice.atLimit(this.maxSignups()));
+    /** The player's runners with room for another gig. */
+    private async openRunners(userId: string): Promise<Runner[]> {
+        const mine = await this.runnersOf(userId);
+        const max = this.maxSignups();
+        if (!max) return mine;
+        const counts = await this.signupCounts(this.prisma, mine.map((r) => r.id));
+        return mine.filter((r) => (counts.get(r.id) ?? 0) < max);
     }
 
     async mySignups(userId: string): Promise<MySignups> {
-        return { used: await this.signupCount(this.prisma, userId), max: this.maxSignups() };
+        const mine = await this.runnersOf(userId);
+        const counts = await this.signupCounts(this.prisma, mine.map((r) => r.id));
+        return { max: this.maxSignups(), used: Object.fromEntries(mine.map((r) => [r.id, counts.get(r.id) ?? 0])) };
     }
 
     /** Which of the player's runners is signing up. One runner means no need to ask. */
