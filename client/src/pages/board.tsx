@@ -3,20 +3,24 @@ import { liveKey, Loading, Say } from '@/components/common';
 import { CardPages } from '@/components/card-pages';
 import { GigCard } from '@/components/gig-card';
 import { PageTabs } from '@/components/ui/tabs';
-import { useGigs } from '@/lib/api';
+import { useGigs, useUser } from '@/lib/api';
 
 /**
  * Drafts and pending gigs only reach people who can see them: admins (not in player view), and
- * fixers for their own. So those tabs only show for them, when there's something in them.
+ * fixers for their own. So those tabs only show for them, when there's something in them. Signed up
+ * shows once you're on a gig.
  */
-const TABS: { key: string; label: string; filter: (gig: GigView) => boolean }[] = [
+const TABS: { key: string; label: string; filter: (gig: GigView, me: string) => boolean }[] = [
     { key: 'live', label: 'Live', filter: (g) => isLive(g.status) },
+    // Live gigs one of your runners is on, or waiting for a place on
+    { key: 'mine', label: 'Signed up', filter: (g, me) => isLive(g.status) && [...g.slots.map((s) => s.runner), ...g.reserves].some((r) => r?.ownerId === me) },
     { key: 'drafts', label: 'Drafts', filter: (g) => g.status === 'draft' },
     { key: 'pending', label: 'Pending', filter: (g) => g.status === 'pending' || g.status === 'rejected' },
     { key: 'old', label: 'Old gigs', filter: (g) => g.status === 'completed' || g.status === 'cancelled' },
 ];
 
 export function Board() {
+    const me = useUser();
     const { data: gigs, isPending } = useGigs();
     if (isPending) return <Loading>pulling contracts...</Loading>;
 
@@ -24,7 +28,7 @@ export function Board() {
         <PageTabs
             empty={<Say>nothing on the wire.</Say>}
             tabs={TABS.map((t) => {
-                const list = gigs?.filter(t.filter) ?? [];
+                const list = gigs?.filter((g) => t.filter(g, me.id)) ?? [];
                 return {
                     key: t.key,
                     label: t.label,
