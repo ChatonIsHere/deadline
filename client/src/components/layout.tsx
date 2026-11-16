@@ -5,7 +5,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Loading, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { api, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
+import { api, isOutdated, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
 import { useLiveUpdates } from '@/lib/live';
 import { cn } from '@/lib/utils';
 
@@ -44,10 +44,23 @@ interface Channel {
  * floating button for new gigs. Everyone gets the prompt bar (top on phones, bottom on desktop), which shows where
  * you are and opens the command palette (Ctrl+K).
  */
+/**
+ * Once an update is out, moving to another page loads it fresh, so it runs the new version.
+ * Nothing's lost: forms with unsaved changes ask before letting you leave.
+ */
+function useReloadWhenOutdated(pathname: string) {
+    const first = useRef(pathname);
+    useEffect(() => {
+        if (pathname !== first.current && isOutdated()) window.location.reload();
+        first.current = pathname;
+    }, [pathname]);
+}
+
 export function Layout() {
     const { data: me, isPending, isError } = useMe();
     useLiveUpdates(!!me);
     const { pathname } = useLocation();
+    useReloadWhenOutdated(pathname);
     const [palette, setPalette] = useState(false);
     // On phones the page scrolls inside this, so a new page starts at its top
     const scroller = useRef<HTMLDivElement>(null);

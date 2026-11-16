@@ -9,13 +9,16 @@ import { useAllowNextNavigation } from '@/lib/unsaved';
 const BUILD = document.querySelector<HTMLMetaElement>('meta[name="deadline-build"]')?.content;
 let toldOutdated = false;
 
+/** Whether the server has a newer build than this page. */
+export const isOutdated = () => toldOutdated;
+
 /** The server says a newer build is out: offer a reload, once. Changes from this page are refused until then. */
 function checkBuild(res: Response) {
     const current = res.headers.get('X-Deadline-Build');
     if (!BUILD || !current || current === BUILD || toldOutdated) return;
     toldOutdated = true;
     toast('Deadline has been updated.', {
-        description: 'Reload to get the new version. Changes from this page won\'t save until you do.',
+        description: "Reload to get the new version. Changes from this page won't save until you do. Going to another page reloads too.",
         duration: Infinity,
         action: { label: 'Reload', onClick: () => window.location.reload() },
     });

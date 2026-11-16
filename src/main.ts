@@ -36,7 +36,13 @@ async function bootstrap() {
 
     if (isProd) {
         const clientDir = join(ROOT, 'dist', 'client');
-        app.useStaticAssets(clientDir, { index: false });
+        app.useStaticAssets(clientDir, {
+            index: false,
+            // Built scripts and styles have a hash in their names, so a name never changes what it holds
+            setHeaders: (res, path) => {
+                if (/[\\/]assets[\\/]/.test(path)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            },
+        });
         const page = readFileSync(join(clientDir, 'index.html'), 'utf8');
         // Which web app this is. The page names its hashed scripts, so any change to the app changes it.
         const build = createHash('sha1').update(page).digest('hex').slice(0, 12);
