@@ -5,13 +5,33 @@ import { toast } from 'sonner';
 import { useAllowNextNavigation } from '@/lib/unsaved';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
+/** Which build of the web app this page is running (the server puts it in the page). None in dev. */
+const BUILD = document.querySelector<HTMLMetaElement>('meta[name="deadline-build"]')?.content;
+let toldOutdated = false;
+
+/** The server says a newer build is out: offer a reload, once. Changes from this page are refused until then. */
+function checkBuild(res: Response) {
+    const current = res.headers.get('X-Deadline-Build');
+    if (!BUILD || !current || current === BUILD || toldOutdated) return;
+    toldOutdated = true;
+    toast('Deadline has been updated.', {
+        description: 'Reload to get the new version. Changes from this page won\'t save until you do.',
+        duration: Infinity,
+        action: { label: 'Reload', onClick: () => window.location.reload() },
+    });
+}
+
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     const json = body !== undefined && !(body instanceof FormData);
+    const headers: Record<string, string> = {};
+    if (json) headers['Content-Type'] = 'application/json';
+    if (BUILD) headers['X-Deadline-Build'] = BUILD;
     const res = await fetch(path, {
         method,
-        headers: json ? { 'Content-Type': 'application/json' } : undefined,
+        headers,
         body: json ? JSON.stringify(body) : (body as FormData | undefined),
     });
+    checkBuild(res);
     if (res.status === 204) return undefined as T;
 
     const data = await res.json().catch(() => null);
