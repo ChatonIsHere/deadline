@@ -899,28 +899,25 @@ describe('GigsService', () => {
     });
 
     describe('sign-up limit', () => {
-        it('stops each runner at the limit, so a player with more runners can take more gigs', async () => {
-            maxSignups = 1;
+        it('stops a player at the limit, however many runners they have', async () => {
+            maxSignups = 2;
             await addRunner('a', 'a2');
             const [first, second, third] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
             await gigs.join('a', first.id, ids.a);
-            await assert.rejects(gigs.join('a', second.id, ids.a), /a is signed up to 1 live gig, which is the limit/);
             await gigs.join('a', second.id, ids.a2);
-            assert.deepEqual(await gigs.mySignups('a'), { max: 1, used: { [ids.a]: 1, [ids.a2]: 1 } });
-            await assert.rejects(gigs.join('a', third.id, ids.a2), /the limit/);
+            await assert.rejects(gigs.join('a', third.id, ids.a), /the limit/);
+            assert.deepEqual(await gigs.mySignups('a'), { used: 2, max: 2 });
             await gigs.join('b', third.id);
         });
 
-        it('only offers runners with room, and says so when none have', async () => {
+        it('asks a player at the limit which runner, not at all', async () => {
             maxSignups = 1;
             await addRunner('a', 'a2');
-            const [first, second, third] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
+            const [first, second] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
             assert.equal((await gigs.runnerChoices('a', first.id)).length, 2);
             await gigs.join('a', first.id, ids.a);
-            assert.deepEqual((await gigs.runnerChoices('a', second.id)).map((r) => r.handle), ['a2']);
-            await gigs.join('a', second.id, ids.a2);
-            assert.deepEqual(await gigs.runnerChoices('a', third.id), []);
-            await assert.rejects(gigs.join('a', third.id), /your runners are each signed up to 1 live gig/);
+            assert.deepEqual(await gigs.runnerChoices('a', second.id), []);
+            await assert.rejects(gigs.join('a', second.id), /the limit/);
         });
 
         it('counts reserve places', async () => {
@@ -929,7 +926,7 @@ describe('GigsService', () => {
             const other = await gigs.create(admin, input(one));
             await gigs.join('a', full.id);
             await gigs.join('b', full.id);
-            assert.deepEqual(await gigs.mySignups('b'), { max: 1, used: { [ids.b]: 1 } });
+            assert.deepEqual(await gigs.mySignups('b'), { used: 1, max: 1 });
             await assert.rejects(gigs.join('b', other.id), /the limit/);
         });
 
@@ -938,7 +935,7 @@ describe('GigsService', () => {
             const [first, second] = [await gigs.create(admin, input(two)), await gigs.create(admin, input(two))];
             await gigs.join('a', first.id);
             await gigs.assign(admin, second.id, ids.a);
-            assert.equal((await gigs.mySignups('a')).used[ids.a], 2);
+            assert.equal((await gigs.mySignups('a')).used, 2);
         });
 
         it('frees up a place when a gig ends', async () => {
@@ -947,7 +944,7 @@ describe('GigsService', () => {
             await gigs.join('a', first.id);
             await gigs.setStatus(admin, first.id, 'cancelled');
             await gigs.join('a', second.id);
-            assert.equal((await gigs.mySignups('a')).used[ids.a], 1);
+            assert.equal((await gigs.mySignups('a')).used, 1);
         });
 
         it("uses MAX_SIGNUPS when Settings leaves it at 0, and has no limit when that's 0 too", async () => {
@@ -958,7 +955,7 @@ describe('GigsService', () => {
             });
             await withLimits({ MAX_SIGNUPS: 0 }, async () => {
                 await gigs.join('a', (await gigs.create(admin, input(two))).id);
-                assert.deepEqual(await gigs.mySignups('a'), { max: 0, used: { [ids.a]: 3 } });
+                assert.deepEqual(await gigs.mySignups('a'), { used: 3, max: 0 });
             });
         });
     });

@@ -165,7 +165,7 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                             <p className="mt-1 text-xs text-muted-foreground">Ends an hour before the session if that's sooner. One nudge with 12 hours left, then the slot goes to the reserves.</p>
                         </div>
                         <div>
-                            <Label htmlFor="max-signups">Most live gigs per runner</Label>
+                            <Label htmlFor="max-signups">Most live gigs per player</Label>
                             <Input
                                 id="max-signups"
                                 type="number"
@@ -177,7 +177,7 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                             />
                             {invalid.has('maxSignups') && <p className="mt-1 text-xs text-destructive">Whole number, 0 to 50.</p>}
                             <p className="mt-1 text-xs text-muted-foreground">
-                                For each runner, reserves included. 0 uses the server's default ({view.defaultMaxSignups ? view.defaultMaxSignups : 'no limit'}, set by MAX_SIGNUPS). Admins adding someone can go over it.
+                                Across all of a player's runners, reserves included. 0 uses the server's default ({view.defaultMaxSignups ? view.defaultMaxSignups : 'no limit'}, set by MAX_SIGNUPS). Admins adding someone can go over it.
                             </p>
                         </div>
                     </Card>

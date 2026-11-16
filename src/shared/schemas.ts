@@ -364,7 +364,7 @@ export const settingsInput = z.object({
     reminderHours: z.number().int().min(1).max(72),
     confirmHours: z.number().int().min(1).max(168),
     runnerRoles: z.array(text(30)).min(1).max(30),
-    /** How many live gigs each runner can be signed up to, reserves included. 0 is no limit. */
+    /** How many live gigs a player can be signed up to, across all their runners. 0 is no limit. */
     maxSignups: z.number().int().min(0).max(50),
 });
 export type Settings = z.infer<typeof settingsInput>;
@@ -586,7 +586,7 @@ export interface GuildOptions {
 
 export interface SettingsView {
     settings: Settings;
-    /** Live gigs per runner when settings.maxSignups is 0 (MAX_SIGNUPS on the server). 0 is no limit. */
+    /** Live gigs per player when settings.maxSignups is 0 (MAX_SIGNUPS on the server). 0 is no limit. */
     defaultMaxSignups: number;
     guilds: Option[];
     /** Forums and roles of the chosen server, if there is one. */
@@ -679,10 +679,9 @@ export const payRange = (gig: { pay: number; splitPay?: boolean; objectives: { b
 };
 
 /** How many live gigs a player is signed up to, against the limit (0 is no limit). */
-/** The sign-up limit (0 is none), and how many live gigs each of the player's active runners is on or waiting for. */
 export interface MySignups {
+    used: number;
     max: number;
-    used: Record<string, number>;
 }
 
 /** Undisclosed objectives come out when sign-ups lock and the job is on. */
