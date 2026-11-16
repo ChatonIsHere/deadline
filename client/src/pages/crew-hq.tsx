@@ -10,6 +10,7 @@ import { Input, Label } from '@/components/ui/input';
 import { api, useAction, useCrew, useUser } from '@/lib/api';
 import { useTimeZone } from '@/lib/time';
 import { cn, firstIssue } from '@/lib/utils';
+import { useDraft } from '@/lib/unsaved';
 
 /** A crew's HQ IP, on its own page off the crew's. Everyone can see it; founders spend it. */
 export function CrewHqPage() {
@@ -51,8 +52,8 @@ const DEFAULT_SPEND = 40;
  */
 function HqCard({ crew, url, canSpend, canAdd }: { crew: CrewView; url: string; canSpend: boolean; canAdd: boolean }) {
     const tz = useTimeZone();
-    const [amount, setAmount] = useState(String(DEFAULT_SPEND));
-    const [note, setNote] = useState('');
+    const [amount, setAmount] = useDraft('amount', String(DEFAULT_SPEND));
+    const [note, setNote] = useDraft('note', '');
     const [error, setError] = useState('');
     const save = useAction(
         (input: HqInput) => api(`${url}/hq`, 'POST', input),

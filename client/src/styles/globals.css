@@ -155,6 +155,8 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    /* Rows only as tall as their cards, even when the list is given more height than it needs */
+    align-content: flex-start;
     gap: var(--gap, 1rem);
 
     & > * {

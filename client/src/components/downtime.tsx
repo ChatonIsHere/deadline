@@ -1,6 +1,6 @@
 import { periodName, signed } from '@shared/downtime';
 import type { DowntimeView, RunnerView } from '@shared/schemas';
-import { type FormEvent, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link } from 'react-router';
 import { ConfirmButton, Money, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { api, useAction, useUser } from '@/lib/api';
 import { useTimeZone } from '@/lib/time';
-import { useUnsavedChanges } from '@/lib/unsaved';
+import { useDraft, useUnsavedChanges } from '@/lib/unsaved';
 
 const LOG_LABEL: Record<DowntimeView['entries'][number]['kind'], string> = { monthly: 'Month start', gig: 'Gig', spend: 'Spent', admin: 'Added by an admin' };
 
@@ -108,8 +108,8 @@ export function DowntimePanel({ runner }: { runner: RunnerView }) {
 
 /** An amount and a note, for spending DT or adding it. */
 function AmountForm({ url, label, button, notePlaceholder, done, max }: { url: string; label: string; button: string; notePlaceholder: string; done: string; max?: number }) {
-    const [amount, setAmount] = useState('');
-    const [note, setNote] = useState('');
+    const [amount, setAmount] = useDraft(`${label}:amount`, '');
+    const [note, setNote] = useDraft(`${label}:note`, '');
     useUnsavedChanges(!!amount || !!note.trim());
     const save = useAction(
         () => api(url, 'POST', { amount: Number(amount), note }),

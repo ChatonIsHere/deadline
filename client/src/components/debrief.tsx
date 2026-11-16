@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/input';
 import { api, useAction } from '@/lib/api';
+import { useDraft } from '@/lib/unsaved';
 
 /** A finished gig's summary and rewards. */
 export function DebriefCard({ gig }: { gig: GigView }) {
@@ -76,7 +77,7 @@ function RewardLine({ rewards, hqIp, plus }: { rewards: Rewards; hqIp?: number |
  */
 export function RateFixer({ gig }: { gig: GigView }) {
     const [stars, setStars] = useState(gig.myRating?.stars ?? null);
-    const [comment, setComment] = useState(gig.myRating?.comment ?? '');
+    const [comment, setComment] = useDraft('review', gig.myRating?.comment ?? '');
     const rate = useAction(() => api<{ message: string }>(`/api/gigs/${gig.id}/rating`, 'POST', { stars, comment }), ({ message }) => message);
     const changed = stars !== (gig.myRating?.stars ?? null) || comment.trim() !== (gig.myRating?.comment ?? '');
     return (

@@ -13,6 +13,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, useAction, useCrew, useFixers, useRunners, useUser } from '@/lib/api';
 import { GigList } from '@/pages/runner';
+import { useDraft } from '@/lib/unsaved';
 
 export function Crew() {
     const { id } = useParams();
@@ -273,10 +274,10 @@ function AddAlly({ crew }: { crew: CrewView }) {
 
 /** Name, tagline, logo and ranks. The top rank can be renamed but stays on top. */
 function EditCrew({ crew }: { crew: CrewView }) {
-    const [name, setName] = useState(crew.name);
-    const [tagline, setTagline] = useState(crew.tagline);
-    const [imageId, setImageId] = useState(crew.imageId);
-    const [ranks, setRanks] = useState(crew.ranks.map((r) => ({ name: r, was: r as string | null })));
+    const [name, setName] = useDraft('name', crew.name);
+    const [tagline, setTagline] = useDraft('tagline', crew.tagline);
+    const [imageId, setImageId] = useDraft('logo', crew.imageId);
+    const [ranks, setRanks] = useDraft('ranks', () => crew.ranks.map((r) => ({ name: r, was: r as string | null })));
     const save = useAction(() => api(`/api/crews/${crew.id}`, 'PATCH', { name, tagline, imageId, ranks }), 'crew saved.');
     // A copy of the logo in another frame. It takes effect on Save, like a new upload.
     const copyInFrame = async (variant: number) => (await api<{ imageId: string }>(`/api/crews/${crew.id}/frame`, 'POST', { imageId, variant })).imageId;

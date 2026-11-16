@@ -10,7 +10,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, useRunner, useUser } from '@/lib/api';
-import { useUnsavedForm } from '@/lib/unsaved';
+import { useDraft, useUnsavedForm } from '@/lib/unsaved';
 import { firstIssue } from '@/lib/utils';
 
 /**
@@ -33,7 +33,7 @@ export function FixerEdit() {
 function FixerForm({ fixer }: { fixer?: RunnerView }) {
     const navigate = useNavigate();
     const [error, setError] = useState('');
-    const [form, setForm] = useState<RunnerInput>(() => ({
+    const [form, setForm] = useDraft<RunnerInput>('fixer', () => ({
         handle: fixer?.handle ?? '',
         role: FIXER_ROLE,
         extraRoles: [],

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { api, useAction, useGig, useGigCrews, useUser } from '@/lib/api';
-import { useUnsavedForm } from '@/lib/unsaved';
+import { useDraft, useUnsavedForm } from '@/lib/unsaved';
 import { useFormatSessionRange } from '@/lib/time';
 import { firstIssue } from '@/lib/utils';
 
@@ -58,12 +58,12 @@ function PotLine({ pot, runners }: { pot: number; runners: number }) {
 function DebriefForm({ gig }: { gig: GigView }) {
     const navigate = useNavigate();
     const runners = gig.slots.flatMap((s) => (s.runner && s.runner.id ? [s.runner] : []));
-    const [summary, setSummary] = useState('');
-    const [done, setDone] = useState<Done>({ primary: true, objectives: gig.objectives.map(() => 0) });
-    const [crew, setCrew] = useState({ bonus: '', ip: '', text: '' });
-    const [extra, setExtra] = useState<Record<string, Amounts>>({});
+    const [summary, setSummary] = useDraft('summary', '');
+    const [done, setDone] = useDraft<Done>('done', { primary: true, objectives: gig.objectives.map(() => 0) });
+    const [crew, setCrew] = useDraft('crew', { bonus: '', ip: '', text: '' });
+    const [extra, setExtra] = useDraft<Record<string, Amounts>>('extra', {});
     // HQ IP by crew
-    const [hq, setHq] = useState<Record<string, string>>({});
+    const [hq, setHq] = useDraft<Record<string, string>>('hq', {});
     const [error, setError] = useState('');
     useUnsavedForm({ summary, done, crew, extra, hq });
 

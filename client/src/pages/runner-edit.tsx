@@ -12,7 +12,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { UploadButton } from '@/components/upload-button';
 import { api, useAction, usePlayers, useRoles, useRunner, useUser } from '@/lib/api';
-import { useUnsavedForm } from '@/lib/unsaved';
+import { useDraft, useUnsavedForm } from '@/lib/unsaved';
 import { cn, firstIssue } from '@/lib/utils';
 
 /**
@@ -41,7 +41,7 @@ function RunnerForm({ runner }: { runner?: RunnerView }) {
     const roles = useRoles().data ?? [];
     const players = usePlayers(me.isAdmin).data ?? [];
     const [error, setError] = useState('');
-    const [form, setForm] = useState<RunnerInput>(() => ({
+    const [form, setForm] = useDraft<RunnerInput>('runner', () => ({
         handle: runner?.handle ?? '',
         role: runner?.role ?? '',
         extraRoles: runner?.extraRoles ?? [],

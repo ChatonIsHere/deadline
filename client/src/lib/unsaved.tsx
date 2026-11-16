@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Outlet, useBlocker } from 'react-router';
+import { Outlet, useBlocker, useLocation } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
@@ -9,6 +9,15 @@ interface Guard {
 }
 
 const GuardContext = createContext<Guard | null>(null);
+
+/** Set while reloading for an update: drafts are kept, so there's nothing to warn about. */
+let reloading = false;
+
+/** Reloads the page without the "leave site?" warning. What's typed comes back as drafts (useDraft). */
+export function reloadKeepingDrafts() {
+    reloading = true;
+    window.location.reload();
+}
 
 /**
  * Asks before leaving a page with unsaved changes: its own prompt for links and the back button,
@@ -27,6 +36,7 @@ export function UnsavedChangesGuard() {
     useEffect(() => {
         if (!anyDirty) return;
         const warn = (e: BeforeUnloadEvent) => {
+            if (reloading) return;
             e.preventDefault();
             // Older browsers only ask when this is set
             e.returnValue = '';
@@ -42,8 +52,10 @@ export function UnsavedChangesGuard() {
                 else dirty.current.delete(id);
                 setAnyDirty(dirty.current.size > 0);
             },
-            // Until the current task ends, which covers a navigate() straight after
+            // Until the current task ends, which covers a navigate() straight after. What was saved
+            // needn't come back after a reload, so the page's drafts go too.
             allowNext: () => {
+                clearDrafts();
                 allowed.current = true;
                 setTimeout(() => (allowed.current = false));
             },
@@ -84,6 +96,62 @@ export function useUnsavedChanges(dirty: boolean) {
 export function useUnsavedForm(value: unknown) {
     const [initial] = useState(() => JSON.stringify(value));
     useUnsavedChanges(JSON.stringify(value) !== initial);
+}
+
+const DRAFT = 'deadline-draft:';
+const draftPrefix = (pathname: string) => `${DRAFT}${pathname}:`;
+
+/** Drops the drafts kept for the page you're on. */
+function clearDrafts() {
+    try {
+        const prefix = draftPrefix(window.location.pathname);
+        for (const key of Object.keys(sessionStorage)) if (key.startsWith(prefix)) sessionStorage.removeItem(key);
+    } catch {
+        // Storage can be off. Drafts are a nicety.
+    }
+}
+
+/**
+ * useState that survives a reload, say for an update. While it differs from where it started,
+ * it's kept in the tab's session storage under the page and `key` (one of a kind on the page),
+ * and it comes back when the page loads again. Leaving the page drops it, as does any save.
+ * Values must survive JSON.
+ */
+export function useDraft<T>(key: string, initial: T | (() => T)) {
+    const { pathname } = useLocation();
+    const storeKey = draftPrefix(pathname) + key;
+    const [start] = useState(() => (typeof initial === 'function' ? (initial as () => T)() : initial));
+    const [value, setValue] = useState<T>(() => {
+        try {
+            const saved = sessionStorage.getItem(storeKey);
+            if (saved !== null) return JSON.parse(saved) as T;
+        } catch {
+            // Nothing kept, or storage is off
+        }
+        return start;
+    });
+
+    useEffect(() => {
+        try {
+            const json = JSON.stringify(value);
+            if (json === JSON.stringify(start)) sessionStorage.removeItem(storeKey);
+            else sessionStorage.setItem(storeKey, json);
+        } catch {
+            // Storage full or off: it just won't come back
+        }
+    }, [storeKey, start, value]);
+    // A reload doesn't unmount, so this only runs when you leave the page
+    useEffect(
+        () => () => {
+            try {
+                sessionStorage.removeItem(storeKey);
+            } catch {
+                // As above
+            }
+        },
+        [storeKey],
+    );
+    return [value, setValue] as const;
 }
 
 /** Lets the navigation a successful save starts go through: what it saved isn't unsaved any more. */

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CrewInvite, CrewView, FixerSummary, GigCrew, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, Prefs, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { artPreviewFile, artThumbFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
-import { useAllowNextNavigation } from '@/lib/unsaved';
+import { reloadKeepingDrafts, useAllowNextNavigation } from '@/lib/unsaved';
 
 /** JSON in and out. A FormData body is sent as a file upload. */
 /** Which build of the web app this page is running (the server puts it in the page). None in dev. */
@@ -18,9 +18,9 @@ function checkBuild(res: Response) {
     if (!BUILD || !current || current === BUILD || toldOutdated) return;
     toldOutdated = true;
     toast('Deadline has been updated.', {
-        description: "Reload to get the new version. Changes from this page won't save until you do. Going to another page reloads too.",
+        description: "Reload to get the new version. Anything you've typed stays. Changes from this page won't save until you do.",
         duration: Infinity,
-        action: { label: 'Reload', onClick: () => window.location.reload() },
+        action: { label: 'Reload', onClick: reloadKeepingDrafts },
     });
 }
 

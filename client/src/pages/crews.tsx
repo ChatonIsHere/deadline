@@ -11,7 +11,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { api, imageUrl, useAction, useCrews, useMyRunners, useRunners, useUser } from '@/lib/api';
 import { usePhone } from '@/lib/media';
-import { useUnsavedChanges } from '@/lib/unsaved';
+import { useDraft, useUnsavedChanges } from '@/lib/unsaved';
 import { cn } from '@/lib/utils';
 
 /**
@@ -169,8 +169,8 @@ function NewCrew() {
     const everyone = (everyoneQuery.data ?? []).filter((r) => r.status === 'active');
     const loading = me.isAdmin ? everyoneQuery.isPending : myQuery.isPending;
     const choices = me.isAdmin ? everyone.map((r) => ({ value: String(r.id), label: r.handle, hint: r.owner?.name })) : mine.map((r) => ({ value: String(r.id), label: r.handle }));
-    const [name, setName] = useState('');
-    const [tagline, setTagline] = useState('');
+    const [name, setName] = useDraft('name', '');
+    const [tagline, setTagline] = useDraft('tagline', '');
     const [picked, setPicked] = useState('');
     useUnsavedChanges(!!name.trim() || !!tagline.trim());
     // One runner of your own needs no picking
