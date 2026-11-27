@@ -96,7 +96,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** One notification: what it is, and a switch. `locked` ones are always on. */
-function Toggle({ title, hint, on, onChange, locked }: { title: string; hint: string; on: boolean; onChange?: (on: boolean) => void; locked?: boolean }) {
+export function Toggle({ title, hint, on, onChange, locked }: { title: string; hint: string; on: boolean; onChange?: (on: boolean) => void; locked?: boolean }) {
     return (
         <label className={cn('flex items-start gap-3', !locked && 'cursor-pointer')}>
             <span className="min-w-0 flex-1">

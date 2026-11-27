@@ -5,7 +5,7 @@ import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availabilit
 import { Avatar, Loading } from '@/components/common';
 import { logout } from '@/components/layout';
 import { ChatNotificationsCard } from '@/components/chat-notifications';
-import { NotificationsCard } from '@/components/notifications';
+import { NotificationsCard, Toggle } from '@/components/notifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -51,6 +51,18 @@ export function MePage() {
                     <CrewInvites />
 
                     {prefs && <TimezoneCard current={prefs.timezone} />}
+
+                    {prefs && (
+                        <Card className="space-y-3">
+                            <CardTitle>Display</CardTitle>
+                            <Toggle
+                                title="Infinite scroll"
+                                hint="lists of gigs, runners and fixers keep loading as you scroll down, in place of page buttons."
+                                on={prefs.infiniteScroll}
+                                onChange={(infiniteScroll) => save.mutate({ infiniteScroll })}
+                            />
+                        </Card>
+                    )}
 
                     <NotificationsCard prefs={prefs} />
 

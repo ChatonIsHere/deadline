@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { type MyAvailability, NEW_GIG_SCOPES, NOTIFY_DEFAULTS, NOTIFY_KINDS, type NotifySettings, type Prefs, type PrefsInput, type SetupInput } from '../shared/schemas';
 
-const DEFAULTS: Prefs = { reminders: true, notify: NOTIFY_DEFAULTS, playerView: false, timezone: null };
+const DEFAULTS: Prefs = { reminders: true, notify: NOTIFY_DEFAULTS, playerView: false, timezone: null, infiniteScroll: false };
 
 /** Stored notification settings over the defaults. Anything unknown or the wrong type is dropped. */
 export function notifySettings(value: Prisma.JsonValue): NotifySettings {
@@ -25,7 +25,7 @@ export class PrefsService {
 
     async get(userId: string): Promise<Prefs> {
         const row = await this.prisma.userPrefs.findUnique({ where: { userId } });
-        return row ? { reminders: row.reminders, notify: notifySettings(row.notify), playerView: row.playerView, timezone: row.timezone } : DEFAULTS;
+        return row ? { reminders: row.reminders, notify: notifySettings(row.notify), playerView: row.playerView, timezone: row.timezone, infiniteScroll: row.infiniteScroll } : DEFAULTS;
     }
 
     /** Notification settings for several people at once. People without a row get the defaults. */

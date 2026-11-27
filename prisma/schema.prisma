@@ -98,6 +98,8 @@ model UserPrefs {
   availability Json      @default("[]")
   /// When they finished first-time setup (a runner, a timezone, reminders or not)
   setupAt      DateTime? @map("setup_at") @db.Timestamptz
+  /** Lists keep loading as they scroll, in place of page buttons */
+  infiniteScroll Boolean @default(false) @map("infinite_scroll")
 
   @@map("user_prefs")
 }

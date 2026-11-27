@@ -290,6 +290,8 @@ export const prefsInput = z
         /** Bot owner only: use the board as a normal player, admin powers hidden. */
         playerView: z.boolean(),
         timezone,
+        /** Lists keep loading as they scroll, in place of page buttons */
+        infiniteScroll: z.boolean(),
     })
     .partial();
 export type PrefsInput = z.infer<typeof prefsInput>;
@@ -299,6 +301,7 @@ export interface Prefs {
     notify: NotifySettings;
     playerView: boolean;
     timezone: string | null;
+    infiniteScroll: boolean;
 }
 
 /** The end of first-time setup. They need a runner first (admins can skip that). */

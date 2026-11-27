@@ -21,7 +21,7 @@ describe('PrefsService', () => {
         await prisma.runner.create({ data: { handle: 'Vex', slug: 'vex', role: 'Solo', ownerId: 'a' } });
         await prefs.finishSetup('a', false, { timezone: 'Europe/London', reminders: false });
         assert.equal(await prefs.setUp('a'), true);
-        assert.deepEqual(await prefs.get('a'), { reminders: false, playerView: false, timezone: 'Europe/London', notify: NOTIFY_DEFAULTS });
+        assert.deepEqual(await prefs.get('a'), { reminders: false, playerView: false, timezone: 'Europe/London', notify: NOTIFY_DEFAULTS, infiniteScroll: false });
 
         await prefs.finishSetup('admin', true, { timezone: 'America/New_York', reminders: true });
         assert.equal(await prefs.setUp('admin'), true);
@@ -30,7 +30,7 @@ describe('PrefsService', () => {
     it('changes only the prefs given', async () => {
         await prefs.set('a', { timezone: 'Asia/Tokyo' });
         await prefs.set('a', { reminders: false });
-        assert.deepEqual(await prefs.get('a'), { reminders: false, playerView: false, timezone: 'Asia/Tokyo', notify: NOTIFY_DEFAULTS });
+        assert.deepEqual(await prefs.get('a'), { reminders: false, playerView: false, timezone: 'Asia/Tokyo', notify: NOTIFY_DEFAULTS, infiniteScroll: false });
     });
 
     it('keeps availability as sorted, unique hours', async () => {
