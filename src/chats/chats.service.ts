@@ -353,6 +353,15 @@ export class ChatsService {
         return this.prisma.chatMessage.findUnique({ where: { discordMessageId }, include: MESSAGE_INCLUDE });
     }
 
+    /** Crew and live gig chats still without a thread. */
+    async needingThreads(): Promise<ChatRow[]> {
+        return this.prisma.chat.findMany({
+            where: { threadId: null, archivedAt: null, OR: [{ kind: 'crew', crewId: { not: null } }, { kind: 'gig', gigId: { not: null } }] },
+            include: CHAT_INCLUDE,
+            orderBy: { createdAt: 'asc' },
+        });
+    }
+
     /** Open chats with a thread, for catching up after time offline. */
     async threaded(): Promise<ChatRow[]> {
         return this.prisma.chat.findMany({ where: { threadId: { not: null }, archivedAt: null }, include: CHAT_INCLUDE });

@@ -105,8 +105,9 @@ const RETRY_WINDOW_MS = 86_400_000;
  * character, so the thread reads as the characters talking, like the web. A player with more
  * than one character in the chat is asked which, once per thread (/dm as switches).
  *
- * Threads are made when a chat's first message goes out (or by /dm new), so crews and gigs
- * don't fill the channel with empty ones. Each chat's Discord work runs one at a time, in order.
+ * Crews and live gigs have their thread from the start, so players find them waiting. Direct
+ * and group chats get theirs with their first message (or /dm new). Each chat's Discord work
+ * runs one at a time, in order.
  */
 @Injectable()
 export class ChatRelayService implements ChatRelay {
@@ -158,6 +159,18 @@ export class ChatRelayService implements ChatRelay {
         await this.setPermissions(channel).catch((err) => this.logger.warn(`Couldn't set the DM channel's permissions: ${err}`));
         await this.webhook().catch((err) => this.logger.warn(`DM channel webhook: ${err}`));
         await this.postIntro(channel).catch((err) => this.logger.warn(`Couldn't post the DM channel's explainer: ${err}`));
+        await this.openThreads().catch((err) => this.logger.warn(`Couldn't make the crews' and gigs' threads: ${err}`));
+    }
+
+    /** Threads for every crew and live gig chat without one: when the DM channel is first picked, and any missed since. */
+    private async openThreads() {
+        let made = 0;
+        for (const chat of await this.chats.needingThreads()) {
+            await this.queue(chat.id, async () => {
+                if (await this.ensureThread(chat)) made++;
+            });
+        }
+        if (made) this.logger.log(`Made ${made} thread${made === 1 ? '' : 's'} for crews and gigs`);
     }
 
     /**
@@ -238,6 +251,11 @@ export class ChatRelayService implements ChatRelay {
 
     changed(chat: ChatRow) {
         return this.queue(chat.id, async () => {
+            // A crew's or live gig's chat is made with its thread
+            if (!chat.threadId && opensThread(chat)) {
+                await this.ensureThread(chat);
+                return;
+            }
             if (!chat.threadId) return;
             const thread = await this.thread(chat);
             if (!thread) return;
@@ -521,5 +539,8 @@ export class ChatRelayService implements ChatRelay {
         return next;
     }
 }
+
+/** Crew chats and live gig chats get their thread straight away; the rest wait for a first message. */
+export const opensThread = (chat: ChatRow) => !chat.archivedAt && ((chat.kind === 'crew' && !!chat.crewId) || (chat.kind === 'gig' && !!chat.gigId));
 
 const isPicture = (a: Attachment) => !!a.contentType?.startsWith('image/') && !a.contentType.includes('svg');
