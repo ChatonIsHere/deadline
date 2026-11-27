@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { GatewayIntentBits } from 'discord.js';
 import { NecordModule } from 'necord';
 import { AuthController } from './auth/auth.controller';
 import { AvailabilityController } from './availability/availability.controller';
@@ -24,6 +23,7 @@ import { BotProfileService } from './discord/bot-profile.service';
 import { ChatInteractions } from './discord/chat.interactions';
 import { ChatRelayService } from './discord/chat-relay.service';
 import { Commands } from './discord/commands';
+import { botIntents } from './discord/intents';
 import { CrewInteractions } from './discord/crew.interactions';
 import { GigInteractions } from './discord/gig.interactions';
 import { GigPostService } from './discord/gig-post.service';
@@ -47,11 +47,8 @@ import { PushService } from './push/push.service';
 @Module({
     imports: [
         ScheduleModule.forRoot(),
-        NecordModule.forRoot({
-            token: config.DISCORD_TOKEN,
-            // Messages, their text and typing: for chats' threads (Message Content is privileged: turn it on in the developer portal)
-            intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageTyping],
-        }),
+        // Messages, their text and typing are for chats' threads (see botIntents)
+        NecordModule.forRootAsync({ useFactory: async () => ({ token: config.DISCORD_TOKEN, intents: await botIntents() }) }),
     ],
     controllers: [AuthController, AvailabilityController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController, ChatsController, PushController],
     providers: [
