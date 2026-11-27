@@ -870,6 +870,13 @@ export class GigsService {
                     await this.posts.askToConfirm(view, threadId, stillAsked, confirmBy);
                 }
                 await after?.(view, threadId);
+                // Runners on a live gig follow its post, so its news reaches them
+                if (ACTIVE.includes(view.status)) {
+                    const players = view.slots.flatMap((s) => (s.runner?.ownerId ? [s.runner.ownerId] : []));
+                    await Promise.resolve()
+                        .then(() => this.posts.syncFollowers(threadId, id, players))
+                        .catch((err) => this.logger.warn(`Couldn't update who follows gig ${id}'s post: ${err}`));
+                }
             } catch (err) {
                 this.logger.error(`Couldn't update the post for gig ${id}: ${err}`);
             }

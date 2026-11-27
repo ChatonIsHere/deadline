@@ -69,6 +69,35 @@ export class GigPostService {
         return this.setupForum().catch((err) => this.logger.error(`Forum setup failed: ${err}`));
     }
 
+    /**
+     * Runners on a live gig are added to its post's thread, so they follow it. Only people the
+     * bot added come off again when they leave the gig: anyone who followed it themselves stays.
+     * Nothing is asked of Discord unless who's on the gig changed.
+     */
+    async syncFollowers(threadId: string, gigId: string, userIds: string[]) {
+        const key = `gig-followers:${gigId}`;
+        const want = [...new Set(userIds)].sort();
+        const saved = await this.cache.get<{ want: string[]; added: string[] }>(key);
+        if (saved && saved.want.join() === want.join()) return;
+        const thread = await this.client.channels.fetch(threadId).catch(() => null);
+        if (!thread?.isThread()) return;
+        const added = new Set(saved?.added ?? []);
+        const have = await thread.members.fetch();
+        for (const id of want) {
+            if (have.has(id)) continue;
+            await thread.members.add(id).then(
+                () => added.add(id),
+                (err) => this.logger.warn(`Couldn't add ${id} to gig ${gigId}'s post: ${err}`),
+            );
+        }
+        for (const id of [...added]) {
+            if (want.includes(id)) continue;
+            if (have.has(id)) await thread.members.remove(id).catch((err) => this.logger.warn(`Couldn't take ${id} off gig ${gigId}'s post: ${err}`));
+            added.delete(id);
+        }
+        await this.cache.set(key, { want, added: [...added] }, 90 * 86_400);
+    }
+
     /** Status tags, gallery layout and week-long archive time. Run again when the forum changes. */
     async setupForum() {
         if (!this.settings.get().forumId) return;

@@ -20,7 +20,7 @@ import {
 } from '../shared/schemas';
 
 export const CHAT_INCLUDE = {
-    members: { include: { runner: true }, orderBy: { joinedAt: 'asc' } },
+    members: { include: { runner: true }, orderBy: [{ joinedAt: 'asc' }, { runner: { handle: 'asc' } }] },
     staff: true,
     crew: { select: { name: true, imageId: true } },
     gig: { select: { name: true, imageId: true, fixerRunnerId: true, status: true } },

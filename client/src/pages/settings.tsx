@@ -40,6 +40,12 @@ export function SettingsPage() {
     );
 }
 
+/** Whether two configs hold the same values, whatever order their fields come in. */
+function sameSettings(a: Settings, b: Settings) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof Settings)[]);
+    return [...keys].every((k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null));
+}
+
 /**
  * The config being edited. Saving sends all of it.
  * `changed` compares it with the saved config; `invalid` holds the fields the server would refuse.
@@ -47,11 +53,16 @@ export function SettingsPage() {
 function useConfig(view: SettingsView) {
     const [form, setForm] = useState(view.settings);
     const set = (patch: Partial<Settings>) => setForm((f) => ({ ...f, ...patch }));
-    const changed = JSON.stringify(form) !== JSON.stringify(view.settings);
+    const changed = !sameSettings(form, view.settings);
     useUnsavedChanges(changed);
     const check = settingsInput.safeParse(form);
     const invalid = new Set(check.success ? [] : check.error.issues.map((i) => String(i.path[0])));
-    const save = useAction(() => api('/api/settings', 'PUT', form), 'config saved.');
+    // The form becomes what was saved (the server can add to it, like the Fixer role), so it's no longer unsaved
+    const save = useAction(
+        () => api<SettingsView>('/api/settings', 'PUT', form),
+        'config saved.',
+        (saved) => setForm(saved.settings),
+    );
     const submit = (e: FormEvent) => {
         e.preventDefault();
         if (changed && !invalid.size) save.mutate();
