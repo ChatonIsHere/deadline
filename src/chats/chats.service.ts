@@ -297,7 +297,7 @@ export class ChatsService {
         const view = toMessageView(message);
         const latest = as.ownerId !== user.id && !chat.staff.some((s) => s.userId === user.id) ? await this.row(chatId) : chat;
         const title = this.title(latest, user);
-        this.live.toUsers(this.audience(latest), 'chat', { chatId, message: view, title } satisfies ChatEvent);
+        this.live.toUsers(await this.audience(latest), 'chat', { chatId, message: view, title } satisfies ChatEvent);
         this.background(`post message ${message.id}`, () => this.relay?.posted(latest, message));
         this.background('push', () => this.notify(latest, message, title));
         return view;
@@ -312,7 +312,7 @@ export class ChatsService {
         if (isReadOnly(chat)) throw new ForbiddenException('This chat is read-only.');
         const updated = await this.prisma.chatMessage.update({ where: { id: messageId }, data: { body, editedAt: new Date() }, include: MESSAGE_INCLUDE });
         const view = toMessageView(updated);
-        this.live.toUsers(this.audience(chat), 'chat', { chatId, message: view } satisfies ChatEvent);
+        this.live.toUsers(await this.audience(chat), 'chat', { chatId, message: view } satisfies ChatEvent);
         this.background(`edit message ${messageId}`, () => this.relay?.edited(chat, updated));
         return view;
     }
@@ -343,7 +343,7 @@ export class ChatsService {
         });
         if (imageIds.length) await this.library.refreshUsage(imageIds);
         const view = toMessageView(updated);
-        this.live.toUsers(this.audience(chat), 'chat', { chatId, message: view } satisfies ChatEvent);
+        this.live.toUsers(await this.audience(chat), 'chat', { chatId, message: view } satisfies ChatEvent);
         this.background(`delete message ${messageId}`, () => this.relay?.removed(chat, message));
         return view;
     }
@@ -481,12 +481,20 @@ export class ChatsService {
 
     // Who's who
 
-    /** Everyone who hears about a chat: its characters' players, admins who've spoken in it, and every admin for the GMs' chats. */
-    audience(chat: ChatRow): string[] {
+    /**
+     * Everyone who hears about a chat: its characters' players, admins who've spoken in it, and
+     * every admin for the GMs' chats. The owner in player view isn't an admin here, as anywhere.
+     */
+    async audience(chat: ChatRow): Promise<string[]> {
         const ids = new Set<string>();
         for (const m of chat.members) if (m.runner.ownerId) ids.add(m.runner.ownerId);
         for (const s of chat.staff) ids.add(s.userId);
-        if (chat.kind === 'gig' || hasNpc(chat)) for (const a of this.members.admins()) ids.add(a);
+        if (chat.kind === 'gig' || hasNpc(chat)) {
+            for (const a of this.members.admins()) {
+                if (ids.has(a)) continue;
+                if ((await this.members.me(a))?.isAdmin) ids.add(a);
+            }
+        }
         return [...ids];
     }
 
@@ -568,8 +576,10 @@ export class ChatsService {
 
     /** Members, name or state changed: everyone who hears about it (before and after) refreshes, and Discord follows. */
     private changed(chat: ChatRow, before?: ChatRow) {
-        const people = new Set([...this.audience(chat), ...(before ? this.audience(before) : [])]);
-        this.live.toUsers(people, 'chat', { chatId: chat.id } satisfies ChatEvent);
+        this.background(`tell chat ${chat.id}'s people`, async () => {
+            const people = new Set([...(await this.audience(chat)), ...(before ? await this.audience(before) : [])]);
+            this.live.toUsers(people, 'chat', { chatId: chat.id } satisfies ChatEvent);
+        });
         this.background(`update chat ${chat.id}`, () => this.relay?.changed(chat));
     }
 

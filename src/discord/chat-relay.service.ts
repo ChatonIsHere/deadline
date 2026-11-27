@@ -424,7 +424,7 @@ export class ChatRelayService implements ChatRelay {
         const voice = await this.chats.voice(chat.id, user.id);
         const runner = options.length === 1 ? options[0] : options.find((r) => r.id === voice);
         if (!runner) return;
-        const people = this.chats.audience(chat).filter((id) => id !== user.id);
+        const people = (await this.chats.audience(chat)).filter((id) => id !== user.id);
         this.live.toUsers(people, 'typing', { chatId: chat.id, runnerId: runner.id, handle: runner.handle } satisfies TypingEvent);
     }
 

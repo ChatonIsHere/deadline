@@ -20,14 +20,16 @@ import { canSee, type ChatRelay, ChatsService, speakable } from './chats.service
 const person = (id: string, roles: Partial<Me> = {}): Me => ({ id, name: id, avatar: null, isOwner: false, isAdmin: false, isFixer: false, isEdgerunner: true, timezone: null, needsSetup: false, ...roles });
 const admin = person('admin', { isAdmin: true, isEdgerunner: false });
 const [a, b, c] = [person('a'), person('b'), person('c')];
-const people = [admin, a, b, c];
+/** The bot's owner with player view on: an admin on the server, but not while they browse as a player */
+const ownerAsPlayer = person('owner', { isOwner: true, playerView: true });
+const people = [admin, a, b, c, ownerAsPlayer];
 
 const members = {
     me: async (id: string) => people.find((p) => p.id === id) ?? null,
     member: (id: string) => ({ id, name: id, avatar: null }),
     isEdgerunner: () => true,
     isFixerRunner: (r: { role: string; ownerId: string | null }) => r.role === 'Fixer',
-    admins: () => ['admin'],
+    admins: () => ['admin', 'owner'],
     dm: async () => [],
 } as unknown as MembersService;
 const settings = { get: () => ({ guildId: '1', reminderHours: 8, confirmHours: 48, maxSignups: 0 }) } as unknown as SettingsService;
@@ -182,6 +184,14 @@ describe('ChatsService', () => {
             const row = await chats.find(chat.id);
             assert.deepEqual(row!.staff.map((s) => s.userId), ['admin']);
             await assert.rejects(say(b, chat.id, 'npc'), /No such chat/);
+        });
+
+        it("leaves the owner in player view out of the GMs' chats", async () => {
+            const chat = await chats.create(a, { asRunnerId: ids.a, recipientIds: [ids.npc], name: null });
+            events = [];
+            await say(a, chat.id, 'a');
+            assert.deepEqual(events.map((e) => e.to), [['a', 'admin']]);
+            await assert.rejects(chats.get(ownerAsPlayer, chat.id), /No such chat/);
         });
 
         it('makes chats with a retired character read-only', async () => {
