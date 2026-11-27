@@ -94,6 +94,21 @@ Gig news always goes in the gig's thread. People can get copies by DM of what's 
 
 Requests to confirm a session time always come, since the slot depends on them. Nobody hears about what they did themselves.
 
+## Chats
+
+Characters talk to each other in chats, on the web (**Messages**) and in Discord.
+
+- **Direct**: two characters. Messaging someone again as the same character opens the same chat. **Message** on a runner's or fixer's page starts one.
+- **Group**: any number of characters, with an optional name. Each new group is new, even with the same people. Anyone in it can rename it and bring others in, and anyone can leave.
+- **Crew**: one per crew, following its roster. It uses the crew's name and logo. Nobody is added or leaves by hand. If the crew is deleted the chat stays, read-only.
+- **Gig**: one per live gig: the runners in its slots and its fixer (when the fixer has a profile). Completing or cancelling the gig archives it, read-only, for those who were on it then.
+
+Players speak as their active characters. A player with more than one character in a chat picks who's speaking under the message box. Retired and flatlined characters' chats become read-only. Admins (the GMs) speak as NPC fixers in any chat, and as a gig's fixer in its chat even when a player plays them. Admins see every gig chat and every chat with an NPC, but not players' other chats.
+
+Desktop has a tab on the right with the latest chats, and the chat for the page you're on (the crew's, the gig's, or yours with that character) pinned at the top. Phones get a pop-up for new messages. Each chat's bell turns on push notifications for it, on every device that has them on. The **Me** page lists those chats.
+
+**In Discord**, each chat gets a private thread in the DM channel picked on **Settings**, made with its first message. The bot posts web messages through a webhook as the character (name and picture). When a player types in a thread, the bot deletes it and posts it as their character. Pictures come across; a message with other files stays as typed, so the files aren't lost. The first time a player with more than one character types in a thread, the bot asks which character it is and remembers. Right-click a message, **Apps**, for **Edit message** and **Delete message**.
+
 ## Timezones and availability
 
 - Times are stored as instants. The web shows them in each person's chosen timezone (their browser's until they pick one). Discord shows them in each reader's own zone.
@@ -110,7 +125,7 @@ Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb,
 ## Discord setup
 
 1. Create an app at https://discord.com/developers/applications.
-2. **Bot**: copy the token. Turn on **Server Members Intent**.
+2. **Bot**: copy the token. Turn on **Server Members Intent** and **Message Content Intent** (for chats' threads).
 3. **OAuth2**: copy the client secret. Add redirects:
    - `http://localhost:3003/auth/callback`
    - `https://deadline.doxbox.org/auth/callback`
@@ -118,6 +133,8 @@ Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb,
 5. On **Settings**, use the invite link to add the bot to a server, then pick the server, the gig forum and the admin, fixer and edgerunner roles.
 
 The bot needs these in the forum: View Channel, Create Posts, Send Messages in Posts, Read Message History, Manage Posts and Embed Links. It also needs Manage Channels to add its tags (Open, Full, Closed, Completed, Cancelled), switch the forum to gallery view and set the archive time. The invite link asks for all of these. Players get DMs, so they need DMs from server members turned on.
+
+For chats, the bot needs View Channel, Send Messages in Threads, Create Private Threads, Manage Threads, Manage Webhooks, Manage Messages and Attach Files in the DM channel. The invite link asks for these too; re-invite the bot if it joined before chats.
 
 Any other forum tags work as gig types. If a gig's type matches a tag, the post gets that tag.
 
@@ -147,6 +164,8 @@ Without S3 settings, pictures are kept in `./data/objects`. Without `REDIS_URL`,
 | `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Where pictures are stored. Objects are public and linked directly. Optional |
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_CLIENT_SECRET` | OAuth secret. The client ID is the bot's application ID |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Push notifications for chats. Make a pair with `npx web-push generate-vapid-keys`. Push is off without them |
+| `VAPID_SUBJECT` | A `mailto:` or `https:` address push services can reach. `PUBLIC_URL` if left out |
 
 Server, forum and roles live in the database and are set on **Settings**.
 
@@ -162,6 +181,10 @@ Server, forum and roles live in the database and are set on **Settings**.
 | `/newrunner handle role` | Makes a runner. Add a picture and extra roles on the web (private) |
 | `/mygigs` | Live gigs your runners are on, and what you still need to confirm (private) |
 | `/reminders set` | Session reminder DMs on or off (private) |
+| `/dm new to [as] [and...] [name]` | Opens your chat with a character, or starts a group, and links its thread (private) |
+| `/dm as as` | In a chat's thread: which of your characters speaks when you type there |
+| `/dm say as text` | In a chat's thread: one message as a different character |
+| `/dm add who`, `/dm leave [as]` | In a group chat's thread: bring someone in, or take one of your characters out |
 
 ## Gig posts
 

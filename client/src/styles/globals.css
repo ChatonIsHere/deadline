@@ -144,6 +144,24 @@
         var(--fill, var(--color-card));
 }
 
+/* The same tab on the right edge (the chat tab): its left-hand corners cut, open on the right. */
+@utility tab-frame-right {
+    clip-path: polygon(
+        calc(var(--cut, 12px) + 4px) -4px,
+        calc(100% + 4px) -4px,
+        calc(100% + 4px) calc(100% + 4px),
+        calc(var(--cut, 12px) + 4px) calc(100% + 4px),
+        -4px calc(100% - var(--cut, 12px) - 4px),
+        -4px calc(var(--cut, 12px) + 4px)
+    );
+    border: var(--frame-w, 2px) solid var(--frame, var(--color-border));
+    border-right-width: 0;
+    background:
+        linear-gradient(to top left, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) top left / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        linear-gradient(to bottom left, transparent calc(50% - var(--frame-w, 2px)), var(--frame, var(--color-border)) calc(50% - var(--frame-w, 2px))) bottom left / var(--cut, 12px) var(--cut, 12px) no-repeat border-box,
+        var(--fill, var(--color-card));
+}
+
 /* A terminal cursor. Holds still for people who turn motion off. */
 @keyframes blink {
     50% {

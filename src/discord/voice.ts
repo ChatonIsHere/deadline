@@ -78,6 +78,8 @@ export const voice = {
     monthStart: () => say('act', "new month. DT has reset and this month's is in."),
     rated: (stars: number, emoji: EmojiLookup) => say('good', `review logged: ${starRow(stars, emoji)}. change it any time.`),
     error: (message: string) => say('bad', message),
+    /** Answers to /dm and the chat message menus */
+    chat: (text: string) => say('info', text),
 
     // Asking runners to confirm, by DM (or in the thread if their DMs are closed)
     confirmAsk: (gigName: string, at: number, by: number) =>

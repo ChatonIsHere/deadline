@@ -3,6 +3,7 @@ import type { CrewView, RunnerCard } from '@shared/schemas';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { ChatLink } from '@/components/chat';
 import { ConfirmButton, Icon, Live, liveKey, Loading, Say } from '@/components/common';
 import { RoleIcon, RunnerAvatar, RunnerChip, RunnerTile } from '@/components/runner';
 import { FramePicker } from '@/components/frame-picker';
@@ -66,6 +67,7 @@ export function Crew() {
                                         HQ IP <span className="text-primary">{crew.hqIp}</span>
                                     </Link>
                                 </Button>
+                                <ChatLink crewId={crew.id} label="Crew chat" />
                                 {canManage && (
                                     <Button variant={editing ? 'default' : 'outline'} size="sm" onClick={() => setEditing(!editing)}>
                                         {editing ? 'Done' : 'Edit'}

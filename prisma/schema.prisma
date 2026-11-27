@@ -78,6 +78,8 @@ model Settings {
   runnerRoles      Json    @default("[]") @map("runner_roles")
   /// How many live gigs a player can be signed up to, across all their runners. 0 is no limit.
   maxSignups       Int     @default(0) @map("max_signups")
+  /// Text channel where each chat gets a private thread, mirrored both ways
+  dmChannelId      String? @map("dm_channel_id")
 
   @@map("settings")
 }
@@ -123,6 +125,7 @@ model Crew {
   slots   GigSlot[]
   inviteDeclines CrewInviteDecline[]
   hqEntries CrewHqEntry[]
+  chat      Chat?
 
   @@index([imageId])
   @@map("crews")
@@ -236,6 +239,9 @@ model Runner {
   reserves    GigReserve[]
   rewards     GigReward[]
   downtime    DowntimeEntry[]
+  chats       ChatMember[]
+  chatMessages ChatMessage[]
+  chatVoices  ChatVoice[]
 
   @@index([ownerId])
   @@index([imageId])
@@ -295,6 +301,7 @@ model Gig {
   rewards     GigReward[]
   ratings     FixerRating[]
   crewHq      CrewHqEntry[]
+  chat        Chat?
 
   @@index([status])
   @@index([fixerRunnerId])
@@ -490,6 +497,7 @@ model Image {
   runners Runner[] @relation("RunnerPicture")
   artOf   RunnerPhoto[]
   crews   Crew[]
+  chatImages ChatMessageImage[]
 
   @@index([regionId])
   @@index([unusedSince])
@@ -502,4 +510,161 @@ model StaleObject {
   since DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("stale_objects")
+}
+
+/// direct: two characters. group: any number, named or not. crew and gig: kept in step with the crew's roster or the gig's slots.
+enum ChatKind {
+  direct
+  group
+  crew
+  gig
+
+  @@map("chat_kind")
+}
+
+/// A conversation between characters, on the web and in a private Discord thread.
+model Chat {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind          ChatKind
+  /// A group's own name, or a copy of the crew's or gig's (kept for when it's gone)
+  name          String?
+  crewId        String?   @unique @map("crew_id") @db.Uuid
+  gigId         String?   @unique @map("gig_id") @db.Uuid
+  /// Direct chats: the two runner IDs, sorted, joined with a colon. One chat per pair.
+  directKey     String?   @unique @map("direct_key")
+  /// The private thread in the DM channel
+  threadId      String?   @unique @map("thread_id")
+  /// Gig chats once the gig is over: read-only, members frozen
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastMessageAt DateTime  @default(now()) @map("last_message_at") @db.Timestamptz(3)
+
+  crew     Crew?         @relation(fields: [crewId], references: [id], onDelete: SetNull)
+  gig      Gig?          @relation(fields: [gigId], references: [id], onDelete: SetNull)
+  members  ChatMember[]
+  messages ChatMessage[]
+  reads    ChatRead[]
+  staff    ChatStaff[]
+  voices   ChatVoice[]
+  notify   ChatNotify[]
+
+  @@index([lastMessageAt])
+  @@map("chats")
+}
+
+/// A character in a chat. Their player is whoever owns the runner now.
+model ChatMember {
+  chatId   String   @map("chat_id") @db.Uuid
+  runnerId String   @map("runner_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, runnerId])
+  @@index([runnerId])
+  @@map("chat_members")
+}
+
+/// How far someone has read a chat. Per player, so admins sharing an NPC's chats each have their own.
+model ChatRead {
+  chatId     String   @map("chat_id") @db.Uuid
+  userId     String   @map("user_id")
+  lastReadAt DateTime @default(now()) @map("last_read_at") @db.Timestamptz(3)
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_reads")
+}
+
+/// Admins who have spoken as an NPC or fixer in a chat. They're in its Discord thread and hear about it.
+model ChatStaff {
+  chatId String @map("chat_id") @db.Uuid
+  userId String @map("user_id")
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_staff")
+}
+
+model ChatMessage {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatId           String    @map("chat_id") @db.Uuid
+  /// The character it's from
+  runnerId         String    @map("runner_id") @db.Uuid
+  /// Who wrote it: the runner's player, or an admin speaking as an NPC or fixer
+  sentBy           String    @map("sent_by")
+  body             String
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  editedAt         DateTime? @map("edited_at") @db.Timestamptz(3)
+  /// Deleted messages keep their place, without their words or pictures
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// The webhook's copy in the chat's thread
+  discordMessageId String?   @unique @map("discord_message_id")
+
+  chat   Chat               @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  runner Runner             @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+  images ChatMessageImage[]
+
+  @@index([chatId, createdAt])
+  @@index([runnerId])
+  @@map("chat_messages")
+}
+
+model ChatMessageImage {
+  messageId String @map("message_id") @db.Uuid
+  imageId   String @map("image_id") @db.Uuid
+  position  Int
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  image   Image       @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, imageId])
+  @@index([imageId])
+  @@map("chat_message_images")
+}
+
+/// Which character a player speaks as when they type in a chat's Discord thread
+model ChatVoice {
+  chatId   String @map("chat_id") @db.Uuid
+  userId   String @map("user_id")
+  runnerId String @map("runner_id") @db.Uuid
+
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  runner Runner @relation(fields: [runnerId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([runnerId])
+  @@map("chat_voices")
+}
+
+/// Chats someone gets push notifications for
+model ChatNotify {
+  chatId    String   @map("chat_id") @db.Uuid
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_notify")
+}
+
+/// A browser or device that can get push notifications
+model PushSubscription {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

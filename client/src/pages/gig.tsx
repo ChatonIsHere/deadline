@@ -4,6 +4,7 @@ import { type GigStatus, type GigView, isLive } from '@shared/schemas';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { ChatLink } from '@/components/chat';
 import { ConfirmButton, DiscordIcon, Icon, Live, Loading, Money, Pay, Say, StatusBadge } from '@/components/common';
 import { DebriefCard, RateFixer } from '@/components/debrief';
 import { DraftBar } from '@/components/draft-bar';
@@ -70,6 +71,7 @@ export function Gig() {
                             </a>
                         </Button>
                     )}
+                    <ChatLink gigId={gig.id} label="Gig chat" />
                     {canEditGig(me, owner) && (
                         <Button asChild variant="outline">
                             <Link to={`/gigs/${gig.ref}/edit`}>Edit</Link>

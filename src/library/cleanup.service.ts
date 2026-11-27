@@ -36,7 +36,7 @@ export class CleanupService {
 
         // Checked again here, so a picture someone started using since isn't lost
         const unused = await this.prisma.image.findMany({
-            where: { unusedSince: { lte: before }, inLibrary: false, gigs: { none: {} }, runners: { none: {} }, artOf: { none: {} }, crews: { none: {} } },
+            where: { unusedSince: { lte: before }, inLibrary: false, gigs: { none: {} }, runners: { none: {} }, artOf: { none: {} }, crews: { none: {} }, chatImages: { none: {} } },
             select: { id: true },
         });
         for (const { id } of unused) {

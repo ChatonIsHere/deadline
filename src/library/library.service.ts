@@ -234,9 +234,9 @@ export class LibraryService implements OnModuleInit, OnApplicationBootstrap {
      */
     async refreshUsage(ids: (string | null | undefined)[], db: Db = this.prisma) {
         for (const id of new Set(ids.filter((i): i is string => !!i))) {
-            const image = await db.image.findUnique({ where: { id }, select: { inLibrary: true, unusedSince: true, _count: { select: { gigs: true, runners: true, artOf: true, crews: true } } } });
+            const image = await db.image.findUnique({ where: { id }, select: { inLibrary: true, unusedSince: true, _count: { select: { gigs: true, runners: true, artOf: true, crews: true, chatImages: true } } } });
             if (!image) continue;
-            const used = image.inLibrary || image._count.gigs > 0 || image._count.runners > 0 || image._count.artOf > 0 || image._count.crews > 0;
+            const used = image.inLibrary || image._count.gigs > 0 || image._count.runners > 0 || image._count.artOf > 0 || image._count.crews > 0 || image._count.chatImages > 0;
             if (used && image.unusedSince) await db.image.update({ where: { id }, data: { unusedSince: null } });
             if (!used && !image.unusedSince) await db.image.update({ where: { id }, data: { unusedSince: new Date() } });
         }

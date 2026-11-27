@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { ChatsService } from '../chats/chats.service';
 import { config } from '../config';
 import { inviteMessage } from '../discord/crew-messages';
 import { MembersService } from '../discord/members.service';
@@ -44,6 +45,8 @@ export class CrewsService {
         private readonly gigs: GigsService,
         private readonly notify: NotifyService,
         private readonly library: LibraryService,
+        /** The crew's chat follows its roster. Left out in tests that don't need it. */
+        @Optional() private readonly chats?: ChatsService,
     ) {}
 
     /** A crew's ID from a URL part: its link (the name) or its UUID. */
@@ -87,6 +90,7 @@ export class CrewsService {
                 members: { create: { runnerId: runner.id, rank: DEFAULT_RANKS[0] } },
             },
         });
+        await this.chats?.syncCrew(crew.id);
         return this.get(crew.id);
     }
 
@@ -109,6 +113,7 @@ export class CrewsService {
             }
         });
         await this.library.refreshUsage([input.imageId, crew.imageId]);
+        if (input.name !== crew.name) await this.chats?.syncCrew(id);
         if (input.name !== crew.name) this.gigs.refresh(await this.gigs.gigsForCrew(id));
         return this.get(id);
     }
@@ -116,6 +121,8 @@ export class CrewsService {
     async delete(user: Me, id: string) {
         const crew = await this.manage(user, id);
         const affected = await this.gigs.gigsForCrew(id);
+        // Its chat stays, read-only, for those who were in it
+        await this.chats?.archiveCrew(id);
         // Their gig slots become open to anyone (ON DELETE SET NULL)
         await this.prisma.crew.delete({ where: { id } });
         await this.library.refreshUsage([crew.imageId]);
@@ -153,6 +160,7 @@ export class CrewsService {
         if (isFounderRank(crew, member.rank)) checkFounderLeaving(user, crew, member);
 
         await this.prisma.crewMember.delete({ where: { crewId_runnerId: { crewId: id, runnerId } } });
+        await this.chats?.syncCrew(id);
         return this.get(id);
     }
 
@@ -264,6 +272,7 @@ export class CrewsService {
             await tx.crewAlly.deleteMany({ where: { crewId: crew.id, runnerId } });
             await tx.crewInvite.deleteMany({ where: { crewId: crew.id, runnerId } });
         });
+        await this.chats?.syncCrew(crew.id);
         // They may now fit a crew slot they were waiting on
         await this.gigs.refill(await this.gigs.gigsForCrew(crew.id));
     }

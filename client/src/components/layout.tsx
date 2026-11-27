@@ -1,12 +1,14 @@
 import { canCreateCrew, canCreateGig } from '@shared/permissions';
 import { Plus } from 'lucide-react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { ChatTab, UnreadBadge, useChatToasts, useUnreadCount } from '@/components/chat';
 import { CommandPalette } from '@/components/command-palette';
 import { Avatar, Loading, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { api, isOutdated, useCrew, useGig, useMe, useRunner, useSettings } from '@/lib/api';
 import { useLiveUpdates } from '@/lib/live';
+import { startPush } from '@/lib/push';
 import { cn } from '@/lib/utils';
 
 export const logout = async () => {
@@ -37,6 +39,8 @@ interface Channel {
     label: string;
     /** Three letters for the phone bar. */
     short: string;
+    /** Unread messages and the like */
+    badge?: number;
 }
 
 /**
@@ -84,12 +88,26 @@ export function Layout() {
     if (isPending) return <Loading className="p-6">connecting to the board...</Loading>;
     // First time in: setup comes first (making a runner is part of it)
     if (me.needsSetup && !SETUP_PATHS.includes(pathname)) return <Navigate to="/setup" replace />;
+    return <SignedIn palette={palette} setPalette={setPalette} scroller={scroller} />;
+}
+
+/** The signed in board, once who you are is known. */
+function SignedIn({ palette, setPalette, scroller }: { palette: boolean; setPalette: (open: boolean) => void; scroller: RefObject<HTMLDivElement | null> }) {
+    const me = useMe().data!;
+    const { pathname } = useLocation();
+    const navigate = useNavigate();
+    const unread = useUnreadCount();
+    useChatToasts();
+    useEffect(() => {
+        void startPush(navigate);
+    }, [navigate]);
 
     const channels: Channel[] = [
         { to: '/gigs', label: 'Gigs', short: 'GIG' },
         { to: '/runners', label: 'Runners', short: 'RNS' },
         { to: '/fixers', label: 'Fixers', short: 'FIX' },
         { to: '/crews', label: 'Crews', short: 'CRW' },
+        { to: '/messages', label: 'Messages', short: 'MSG', badge: unread },
         ...(me.isAdmin
             ? [
                   { to: '/availability', label: 'Availability', short: 'AVL' },
@@ -118,6 +136,7 @@ export function Layout() {
         // window, like a terminal's command line.
         <div className="fixed inset-0 flex flex-col xl:static xl:block xl:min-h-screen">
             <Rail channels={channels} />
+            <ChatTab />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:min-h-screen">
                 <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-visible">
@@ -152,7 +171,10 @@ export function Layout() {
                 <div className="flex">
                     {channels.map((c, i) => (
                         <BarLink key={c.to} to={c.to} label={c.label} number={i + 1}>
-                            <span className="font-display text-sm tracking-widest">{c.short}</span>
+                            <span className="relative font-display text-sm tracking-widest">
+                                {c.short}
+                                <UnreadBadge count={c.badge ?? 0} className="absolute -top-2.5 -right-4" />
+                            </span>
                         </BarLink>
                     ))}
                 </div>
@@ -197,6 +219,7 @@ function Rail({ channels }: { channels: Channel[] }) {
                     >
                         <span className="w-6 shrink-0 text-xs tabular-nums opacity-60">{channelNo(i + 1)}</span>
                         {c.label}
+                        <UnreadBadge count={c.badge ?? 0} className="ml-auto" />
                     </NavLink>
                 ))}
             </nav>

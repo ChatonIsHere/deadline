@@ -2,6 +2,7 @@ import type { GigLink, RunnerView } from '@shared/schemas';
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtGallery } from '@/components/art';
+import { MessageButton } from '@/components/chat';
 import { ConfirmButton, LinkCard, Live, liveKey, Loading, Person, Say, StatusBadge } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RetireControls } from '@/components/retire';
@@ -43,8 +44,9 @@ export function RunnerPage() {
             <p className="text-xs text-muted-foreground">
                 played by <Person member={runner.owner} />
             </p>
-            {(canManage || runner.isFixer || runner.downtime) && (
+            {(canManage || runner.isFixer || runner.downtime || (!gone && runner.ownerId !== me.id)) && (
                 <div className="flex flex-wrap gap-2">
+                    <MessageButton runner={runner} />
                     {runner.downtime && (
                         <Button asChild variant="outline" size="sm">
                             <Link to={`/runners/${runner.slug}/downtime`}>

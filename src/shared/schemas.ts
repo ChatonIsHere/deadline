@@ -366,6 +366,8 @@ export const settingsInput = z.object({
     runnerRoles: z.array(text(30)).min(1).max(30),
     /** How many live gigs a player can be signed up to, across all their runners. 0 is no limit. */
     maxSignups: z.number().int().min(0).max(50),
+    /** Text channel where each chat gets a private thread */
+    dmChannelId: snowflake,
 });
 export type Settings = z.infer<typeof settingsInput>;
 
@@ -582,6 +584,8 @@ export interface Option {
 export interface GuildOptions {
     forums: Option[];
     roles: Option[];
+    /** Text channels, for the chats' threads */
+    textChannels: Option[];
 }
 
 export interface SettingsView {
@@ -686,3 +690,118 @@ export interface MySignups {
 
 /** Undisclosed objectives come out when sign-ups lock and the job is on. */
 export const objectivesRevealed = (status: GigStatus) => status === 'closed' || status === 'completed';
+
+// Chats
+
+export const CHAT_KINDS = ['direct', 'group', 'crew', 'gig'] as const;
+export type ChatKind = (typeof CHAT_KINDS)[number];
+/** Discord's limit on a message */
+export const MAX_MESSAGE = 2000;
+export const MAX_CHAT_IMAGES = 4;
+export const MAX_CHAT_RECIPIENTS = 10;
+export const MAX_CHAT_NAME = 60;
+
+/** Starting a chat as one of your characters (or, for admins, an NPC fixer). One recipient opens your direct chat with them. */
+export const newChatInput = z.object({
+    asRunnerId: id,
+    recipientIds: z.array(id).min(1).max(MAX_CHAT_RECIPIENTS),
+    name: optionalText(MAX_CHAT_NAME).default(null),
+});
+export type NewChatInput = z.infer<typeof newChatInput>;
+
+export const chatMessageInput = z
+    .object({
+        asRunnerId: id,
+        body: z.string().trim().max(MAX_MESSAGE).default(''),
+        imageIds: z.array(id).max(MAX_CHAT_IMAGES).default([]),
+    })
+    .refine((m) => m.body || m.imageIds.length, 'Say something.');
+export type ChatMessageInput = z.infer<typeof chatMessageInput>;
+
+export const editMessageInput = z.object({ body: text(MAX_MESSAGE) });
+export const renameChatInput = z.object({ name: optionalText(MAX_CHAT_NAME) });
+export const chatNotifyInput = z.object({ on: z.boolean() });
+
+export const pushSubscriptionInput = z.object({
+    endpoint: z.url().max(1000),
+    keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInput>;
+export const pushEndpointInput = z.object({ endpoint: z.string().max(1000) });
+
+/** A character in a chat. */
+export interface ChatRunner {
+    id: string;
+    slug: string;
+    handle: string;
+    imageId: string | null;
+    status: RunnerStatus;
+    ownerId: string | null;
+    /** An NPC fixer, played by the GMs */
+    isNpc: boolean;
+    /** The fixer profile's link, for NPCs */
+    fixerSlug: string | null;
+}
+
+export interface ChatSummary {
+    id: string;
+    kind: ChatKind;
+    title: string;
+    /** A group's own name, if it has one */
+    name: string | null;
+    /** The crew's logo or the gig's picture. Direct and group chats show their characters instead. */
+    imageId: string | null;
+    crewId: string | null;
+    gigId: string | null;
+    /** Direct chats: the other character, from the viewer's side */
+    directWith: string | null;
+    members: ChatRunner[];
+    last: { handle: string; body: string; at: number } | null;
+    /** Unix ms */
+    lastMessageAt: number;
+    unread: number;
+    /** An admin overseeing a gig chat they've not spoken in: it doesn't count as unread or pop up for them */
+    watching: boolean;
+    /** Characters the viewer can send as here. Empty when they can only read. */
+    speakable: string[];
+    readOnly: boolean;
+    archived: boolean;
+    /** The viewer gets push notifications for it */
+    notify: boolean;
+    /** The chat's Discord thread */
+    discordUrl: string | null;
+}
+
+export interface ChatMessageView {
+    id: string;
+    chatId: string;
+    runner: { id: string; slug: string; handle: string; imageId: string | null; isNpc: boolean };
+    /** Who wrote it: the player, or the admin speaking as an NPC or fixer */
+    sentBy: string;
+    body: string;
+    imageIds: string[];
+    /** Unix ms */
+    createdAt: number;
+    editedAt: number | null;
+    deleted: boolean;
+}
+
+export interface ChatMessagePage {
+    messages: ChatMessageView[];
+    /** Pass as `before` for older ones. Null at the start of the chat. */
+    before: string | null;
+}
+
+/** Over the live socket, to the chat's people: something changed, with the new or edited message if there is one. */
+export interface ChatEvent {
+    chatId: string;
+    message?: ChatMessageView;
+    /** For the toast and notification: the chat's title and who said it */
+    title?: string;
+}
+
+export interface TypingEvent {
+    chatId: string;
+    runnerId: string;
+    handle: string;
+}

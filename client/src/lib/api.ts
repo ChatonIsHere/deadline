@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CrewInvite, CrewView, FixerSummary, GigCrew, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, Prefs, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ChatMessagePage, ChatRunner, ChatSummary, CrewInvite, CrewView, FixerSummary, GigCrew, GigView, LibraryView, Me, Member, MyAvailability, MySignups, PlayerAvailability, Prefs, RunnerCard, RunnerSummary, RunnerView, SettingsView } from '@shared/schemas';
 import { artPreviewFile, artThumbFile, mediumFile, plainFile, thumbFile, type UploadKind, webFile } from '@shared/images';
 import { toast } from 'sonner';
 import { reloadKeepingDrafts, useAllowNextNavigation } from '@/lib/unsaved';
@@ -81,6 +81,23 @@ export const useFixers = () => useQuery({ queryKey: ['fixers'], queryFn: () => a
 export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api<string[]>('/api/roles') });
 /** Everyone who can be given a runner. Admins only. */
 export const usePlayers = (enabled: boolean) => useQuery({ queryKey: ['players'], queryFn: () => api<Member[]>('/api/players'), enabled });
+
+// Chats. Under 'chats' so a chat event refreshes them all; a chat's messages are kept apart
+// (see live.ts), since new ones arrive with the event.
+export const useChats = (archived = false) => useQuery({ queryKey: ['chats', archived ? 'archived' : 'live'], queryFn: () => api<ChatSummary[]>(`/api/chats${archived ? '?archived=1' : ''}`) });
+export const useChat = (id: string | undefined) => useQuery({ queryKey: ['chats', id], queryFn: () => api<ChatSummary>(`/api/chats/${id}`), enabled: !!id, retry: false });
+export const useNotifyingChats = () => useQuery({ queryKey: ['chats', 'notifying'], queryFn: () => api<ChatSummary[]>('/api/chats/notifying') });
+export const useChatMessages = (id: string) =>
+    useInfiniteQuery({
+        queryKey: ['chat-messages', id],
+        queryFn: ({ pageParam }) => api<ChatMessagePage>(`/api/chats/${id}/messages${pageParam ? `?before=${pageParam}` : ''}`),
+        initialPageParam: null as string | null,
+        getNextPageParam: (last) => last.before,
+        // New messages arrive over the live connection
+        staleTime: Infinity,
+    });
+/** Who you can start chats as, or message. Under 'runners' so it follows changes to them. */
+export const useChatCharacters = (side: 'as' | 'to') => useQuery({ queryKey: ['runners', 'chat', side], queryFn: () => api<ChatRunner[]>(`/api/chats/characters?side=${side}`) });
 
 /** `library` adds it to the picture library (admins). `avatar` makes a square runner picture, `art` a runner's full art. */
 export interface UploadOptions {

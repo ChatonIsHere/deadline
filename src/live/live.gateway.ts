@@ -1,11 +1,15 @@
 import { Logger } from '@nestjs/common';
-import { type OnGatewayConnection, type OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
+import { ConnectedSocket, MessageBody, type OnGatewayConnection, type OnGatewayDisconnect, type OnGatewayInit, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import type { Namespace, Socket } from 'socket.io';
 import { SESSION_COOKIE } from '../auth/auth.guard';
 import { AuthService } from '../auth/auth.service';
-import { LiveService } from './live.service';
+import { canSee, ChatsService, speakable } from '../chats/chats.service';
+import type { Me, TypingEvent } from '../shared/schemas';
+import { isUuid } from '../shared/slug';
+import { LiveService, SIGNED_IN, userRoom } from './live.service';
 
-const SIGNED_IN = 'signed-in';
+/** Typing pings per socket: one every few seconds is plenty. */
+const TYPING_GAP_MS = 2500;
 
 /** One cookie from a Cookie header. */
 function cookie(header: string | undefined, name: string): string | undefined {
@@ -16,22 +20,29 @@ function cookie(header: string | undefined, name: string): string | undefined {
     return undefined;
 }
 
+interface SocketData {
+    user: Me;
+    lastTyping?: number;
+}
+
 /**
  * Socket.IO at /live, the same way the Dox Box API does it for Portal and Quinn. Browsers
- * sign in with their session cookie and hear `changed` with the topics to refetch. Nothing
- * comes back the other way.
+ * sign in with their session cookie and hear `changed` with the topics to refetch, and `chat`
+ * events for their own chats (each person has a room). The only things browsers send are
+ * which chat they're looking at, and that they're typing in one.
  */
 @WebSocketGateway({ namespace: '/live' })
-export class LiveGateway implements OnGatewayInit, OnGatewayConnection {
+export class LiveGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     private readonly logger = new Logger(LiveGateway.name);
 
     constructor(
         private readonly live: LiveService,
         private readonly auth: AuthService,
+        private readonly chats: ChatsService,
     ) {}
 
     afterInit(namespace: Namespace) {
-        this.live.attach(namespace.to(SIGNED_IN));
+        this.live.attach(namespace);
     }
 
     async handleConnection(client: Socket) {
@@ -43,6 +54,41 @@ export class LiveGateway implements OnGatewayInit, OnGatewayConnection {
             client.disconnect(true);
             return;
         }
-        await client.join(SIGNED_IN);
+        (client.data as SocketData) = { user };
+        await client.join([SIGNED_IN, userRoom(user.id)]);
+    }
+
+    handleDisconnect(client: Socket) {
+        const data = client.data as SocketData | undefined;
+        if (data?.user) this.live.setViewing(client.id, data.user.id, null);
+    }
+
+    /** The chat this page has open and in view, or null. Nobody gets a notification for a chat in front of them. */
+    @SubscribeMessage('viewing')
+    async viewing(@ConnectedSocket() client: Socket, @MessageBody() body: { chatId?: unknown }) {
+        const data = client.data as SocketData | undefined;
+        if (!data?.user) return;
+        const chatId = typeof body?.chatId === 'string' && isUuid(body.chatId) ? body.chatId : null;
+        if (chatId) {
+            const chat = await this.chats.find(chatId);
+            if (!chat || !canSee(data.user, chat)) return;
+        }
+        this.live.setViewing(client.id, data.user.id, chatId);
+    }
+
+    /** Someone's typing as one of their characters. The chat's other people hear, briefly. */
+    @SubscribeMessage('typing')
+    async typing(@ConnectedSocket() client: Socket, @MessageBody() body: { chatId?: unknown; runnerId?: unknown }) {
+        const data = client.data as SocketData | undefined;
+        if (!data?.user || typeof body?.chatId !== 'string' || typeof body.runnerId !== 'string' || !isUuid(body.chatId)) return;
+        const now = Date.now();
+        if (data.lastTyping && now - data.lastTyping < TYPING_GAP_MS) return;
+        data.lastTyping = now;
+        const chat = await this.chats.find(body.chatId);
+        if (!chat || !canSee(data.user, chat)) return;
+        const runner = speakable(data.user, chat).find((r) => r.id === body.runnerId);
+        if (!runner) return;
+        const people = this.chats.audience(chat).filter((id) => id !== data.user.id);
+        this.live.toUsers(people, 'typing', { chatId: chat.id, runnerId: runner.id, handle: runner.handle } satisfies TypingEvent);
     }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { isPickedZone, TimezonePicker, WeekGrid } from '@/components/availability';
 import { Avatar, Loading } from '@/components/common';
 import { logout } from '@/components/layout';
+import { ChatNotificationsCard } from '@/components/chat-notifications';
 import { NotificationsCard } from '@/components/notifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
@@ -52,6 +53,8 @@ export function MePage() {
                     {prefs && <TimezoneCard current={prefs.timezone} />}
 
                     <NotificationsCard prefs={prefs} />
+
+                    <ChatNotificationsCard />
 
                     <Button variant="outline" className="w-full" onClick={logout}>
                         <LogOut className="size-4" /> Log out

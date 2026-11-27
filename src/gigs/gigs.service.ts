@@ -1,7 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, type Runner } from '@prisma/client';
 import { Once } from 'necord';
 import { PrefsService } from '../auth/prefs.service';
+import { ChatsService } from '../chats/chats.service';
 import { config } from '../config';
 import { GigPostService, type Note } from '../discord/gig-post.service';
 import { MembersService } from '../discord/members.service';
@@ -76,6 +77,8 @@ export class GigsService {
         private readonly library: LibraryService,
         private readonly prefs: PrefsService,
         private readonly notify: NotifyService,
+        /** The gig's chat follows its slots. Left out in tests that don't need it. */
+        @Optional() private readonly chats?: ChatsService,
     ) {}
 
     async list(user: Me): Promise<GigView[]> {
@@ -849,6 +852,8 @@ export class GigsService {
     post(id: string, { note, ask = [], after }: { note?: Note; ask?: string[]; after?: AfterPost } = {}) {
         const previous = this.postQueue.get(id) ?? Promise.resolve();
         const next = previous.then(async () => {
+            // The gig's chat first, on its own: Discord being down shouldn't stop it
+            await this.chats?.syncGig(id).catch((err) => this.logger.error(`Couldn't update the chat for gig ${id}: ${err}`));
             try {
                 const gig = await this.row(id);
                 const view = await this.view(id);

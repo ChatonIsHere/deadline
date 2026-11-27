@@ -1,6 +1,7 @@
 import type { GigStatus, Review } from '@shared/schemas';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArtGallery } from '@/components/art';
+import { MessageButton } from '@/components/chat';
 import { ConfirmButton, Live, liveKey, Loading, Say } from '@/components/common';
 import { Markdown } from '@/components/markdown';
 import { RatingLine, RunnerAvatar, RunnerChip, Stars } from '@/components/runner';
@@ -69,6 +70,7 @@ export function FixerPage() {
                             </dl>
                         )}
                         <div className="flex flex-wrap gap-2 pt-2">
+                            <MessageButton runner={fixer} />
                             {fixer.owner && (
                                 <Button asChild variant="outline" size="sm">
                                     <Link to={`/runners/${fixer.slug}`}>View runner profile</Link>

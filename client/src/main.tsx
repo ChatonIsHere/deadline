@@ -9,6 +9,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { loadConfig } from '@/lib/api';
 import { UnsavedChangesGuard } from '@/lib/unsaved';
 import { Board } from '@/pages/board';
+import { ChatPage } from '@/pages/chat';
 import { Crew } from '@/pages/crew';
 import { Crews, NewCrewPage } from '@/pages/crews';
 import { Gig } from '@/pages/gig';
@@ -19,6 +20,7 @@ import { Login } from '@/pages/login';
 import { LibraryPage } from '@/pages/library';
 import { FixerPage } from '@/pages/fixer';
 import { MePage } from '@/pages/me';
+import { MessagesPage } from '@/pages/messages';
 import { AvailabilityPage } from '@/pages/availability';
 import { SetupPage } from '@/pages/setup';
 import { RunnerPage } from '@/pages/runner';
@@ -56,6 +58,9 @@ const router = createBrowserRouter(
                 <Route path="crews/new" element={<NewCrewPage />} />
                 <Route path="crews/:id" element={<Crew />} />
                 <Route path="crews/:id/hq" element={<CrewHqPage />} />
+                <Route path="messages" element={<MessagesPage />}>
+                    <Route path=":id" element={<ChatPage />} />
+                </Route>
                 <Route path="settings/library" element={<LibraryPage />} />
                 {/* Old /library links */}
                 <Route path="library" element={<Navigate to="/settings/library" replace />} />

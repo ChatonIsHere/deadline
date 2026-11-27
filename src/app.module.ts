@@ -8,6 +8,8 @@ import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
 import { PrefsService } from './auth/prefs.service';
 import { config } from './config';
+import { ChatsController } from './chats/chats.controller';
+import { ChatsService } from './chats/chats.service';
 import { CrewsController } from './crews/crews.controller';
 import { CrewsService } from './crews/crews.service';
 import { CacheService } from './cache/cache.service';
@@ -19,6 +21,8 @@ import { PrismaService } from './prisma/prisma.service';
 import { StorageService } from './storage/storage.service';
 import { EmojiService } from './discord/emoji.service';
 import { BotProfileService } from './discord/bot-profile.service';
+import { ChatInteractions } from './discord/chat.interactions';
+import { ChatRelayService } from './discord/chat-relay.service';
 import { Commands } from './discord/commands';
 import { CrewInteractions } from './discord/crew.interactions';
 import { GigInteractions } from './discord/gig.interactions';
@@ -36,6 +40,8 @@ import { DowntimeService } from './runners/downtime.service';
 import { RunnersService } from './runners/runners.service';
 import { DebriefService } from './gigs/debrief.service';
 import { LinkPreviewService } from './link-preview/link-preview.service';
+import { PushController } from './push/push.controller';
+import { PushService } from './push/push.service';
 
 // One module. The app is small enough that splitting it up would only add files.
 @Module({
@@ -43,10 +49,11 @@ import { LinkPreviewService } from './link-preview/link-preview.service';
         ScheduleModule.forRoot(),
         NecordModule.forRoot({
             token: config.DISCORD_TOKEN,
-            intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+            // Messages, their text and typing: for chats' threads (Message Content is privileged: turn it on in the developer portal)
+            intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageTyping],
         }),
     ],
-    controllers: [AuthController, AvailabilityController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController],
+    controllers: [AuthController, AvailabilityController, GigsController, CrewsController, SettingsController, LibraryController, RunnersController, ImagesController, ConfigController, ChatsController, PushController],
     providers: [
         LiveService,
         LiveGateway,
@@ -74,6 +81,10 @@ import { LinkPreviewService } from './link-preview/link-preview.service';
         RunnersService,
         CrewsService,
         LinkPreviewService,
+        PushService,
+        ChatsService,
+        ChatRelayService,
+        ChatInteractions,
     ],
 })
 export class AppModule {}

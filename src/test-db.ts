@@ -28,6 +28,15 @@ const TABLES = [
     'regions',
     'images',
     'stale_objects',
+    'chats',
+    'chat_members',
+    'chat_reads',
+    'chat_staff',
+    'chat_messages',
+    'chat_message_images',
+    'chat_voices',
+    'chat_notify',
+    'push_subscriptions',
 ];
 
 export async function emptyDb() {

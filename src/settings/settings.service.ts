@@ -17,6 +17,7 @@ const EMPTY: Settings = {
     confirmHours: 48,
     runnerRoles: CORE_ROLES,
     maxSignups: 0,
+    dmChannelId: null,
 };
 
 /**
@@ -27,6 +28,8 @@ const EMPTY: Settings = {
 @Injectable()
 export class SettingsService implements OnModuleInit {
     private cached: Settings = EMPTY;
+    /** Told after each save (the chat relay picks up a new DM channel). */
+    private readonly listeners: ((next: Settings, before: Settings) => void)[] = [];
 
     constructor(
         private readonly prisma: PrismaService,
@@ -46,14 +49,19 @@ export class SettingsService implements OnModuleInit {
         return this.cached;
     }
 
+    onSave(listener: (next: Settings, before: Settings) => void) {
+        this.listeners.push(listener);
+    }
+
     /** Checks the new settings against Discord and saves them. Only the bot's owner can change the server. */
     async save(user: Me, next: Settings) {
         if (!user.isAdmin) throw new ForbiddenException();
         if (next.guildId !== this.get().guildId && !user.isOwner) throw new ForbiddenException('Only the bot owner can change the server.');
 
         if (next.guildId) {
-            const { forums, roles } = await this.options(next.guildId);
+            const { forums, roles, textChannels } = await this.options(next.guildId);
             if (next.forumId && !forums.some((f) => f.id === next.forumId)) throw new BadRequestException('That forum is not in this server.');
+            if (next.dmChannelId && !textChannels.some((c) => c.id === next.dmChannelId)) throw new BadRequestException('That channel is not in this server.');
             for (const roleId of [next.adminRoleId, next.fixerRoleId, next.edgerunnerRoleId]) {
                 if (roleId && !roles.some((r) => r.id === roleId)) throw new BadRequestException('That role is not in this server.');
             }
@@ -64,13 +72,28 @@ export class SettingsService implements OnModuleInit {
         // Fixer always stays: it's what makes a runner a fixer
         if (!next.runnerRoles.includes(FIXER_ROLE)) next = { ...next, runnerRoles: [...next.runnerRoles, FIXER_ROLE] };
         await this.prisma.settings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
+        const before = this.cached;
         this.cached = next;
+        for (const listener of this.listeners) listener(next, before);
     }
 
     inviteUrl(): string {
         const p = PermissionFlagsBits;
-        // Read Message History is needed to edit a post's first message
-        const permissions = [p.ViewChannel, p.SendMessages, p.SendMessagesInThreads, p.ReadMessageHistory, p.ManageThreads, p.EmbedLinks, p.ManageChannels];
+        // Read Message History is needed to edit a post's first message. Chats: private threads,
+        // a webhook to post as characters, and Manage Messages to swap players' messages for those posts.
+        const permissions = [
+            p.ViewChannel,
+            p.SendMessages,
+            p.SendMessagesInThreads,
+            p.ReadMessageHistory,
+            p.ManageThreads,
+            p.EmbedLinks,
+            p.AttachFiles,
+            p.ManageChannels,
+            p.CreatePrivateThreads,
+            p.ManageWebhooks,
+            p.ManageMessages,
+        ];
         const params = new URLSearchParams({
             client_id: this.client.application?.id ?? '',
             scope: 'bot applications.commands',
@@ -88,7 +111,7 @@ export class SettingsService implements OnModuleInit {
     async options(guildId: string): Promise<GuildOptions> {
         const guild = this.client.guilds.cache.get(guildId);
         if (!guild) throw new NotFoundException('The bot is not in that server.');
-        return this.cache.remember(`guild-options:${guildId}`, 300, () => this.loadOptions(guildId));
+        return this.cache.remember(`guild-options:v2:${guildId}`, 300, () => this.loadOptions(guildId));
     }
 
     private async loadOptions(guildId: string): Promise<GuildOptions> {
@@ -99,6 +122,10 @@ export class SettingsService implements OnModuleInit {
             .filter((c) => c?.type === ChannelType.GuildForum)
             .map((c) => ({ id: c!.id, name: c!.name }))
             .sort((a, b) => a.name.localeCompare(b.name));
+        const textChannels = channels
+            .filter((c) => c?.type === ChannelType.GuildText)
+            .map((c) => ({ id: c!.id, name: c!.name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
 
         // Highest first, like Discord shows them. Bot roles can't be given to people, so they're left out.
         const roles = guild.roles.cache
@@ -106,6 +133,6 @@ export class SettingsService implements OnModuleInit {
             .sort((a, b) => b.position - a.position)
             .map((r) => ({ id: r.id, name: r.name, color: r.color ? r.hexColor : undefined }));
 
-        return { forums, roles };
+        return { forums, roles, textChannels };
     }
 }

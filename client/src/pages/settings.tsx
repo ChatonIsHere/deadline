@@ -111,7 +111,7 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                                 disabled={!isOwner}
                                 placeholder="Pick a server"
                                 options={toOptions(view.guilds)}
-                                onChange={(guildId) => set({ guildId: guildId || null, forumId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })}
+                                onChange={(guildId) => set({ guildId: guildId || null, forumId: null, dmChannelId: null, adminRoleId: null, fixerRoleId: null, edgerunnerRoleId: null })}
                             />
                         ) : (
                             <Say>the bot isn't in any server yet.</Say>
@@ -131,6 +131,20 @@ function ConfigForm({ view, isOwner }: { view: SettingsView; isOwner: boolean })
                             <CardTitle>Gig forum</CardTitle>
                             <Select value={form.forumId ?? ''} placeholder="Pick a forum" options={toOptions(options.forums)} onChange={(forumId) => set({ forumId: forumId || null })} />
                             {!options.forums.length && <Say>no forums the bot can see. make one, or check the bot's permissions.</Say>}
+                        </Card>
+                    )}
+
+                    {options && (
+                        <Card className="space-y-3">
+                            <CardTitle help="each chat between characters gets a private thread here, kept in step with the web. the bot posts as the characters through a webhook, and swaps what players type in a thread for a post as their character. it needs Manage Webhooks, Manage Messages and Create Private Threads (re-invite it with the link above), and the Message Content intent turned on in the developer portal.">
+                                DM channel
+                            </CardTitle>
+                            <Select
+                                value={form.dmChannelId ?? ''}
+                                placeholder="None: chats stay on the web"
+                                options={[{ value: '', label: 'None: chats stay on the web' }, ...toOptions(options.textChannels ?? [])]}
+                                onChange={(dmChannelId) => set({ dmChannelId: dmChannelId || null })}
+                            />
                         </Card>
                     )}
 

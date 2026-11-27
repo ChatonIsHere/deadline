@@ -48,6 +48,11 @@ const schema = z.object({
     MAX_WRITES_PER_MINUTE: limit(60),
     MAX_PAY: amount(1_000_000),
     MAX_IP: amount(1_000),
+    // Web Push for chats (npx web-push generate-vapid-keys). Without the keys, push is off.
+    VAPID_PUBLIC_KEY: optional,
+    VAPID_PRIVATE_KEY: optional,
+    // Who push services can contact about us: mailto: or https: URL. Defaults to PUBLIC_URL.
+    VAPID_SUBJECT: optional,
     DISCORD_TOKEN: z.string().min(1),
     DISCORD_CLIENT_SECRET: z.string().min(1),
 });
