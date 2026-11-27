@@ -9,6 +9,7 @@ import {
     ComponentType,
     DiscordAPIError,
     type Message,
+    PermissionFlagsBits,
     RESTJSONErrorCodes,
     type TextChannel,
     ThreadAutoArchiveDuration,
@@ -16,6 +17,7 @@ import {
 } from 'discord.js';
 import { Context, type ContextOf, On, Once } from 'necord';
 import { CacheService } from '../cache/cache.service';
+import { config } from '../config';
 import { type Actor, type ChatRelay, type ChatRow, ChatsService, type MessageRow, speakable } from '../chats/chats.service';
 import { LibraryService } from '../library/library.service';
 import { LiveService } from '../live/live.service';
@@ -23,6 +25,7 @@ import { SettingsService } from '../settings/settings.service';
 import { MAX_UPLOAD, plainFile, thumbFile } from '../shared/images';
 import { MAX_MESSAGE, type Me, type TypingEvent } from '../shared/schemas';
 import { StorageService } from '../storage/storage.service';
+import { chatIntroMessage, INTRO_FOOTER } from './chat-messages';
 import { MembersService } from './members.service';
 
 const WEBHOOK_NAME = 'Deadline';
@@ -50,13 +53,50 @@ const isGone = (err: unknown) =>
 /** Webhook names can't say "discord" or "clyde". */
 export const hookName = (handle: string) => handle.replace(/discord/gi, 'D!scord').replace(/clyde/gi, 'Clyd3').slice(0, MAX_HOOK_NAME) || 'Runner';
 
-/** What a chat's thread is called. */
+/** What a chat's thread is called, with a symbol for its kind so they're told apart in the channel list. */
 export function threadName(chat: ChatRow): string {
-    const handles = chat.members.map((m) => m.runner.handle).join(', ');
+    const handles = chat.members.map((m) => m.runner.handle);
     const name =
-        chat.kind === 'crew' ? `Crew: ${chat.crew?.name ?? chat.name}` : chat.kind === 'gig' ? `Gig: ${chat.gig?.name ?? chat.name}` : (chat.name ?? (handles || 'Chat'));
+        chat.kind === 'crew'
+            ? `🛡️ ${chat.crew?.name ?? chat.name}`
+            : chat.kind === 'gig'
+              ? `📋 ${chat.gig?.name ?? chat.name}`
+              : chat.kind === 'direct'
+                ? `💬 ${handles.join(' · ') || 'Chat'}`
+                : `👥 ${chat.name ?? (handles.join(', ') || 'Group')}`;
     return name.length > MAX_THREAD_NAME ? `${name.slice(0, MAX_THREAD_NAME - 1)}…` : name;
 }
+
+/** What players can do in the DM channel: see it and talk in their threads, but not post in it or make threads. */
+const PLAYER_PERMISSIONS = {
+    ViewChannel: true,
+    ReadMessageHistory: true,
+    SendMessagesInThreads: true,
+    AttachFiles: true,
+    EmbedLinks: true,
+    UseApplicationCommands: true,
+    SendMessages: false,
+    CreatePublicThreads: false,
+    CreatePrivateThreads: false,
+} as const;
+
+/** What the bot needs there (see SettingsService.inviteUrl). */
+const BOT_PERMISSIONS = {
+    ViewChannel: true,
+    ReadMessageHistory: true,
+    SendMessages: true,
+    SendMessagesInThreads: true,
+    CreatePrivateThreads: true,
+    ManageThreads: true,
+    ManageWebhooks: true,
+    ManageMessages: true,
+    EmbedLinks: true,
+    AttachFiles: true,
+} as const;
+
+/** Catching up after a restart: messages typed in a thread per pass, and how far back web messages are retried in a thread nothing reached yet. */
+const CATCH_UP_PAGE = 100;
+const RETRY_WINDOW_MS = 86_400_000;
 
 /**
  * Mirrors chats into private threads in the DM channel (Settings). Messages from the web go
@@ -73,6 +113,8 @@ export class ChatRelayService implements ChatRelay {
     private readonly logger = new Logger(ChatRelayService.name);
     private hook: { channelId: string; webhook: Webhook } | null = null;
     private readonly queues = new Map<string, Promise<unknown>>();
+    /** Set once the bot first comes up, so later reconnects know to catch up too. */
+    private started = false;
 
     constructor(
         @Inject(Client) private readonly client: Client,
@@ -87,12 +129,109 @@ export class ChatRelayService implements ChatRelay {
         chats.attachRelay(this);
         settings.onSave((next, before) => {
             if (next.dmChannelId !== before.dmChannelId) this.hook = null;
+            const roles = (s: typeof next) => [s.dmChannelId, s.adminRoleId, s.fixerRoleId, s.edgerunnerRoleId].join();
+            if (next.dmChannelId && roles(next) !== roles(before)) void this.setupChannel();
         });
     }
 
     @Once('clientReady')
     async onReady() {
-        if (this.settings.get().dmChannelId) await this.webhook().catch((err) => this.logger.warn(`DM channel webhook: ${err}`));
+        this.started = true;
+        if (!this.settings.get().dmChannelId) return;
+        await this.setupChannel();
+        await this.catchUp();
+    }
+
+    /** A new gateway session after a dropped one: events in between weren't replayed, so catch up. (Resumed sessions replay them.) */
+    @On('shardReady')
+    async onReconnect() {
+        if (this.started && this.settings.get().dmChannelId) await this.catchUp();
+    }
+
+    /**
+     * Gets the DM channel ready: its permissions (when the bot may change them), the webhook,
+     * and the pinned post explaining it. Run at startup and when the channel or roles change.
+     */
+    async setupChannel() {
+        const channel = await this.channel().catch(() => null);
+        if (!channel) return;
+        await this.setPermissions(channel).catch((err) => this.logger.warn(`Couldn't set the DM channel's permissions: ${err}`));
+        await this.webhook().catch((err) => this.logger.warn(`DM channel webhook: ${err}`));
+        await this.postIntro(channel).catch((err) => this.logger.warn(`Couldn't post the DM channel's explainer: ${err}`));
+    }
+
+    /**
+     * Only signed-in players see the channel: the edgerunner, fixer and admin roles. They talk
+     * in their threads, but the channel itself stays the bot's. Overwrites for other roles are
+     * left alone. Needs Manage Channels and Manage Roles (Manage Permissions) there.
+     */
+    private async setPermissions(channel: TextChannel) {
+        const me = channel.guild.members.me;
+        const allowed = me && channel.permissionsFor(me);
+        if (!me || !allowed?.has([PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles])) {
+            this.logger.warn(`No Manage Channels and Manage Roles in #${channel.name}: set its permissions by hand (see the README).`);
+            return;
+        }
+        const { adminRoleId, fixerRoleId, edgerunnerRoleId } = this.settings.get();
+        const reason = 'Deadline chats';
+        await channel.permissionOverwrites.edit(me, BOT_PERMISSIONS, { reason });
+        const roles = [...new Set([edgerunnerRoleId, fixerRoleId, adminRoleId].filter((r): r is string => !!r && channel.guild.roles.cache.has(r)))];
+        for (const roleId of roles) await channel.permissionOverwrites.edit(roleId, PLAYER_PERMISSIONS, { reason });
+        // Nobody else, once there's a role to let players in
+        if (roles.length) await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { ViewChannel: false }, { reason });
+        this.logger.log(`Set #${channel.name}'s permissions for ${roles.length} role${roles.length === 1 ? '' : 's'}`);
+    }
+
+    /** The explainer at the top of the channel: the bot's earlier copy is updated, or a new one posted and pinned. */
+    private async postIntro(channel: TextChannel) {
+        const message = chatIntroMessage(config.PUBLIC_URL);
+        const isIntro = (m: Message) => m.author.id === this.client.user?.id && m.embeds[0]?.footer?.text === INTRO_FOOTER;
+        const pinned = await channel.messages.fetchPinned().catch(() => null);
+        const existing = pinned?.find(isIntro) ?? (await channel.messages.fetch({ limit: 50 })).find(isIntro);
+        if (existing) {
+            await existing.edit({ embeds: message.embeds, components: message.components });
+            return;
+        }
+        const sent = await channel.send(message);
+        await sent.pin().catch((err) => this.logger.warn(`Couldn't pin the DM channel's explainer: ${err}`));
+    }
+
+    /**
+     * After time offline, both ways: what players typed in open threads meanwhile comes across
+     * (oldest first, at the time it was typed), and web messages that never reached their thread
+     * are posted. The last message that did reach it marks where each chat is up to.
+     */
+    async catchUp() {
+        let taken = 0;
+        let posted = 0;
+        for (const chat of await this.chats.threaded()) {
+            try {
+                const thread = await this.thread(chat);
+                if (!thread) continue;
+                const last = await this.chats.lastMirrored(chat.id);
+                if (last?.discordMessageId) {
+                    let after = last.discordMessageId;
+                    for (;;) {
+                        const page = [...(await thread.messages.fetch({ after, limit: CATCH_UP_PAGE })).values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                        for (const message of page) {
+                            if (message.author.bot || message.webhookId || message.system) continue;
+                            await this.received(chat, message, message.createdAt);
+                            taken++;
+                        }
+                        if (page.length < CATCH_UP_PAGE) break;
+                        after = page[page.length - 1].id;
+                    }
+                }
+                const since = last?.createdAt ?? new Date(Date.now() - RETRY_WINDOW_MS);
+                for (const message of await this.chats.unmirrored(chat.id, since)) {
+                    await this.posted(chat, message);
+                    posted++;
+                }
+            } catch (err) {
+                this.logger.warn(`Couldn't catch up chat ${chat.id}: ${err}`);
+            }
+        }
+        if (taken || posted) this.logger.log(`Caught up: ${taken} message${taken === 1 ? '' : 's'} from Discord, ${posted} to it`);
     }
 
     // From the web (ChatRelay)
@@ -204,7 +343,8 @@ export class ChatRelayService implements ChatRelay {
         }
     }
 
-    private async received(chat: ChatRow, message: Message<boolean>) {
+    /** `sentAt`: when it was typed, for messages caught up after time offline. */
+    private async received(chat: ChatRow, message: Message<boolean>, sentAt?: Date) {
         const user = await this.actor(message.author.id);
         const options = speakable(user, chat);
         if (!options.length) {
@@ -234,18 +374,18 @@ export class ChatRelayService implements ChatRelay {
 
         if (!runnerId) {
             // Held until they pick who's speaking. Messages kept for their files go in as their first character.
-            if (keep) return this.sendFrom(user, chat.id, options[0].id, body, imageIds, message.id);
+            if (keep || sentAt) return this.sendFrom(user, chat.id, options[0].id, body, imageIds, keep ? message.id : undefined, sentAt);
             const token = randomUUID();
             await this.cache.set(pendingKey(token), { chatId: chat.id, userId: user.id, body, imageIds } satisfies Pending, PENDING_SECONDS);
             await this.prompt(message.channel as AnyThreadChannel, user.id, token, options);
             return;
         }
-        await this.sendFrom(user, chat.id, runnerId, body, imageIds, keep ? message.id : undefined);
+        await this.sendFrom(user, chat.id, runnerId, body, imageIds, keep ? message.id : undefined, sentAt);
     }
 
     /** Sends as a character. With `kept`, the player's own message stays as the Discord copy. */
-    async sendFrom(user: Actor, chatId: string, runnerId: string, body: string, imageIds: string[], kept?: string) {
-        return this.chats.send(user, chatId, { asRunnerId: runnerId, body, imageIds }, { discordMessageId: kept });
+    async sendFrom(user: Actor, chatId: string, runnerId: string, body: string, imageIds: string[], kept?: string, sentAt?: Date) {
+        return this.chats.send(user, chatId, { asRunnerId: runnerId, body, imageIds }, { discordMessageId: kept, sentAt });
     }
 
     /** A chat message deleted on Discord (by a mod, say) is deleted on the web too. */

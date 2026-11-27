@@ -90,6 +90,8 @@ export class SettingsService implements OnModuleInit {
             p.EmbedLinks,
             p.AttachFiles,
             p.ManageChannels,
+            // Setting the DM channel's permissions for the player roles
+            p.ManageRoles,
             p.CreatePrivateThreads,
             p.ManageWebhooks,
             p.ManageMessages,

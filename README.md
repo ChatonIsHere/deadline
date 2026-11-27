@@ -107,7 +107,9 @@ Players speak as their active characters. A player with more than one character 
 
 Desktop has a tab on the right with the latest chats, and the chat for the page you're on (the crew's, the gig's, or yours with that character) pinned at the top. Phones get a pop-up for new messages. Each chat's bell turns on push notifications for it, on every device that has them on. The **Me** page lists those chats.
 
-**In Discord**, each chat gets a private thread in the DM channel picked on **Settings**, made with its first message. The bot posts web messages through a webhook as the character (name and picture). When a player types in a thread, the bot deletes it and posts it as their character. Pictures come across; a message with other files stays as typed, so the files aren't lost. The first time a player with more than one character types in a thread, the bot asks which character it is and remembers. Right-click a message, **Apps**, for **Edit message** and **Delete message**.
+**In Discord**, each chat gets a private thread in the DM channel picked on **Settings**, made with its first message. The bot posts web messages through a webhook as the character (name and picture). When a player types in a thread, the bot deletes it and posts it as their character. Pictures come across; a message with other files stays as typed, so the files aren't lost. The first time a player with more than one character types in a thread, the bot asks which character it is and remembers. Right-click a message, **Apps**, for **Edit message** and **Delete message**. Thread names start with their kind: 💬 direct, 👥 group, 🛡️ crew, 📋 gig.
+
+The bot pins a post in the DM channel explaining it. With Manage Channels and Manage Roles there, it also sets the channel's permissions itself: the edgerunner, fixer and admin roles can see it and talk in their threads but not post in the channel or make threads, and nobody else sees it. After time offline it catches up both ways: what players typed in threads meanwhile comes across, and web messages that didn't reach Discord are posted.
 
 ## Timezones and availability
 
@@ -134,7 +136,7 @@ Admins complete a gig with a debrief: a summary, rewards for the whole crew (eb,
 
 The bot needs these in the forum: View Channel, Create Posts, Send Messages in Posts, Read Message History, Manage Posts and Embed Links. It also needs Manage Channels to add its tags (Open, Full, Closed, Completed, Cancelled), switch the forum to gallery view and set the archive time. The invite link asks for all of these. Players get DMs, so they need DMs from server members turned on.
 
-For chats, the bot needs View Channel, Send Messages in Threads, Create Private Threads, Manage Threads, Manage Webhooks, Manage Messages and Attach Files in the DM channel. The invite link asks for these too; re-invite the bot if it joined before chats.
+For chats, the bot needs View Channel, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Manage Webhooks, Manage Messages and Attach Files in the DM channel, plus Manage Roles to set the channel's permissions for players. The invite link asks for these too; re-invite the bot if it joined before chats.
 
 Any other forum tags work as gig types. If a gig's type matches a tag, the post gets that tag.
 

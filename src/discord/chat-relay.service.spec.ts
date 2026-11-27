@@ -146,10 +146,39 @@ describe('ChatRelayService', () => {
         assert.deepEqual(sent, [{ user: 'a', runner: 'vex', body: 'the plans\n📎 plan.pdf', kept: 'original' }]);
     });
 
+    it('catches up on what was typed in a thread while it was offline, oldest first, at the time it was typed', async () => {
+        const at = (minutes: number) => new Date(Date.UTC(2026, 10, 27, 12, minutes));
+        const missed = [typed('b', 'second'), typed('a', 'first'), typed('a', 'webhook copy', { webhookId: 'hook' })].map((m, i) =>
+            Object.assign(m, { id: `m${i}`, createdAt: at([5, 1, 3][i]), createdTimestamp: at([5, 1, 3][i]).getTime() }),
+        );
+        let after = '';
+        const thread = { id: 'thread', isThread: () => true, messages: { fetch: async (q: { after: string }) => ((after = q.after), new Collection(missed.map((m) => [m.id, m]))) } };
+        const chats = (relay as unknown as { chats: Record<string, unknown> }).chats;
+        const times: (Date | undefined)[] = [];
+        Object.assign(chats, {
+            threaded: async () => [chat],
+            lastMirrored: async () => ({ discordMessageId: 'seen', createdAt: at(0) }),
+            unmirrored: async () => [],
+            send: async (user: Me, _c: string, input: { asRunnerId: string; body: string }, opts: { sentAt?: Date } = {}) => {
+                sent.push({ user: user.id, runner: input.asRunnerId, body: input.body });
+                times.push(opts.sentAt);
+                return { id: 'x' };
+            },
+        });
+        (relay as unknown as { client: unknown }).client = { channels: { fetch: async () => thread } };
+        await relay.catchUp();
+        assert.equal(after, 'seen');
+        assert.deepEqual(sent.map((s) => s.body), ['first', 'second']);
+        assert.deepEqual(times, [at(1), at(5)]);
+    });
+
     it('names webhooks and threads within Discord’s rules', () => {
         assert.equal(hookName('Discord Dan'), 'D!scord Dan');
         assert.equal(hookName('x'.repeat(90)).length, 80);
-        assert.equal(threadName(chatWith(runner('vex', 'a'), runner('kade', 'b'))), 'vex, kade');
-        assert.equal(threadName({ ...chatWith(), kind: 'crew', crew: { name: 'Moxes', imageId: null } } as unknown as ChatRow), 'Crew: Moxes');
+        assert.equal(threadName(chatWith(runner('vex', 'a'), runner('kade', 'b'))), '👥 vex, kade');
+        assert.equal(threadName({ ...chatWith(runner('vex', 'a'), runner('kade', 'b')), kind: 'direct' } as unknown as ChatRow), '💬 vex · kade');
+        assert.equal(threadName({ ...chatWith(), name: 'The heist' } as unknown as ChatRow), '👥 The heist');
+        assert.equal(threadName({ ...chatWith(), kind: 'crew', crew: { name: 'Moxes', imageId: null } } as unknown as ChatRow), '🛡️ Moxes');
+        assert.equal(threadName({ ...chatWith(), kind: 'gig', gig: { name: 'Grab the data' } } as unknown as ChatRow), '📋 Grab the data');
     });
 });

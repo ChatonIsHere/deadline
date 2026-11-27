@@ -268,7 +268,7 @@ export class ChatsService {
      * already stored; `discordMessageId` is a player's own message kept as the Discord copy
      * (it had files), so it isn't posted again.
      */
-    async send(user: Actor, chatId: string, input: ChatMessageInput, { discordMessageId }: { discordMessageId?: string } = {}): Promise<ChatMessageView> {
+    async send(user: Actor, chatId: string, input: ChatMessageInput, { discordMessageId, sentAt }: { discordMessageId?: string; sentAt?: Date } = {}): Promise<ChatMessageView> {
         const chat = await this.visible(user, chatId);
         const as = speakable(user, chat).find((r) => r.id === input.asRunnerId);
         if (!as) throw new ForbiddenException(isReadOnly(chat) ? 'This chat is read-only.' : "You can't speak as that character here.");
@@ -282,10 +282,11 @@ export class ChatsService {
         const now = new Date();
         const message = await this.prisma.$transaction(async (tx) => {
             const m = await tx.chatMessage.create({
-                data: { chatId, runnerId: as.id, sentBy: user.id, body: input.body, discordMessageId, images: { create: imageIds.map((imageId, position) => ({ imageId, position })) } },
+                data: { chatId, runnerId: as.id, sentBy: user.id, body: input.body, discordMessageId, createdAt: sentAt, images: { create: imageIds.map((imageId, position) => ({ imageId, position })) } },
                 include: MESSAGE_INCLUDE,
             });
-            await tx.chat.update({ where: { id: chatId }, data: { lastMessageAt: m.createdAt } });
+            // Caught-up messages can be older than what's there
+            if (m.createdAt > chat.lastMessageAt) await tx.chat.update({ where: { id: chatId }, data: { lastMessageAt: m.createdAt } });
             // What you said, you've read
             await tx.chatRead.upsert({ where: { chatId_userId: { chatId, userId: user.id } }, create: { chatId, userId: user.id, lastReadAt: now }, update: { lastReadAt: now } });
             if (as.ownerId !== user.id) await this.addStaff(chatId, user.id, tx);
@@ -350,6 +351,21 @@ export class ChatsService {
     /** A message by its Discord copy, for the Discord edit and delete commands. */
     async byDiscordMessage(discordMessageId: string) {
         return this.prisma.chatMessage.findUnique({ where: { discordMessageId }, include: MESSAGE_INCLUDE });
+    }
+
+    /** Open chats with a thread, for catching up after time offline. */
+    async threaded(): Promise<ChatRow[]> {
+        return this.prisma.chat.findMany({ where: { threadId: { not: null }, archivedAt: null }, include: CHAT_INCLUDE });
+    }
+
+    /** The newest message that reached the chat's thread: where catching up starts. */
+    async lastMirrored(chatId: string) {
+        return this.prisma.chatMessage.findFirst({ where: { chatId, discordMessageId: { not: null } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { discordMessageId: true, createdAt: true } });
+    }
+
+    /** Messages written since then that never reached the thread, oldest first. */
+    async unmirrored(chatId: string, since: Date): Promise<MessageRow[]> {
+        return this.prisma.chatMessage.findMany({ where: { chatId, discordMessageId: null, deletedAt: null, createdAt: { gt: since } }, include: MESSAGE_INCLUDE, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 50 });
     }
 
     async messageById(id: string) {
