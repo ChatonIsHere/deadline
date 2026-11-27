@@ -114,6 +114,7 @@ export const voice = {
     // Posted in the gig's thread: gig-wide news only. Runners coming and going show in the post's crew list.
     sessionSet: (at: number, end: number | null) => say('info', 'session time set. runners, check your DMs and confirm.', [{ name: 'When', value: when(at, end) }]),
     sessionCleared: () => say('quiet', 'session time cleared. back to gauging interest.'),
+    sessionStarted: () => say('good', "session's started. the crew's in-character chat is open."),
     sessionSoon: (at: number) => say('info', 'session starts soon.', [{ name: 'Starts', value: ts(at, 'R') }]),
     sessionToday: (at: number) => say('info', 'session is on today. confirmed runners, see you there.', [{ name: 'When', value: when(at) }]),
     slotsOpened: (crewName: string) => say('info', `${n(crewName)}'s reserved slots are open to freelancers now.`),

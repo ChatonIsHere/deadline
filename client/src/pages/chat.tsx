@@ -292,7 +292,7 @@ function PeopleDialog({ chat, open, onOpenChange }: { chat: ChatSummary; open: b
                     {chat.kind === 'crew'
                         ? "the crew's chat. it follows the roster."
                         : chat.kind === 'gig'
-                          ? "the gig's chat: its runners and fixer. it's archived when the gig is done."
+                          ? "the gig's chat: its runners and fixer, from when the gig starts. it's archived when the gig is done."
                           : chat.kind === 'direct'
                             ? 'just the two of you.'
                             : 'a group chat. anyone in it can rename it or bring someone in.'}

@@ -46,6 +46,8 @@ export interface ChatRelay {
     /** Members, name or archived state changed (or it's new): bring the thread in line. */
     changed(chat: ChatRow): Promise<void>;
     posted(chat: ChatRow, message: MessageRow): Promise<void>;
+    /** The chat is gone (a gig's, before it started): its thread goes too. */
+    discarded(chat: ChatRow): Promise<void>;
     edited(chat: ChatRow, message: MessageRow): Promise<void>;
     removed(chat: ChatRow, message: MessageRow): Promise<void>;
 }
@@ -442,16 +444,26 @@ export class ChatsService {
     }
 
     /**
-     * Makes the gig's chat match it. While it's live: the runners in its slots and its fixer
-     * (when the fixer has a profile). Once it's completed or cancelled the chat is archived and
-     * its members stay as they were, so only those who were on the gig still see it. A gig
-     * that goes live again opens it again.
+     * Makes the gig's chat match it. It opens when the gig starts (its session time comes, or an
+     * admin starts it), so runners who sign up and back out before then never see it. While it's
+     * live: the runners in its slots and its fixer (when the fixer has a profile). Once it's
+     * completed or cancelled the chat is archived and its members stay as they were, so only
+     * those who were on the gig still see it. A gig that goes live again opens it again.
      */
     async syncGig(gigId: string) {
         const gig = await this.prisma.gig.findUnique({ where: { id: gigId }, include: { slots: { select: { userId: true, runnerId: true } } } });
         if (!gig) return;
         let chat = await this.prisma.chat.findUnique({ where: { gigId }, include: CHAT_INCLUDE });
-        if (isLive(gig.status)) {
+        const started = !!gig.sessionAt && gig.sessionAt.getTime() <= Date.now();
+        // Not started: no chat yet. One made early with nothing said in it goes (with its thread).
+        if (isLive(gig.status) && !started && chat && !(await this.prisma.chatMessage.count({ where: { chatId: chat.id } }))) {
+            await this.prisma.chat.delete({ where: { id: chat.id } });
+            const gone = chat;
+            this.background(`tell chat ${gone.id}'s people`, async () => this.live.toUsers(await this.audience(gone), 'chat', { chatId: gone.id } satisfies ChatEvent));
+            this.background(`remove chat ${gone.id}'s thread`, () => this.relay?.discarded(gone));
+            return;
+        }
+        if (isLive(gig.status) && (started || chat)) {
             if (!chat) chat = await this.prisma.chat.create({ data: { kind: 'gig', gigId, name: gig.name }, include: CHAT_INCLUDE });
             const reopened = !!chat.archivedAt;
             const renamed = chat.name !== gig.name;

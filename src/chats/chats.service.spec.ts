@@ -54,6 +54,7 @@ const relay: ChatRelay = {
     posted: async (_chat, m) => void relayed.push(`posted:${m.id}`),
     edited: async (_chat, m) => void relayed.push(`edited:${m.id}`),
     removed: async (_chat, m) => void relayed.push(`removed:${m.id}`),
+    discarded: async (chat) => void relayed.push(`discarded:${chat.id}`),
 };
 
 const gigInput = (patch: Partial<GigInput> = {}): GigInput => ({
@@ -280,11 +281,39 @@ describe('ChatsService', () => {
     });
 
     describe('gig chats', () => {
+        it('opens when the gig starts, so runners who back out before then never see it', async () => {
+            const gig = await gigs.create(admin, gigInput({ fixerRunnerId: ids.npc }));
+            await gigs.join('a', gig.id, ids.a);
+            await gigs.join('c', gig.id, ids.c);
+            await settle();
+            assert.equal(await prisma.chat.count({ where: { gigId: gig.id } }), 0);
+            await gigs.leave('c', gig.id);
+            await gigs.start(admin, gig.id);
+            await settle();
+            const chat = await prisma.chat.findUniqueOrThrow({ where: { gigId: gig.id }, include: { members: { include: { runner: true } } } });
+            assert.deepEqual(chat.members.map((m) => m.runner.handle).sort(), ['a', 'npc']);
+            await assert.rejects(gigs.start(admin, gig.id), /already started/);
+            // Starting skips the asking: everyone in a slot is coming
+            assert.deepEqual((await gigs.view(gig.id, admin)).slots.filter((s) => s.runner).map((s) => s.state), ['confirmed']);
+        });
+
+        it('takes away a chat made before the gig started, if nothing was said in it', async () => {
+            const gig = await gigs.create(admin, gigInput());
+            await gigs.join('a', gig.id, ids.a);
+            await settle();
+            const early = await prisma.chat.create({ data: { kind: 'gig', gigId: gig.id, name: 'early', members: { create: [{ runnerId: ids.a }] } } });
+            await chats.syncGig(gig.id);
+            await settle();
+            assert.equal(await prisma.chat.count({ where: { id: early.id } }), 0);
+            assert.ok(relayed.includes(`discarded:${early.id}`));
+        });
+
         it('has the runners on the gig and its fixer, and archives when the gig is done', async () => {
             const gig = await gigs.create(admin, gigInput({ fixerRunnerId: ids.npc }));
             await settle();
             await gigs.join('a', gig.id, ids.a);
             await gigs.join('b', gig.id, ids.b);
+            await gigs.start(admin, gig.id);
             await settle();
             const chat = await prisma.chat.findUniqueOrThrow({ where: { gigId: gig.id } });
             const seen = await chats.get(a, chat.id);
@@ -313,6 +342,7 @@ describe('ChatsService', () => {
             await addRunner('c', 'Mr Hands', 'Fixer');
             const gig = await gigs.create(admin, gigInput({ fixerRunnerId: ids['Mr Hands'] }));
             await gigs.join('a', gig.id, ids.a);
+            await gigs.start(admin, gig.id);
             await settle();
             const chat = (await chats.find((await prisma.chat.findUniqueOrThrow({ where: { gigId: gig.id } })).id))!;
             assert.deepEqual(speakable(admin, chat).map((r) => r.handle), ['Mr Hands']);

@@ -105,7 +105,7 @@ const RETRY_WINDOW_MS = 86_400_000;
  * character, so the thread reads as the characters talking, like the web. A player with more
  * than one character in the chat is asked which, once per thread (/dm as switches).
  *
- * Crews and live gigs have their thread from the start, so players find them waiting. Direct
+ * Crews and started gigs have their thread from the start, so players find them waiting. Direct
  * and group chats get theirs with their first message (or /dm new). Each chat's Discord work
  * runs one at a time, in order.
  */
@@ -293,6 +293,15 @@ export class ChatRelayService implements ChatRelay {
                 allowedMentions: { parse: [] },
             });
             await this.chats.setDiscordMessage(message.id, sent.id);
+        });
+    }
+
+    discarded(chat: ChatRow) {
+        return this.queue(chat.id, async () => {
+            const thread = await this.thread(chat).catch(() => null);
+            await thread?.delete('Deadline: the gig has not started').catch((err) => {
+                if (!isGone(err)) throw err;
+            });
         });
     }
 

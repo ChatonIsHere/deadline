@@ -492,6 +492,28 @@ export class GigsService {
         return this.view(id, user);
     }
 
+    /**
+     * Starts the session now, skipping the scheduling: everyone in a slot is coming, nobody is
+     * asked to confirm or reminded. The gig's chat opens for them (see ChatsService.syncGig).
+     */
+    async start(user: Me, id: string): Promise<GigView> {
+        if (!user.isAdmin) throw new ForbiddenException();
+        const gig = await this.row(id);
+        if (!ACTIVE.includes(gig.status)) throw new BadRequestException(voice.notActive);
+        const now = new Date();
+        if (gig.sessionAt && gig.sessionAt <= now) throw new BadRequestException('This gig has already started.');
+        await this.prisma.$transaction(async (tx) => {
+            await tx.gig.update({
+                where: { id },
+                // A planned end that's still ahead stays
+                data: { sessionAt: now, sessionEndAt: gig.sessionEndAt && gig.sessionEndAt > now ? gig.sessionEndAt : null, remindedDay: true, remindedSoon: true },
+            });
+            await tx.gigSlot.updateMany({ where: { gigId: id, userId: { not: null } }, data: { ...confirmedNow(), askedAt: null, nudged: false } });
+        });
+        this.post(id, { note: voice.sessionStarted() });
+        return this.view(id, user);
+    }
+
     /** Lifts a crew's hold on its slots in this gig, so any runner can take them. */
     async openCrewSlots(user: Me, id: string, crewId: string): Promise<GigView> {
         if (!user.isAdmin) throw new ForbiddenException();
@@ -738,6 +760,9 @@ export class GigsService {
     /** Posts scheduled drafts and sends whatever reminders, nudges and no-response drops are due. Runs every minute. */
     async tick(now = Date.now()) {
         await this.postScheduled(now);
+        // Sessions that have just begun open their gig's chat
+        const begun = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE }, sessionAt: { lte: new Date(now) }, chat: { is: null } }, select: { id: true } });
+        for (const { id } of begun) this.post(id);
         const { reminderHours, confirmHours } = this.settings.get();
         const upcoming = await this.prisma.gig.findMany({ where: { status: { in: ACTIVE }, sessionAt: { gt: new Date(now) } }, include: { slots: true } });
 

@@ -1,8 +1,8 @@
-import type { GigView } from '@shared/schemas';
+import { type GigView, isLive } from '@shared/schemas';
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Say } from '@/components/common';
+import { ConfirmButton, Say } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
@@ -22,6 +22,8 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
     const [value, setValue] = useState(savedStart);
     const [endValue, setEndValue] = useState(savedEnd);
     const save = useAction((body: { sessionAt: number | null; sessionEndAt: number | null }) => api(`/api/gigs/${gig.id}/session`, 'POST', body), 'session time updated.');
+    const startNow = useAction(() => api(`/api/gigs/${gig.id}/start`, 'POST'), "gig started. the crew's chat is open.");
+    const started = !!gig.sessionAt && gig.sessionAt <= Date.now();
     // Against the saved times, so it's not unsaved once they're set
     useUnsavedChanges(value !== savedStart || endValue !== savedEnd);
 
@@ -43,6 +45,17 @@ export function SessionCard({ gig, canSet }: { gig: GigView; canSet: boolean }) 
                 </>
             ) : (
                 <Say>not scheduled. runners are just showing interest for now.</Say>
+            )}
+
+            {canSet && isLive(gig.status) && !started && (
+                <ConfirmButton
+                    variant='default'
+                    size='sm'
+                    label='Start gig'
+                    title='Start the gig now?'
+                    description="Skips the scheduling: everyone in a slot counts as confirmed, and nobody's asked or reminded. The gig's in-character chat opens for them."
+                    onConfirm={() => startNow.mutate()}
+                />
             )}
 
             {canSet && (

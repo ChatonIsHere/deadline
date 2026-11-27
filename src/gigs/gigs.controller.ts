@@ -170,6 +170,12 @@ export class GigsController {
         return this.gigs.openCrewSlots(user, id, body.crewId);
     }
 
+    /** Starts the session now, without scheduling it: everyone in a slot counts as confirmed, and the gig's chat opens. */
+    @Post(':id/start')
+    start(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string) {
+        return this.gigs.start(user, id);
+    }
+
     /** Sets (or clears, with null) the session time and its estimated end. A new start time asks runners to confirm. */
     @Post(':id/session')
     session(@CurrentUser() user: Me, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(sessionInput)) body: SessionInput) {
